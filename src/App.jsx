@@ -3672,6 +3672,7 @@ function splitIntoChunks(text) {
 
 function OnboardingWorking() {
   const [step, setStep] = useState('setup');
+  const [mode, setMode] = useState('client'); // 'client' | 'customer'
   const [session, setSession] = useState({ name: '', phone: '' });
   const [callState, setCallState] = useState('idle');
   const [callSeconds, setCallSeconds] = useState(0);
@@ -3717,11 +3718,29 @@ function OnboardingWorking() {
 
   // ── localStorage persistence ─────────────────────────────────────────────
   const SESSION_KEY = 'smq_session_v1';
+  const TEMPLATE_KEY = 'smq_template_v1';
+
+  // Default fields used when no Client Onboarding template has been saved yet
+  const DEFAULT_CUSTOMER_FIELDS = [
+    { key: 'dcf_name',    label: 'Customer Name',          type: 'text',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_email',   label: 'Email Address',          type: 'email',       options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_phone',   label: 'Phone Number',           type: 'phone',       options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_etype',   label: 'Event Type',             type: 'select',      options: ['Wedding','Corporate','Birthday','Social','Other'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_date',    label: 'Event Date',             type: 'date',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_guests',  label: 'Guest Count',            type: 'number',      options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_venue',   label: 'Venue',                  type: 'text',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_style',   label: 'Service Style',          type: 'select',      options: ['Plated','Buffet','Family Style','Canapés','BBQ'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_budget',  label: 'Budget',                 type: 'currency',    options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_dietary', label: 'Dietary Requirements',   type: 'multi-check', options: ['Vegan','Vegetarian','Gluten Free','Nut Free','Halal','Kosher'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_notes',   label: 'Special Requirements',   type: 'long-text',   options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+  ];
+
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
       if (saved?.step && saved.step !== 'setup') {
         if (saved.step)               setStep(saved.step);
+        if (saved.mode)               setMode(saved.mode);
         if (saved.session)            setSession(saved.session);
         if (saved.fields?.length)     setFields(saved.fields);
         if (saved.fieldValues)        setFieldValues(saved.fieldValues);
@@ -3737,10 +3756,10 @@ function OnboardingWorking() {
     if (step === 'setup') return; // don't persist the blank setup screen
     try {
       localStorage.setItem(SESSION_KEY, JSON.stringify({
-        step, session, fields, fieldValues, transcript, p1Transcript, conversationSummary,
+        step, mode, session, fields, fieldValues, transcript, p1Transcript, conversationSummary,
       }));
     } catch { /* ignore storage quota errors */ }
-  }, [step, session, fields, fieldValues, transcript, p1Transcript, conversationSummary]);
+  }, [step, mode, session, fields, fieldValues, transcript, p1Transcript, conversationSummary]);
   // ────────────────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -4018,7 +4037,7 @@ function OnboardingWorking() {
     try {
       const result = await analyzeFullConversation(finalTranscript, fields);
       if (result.fields?.length) {
-        setFields(result.fields.map((f, i) => ({
+        const mappedFields = result.fields.map((f, i) => ({
           key: `f_rev_${i}_${Date.now()}`,
           label: f.label,
           type: f.type || 'text',
@@ -4028,7 +4047,10 @@ function OnboardingWorking() {
           formulaExpression: f.formulaExpression || '',
           content: f.content || '',
           suggested: f.suggested === true,
-        })));
+        }));
+        setFields(mappedFields);
+        // Save as re-usable template for future Customer Onboarding sessions
+        try { localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ fields: mappedFields })); } catch { /* ignore */ }
       }
       if (result.summary) setConversationSummary(result.summary);
     } catch (e) {
@@ -4041,13 +4063,32 @@ function OnboardingWorking() {
     setStep('p2');
   };
 
+  // Start Customer Onboarding directly — loads saved template or default fields
+  const startCustomerOnboarding = () => {
+    if (!session.name.trim()) return;
+    let templateFields = [];
+    try {
+      const saved = JSON.parse(localStorage.getItem(TEMPLATE_KEY));
+      if (saved?.fields?.length) templateFields = saved.fields;
+    } catch { /* ignore */ }
+    const fieldsToUse = templateFields.length ? templateFields : DEFAULT_CUSTOMER_FIELDS;
+    setFields(fieldsToUse);
+    setFieldValues({});
+    setTranscript([]);
+    setP1Transcript([]);
+    setConversationSummary('');
+    setCallState('idle');
+    setCallSeconds(0);
+    setStep('p2');
+  };
+
   const reset = () => {
     clearInterval(timerRef.current);
     clearTimeout(bufferTimerRef.current);
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     speechBufferRef.current = '';
     aiPendingRef.current = 0;
-    setStep('setup'); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
+    setStep('setup'); setMode('client'); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
     setTranscript([]); setFields([]); setFieldValues({});
     setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
     setLastAdded(null); setConversationSummary(''); setP1Transcript([]); setLineText('');
@@ -4401,23 +4442,63 @@ function OnboardingWorking() {
 
   // SETUP
   if (step === 'setup') {
+    const hasTemplate = (() => {
+      try { const t = JSON.parse(localStorage.getItem(TEMPLATE_KEY)); return t?.fields?.length > 0; } catch { return false; }
+    })();
     return (
-      <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
-          <div className="mb-8">
-            <h2 className="text-2xl font-black text-slate-900 mb-1">Client Onboarding</h2>
-            <p className="text-slate-500 text-sm">Enter the client's details — the AI will build their intake form from the call.</p>
+      <div className="min-h-full bg-[#F7F7F5] flex items-start justify-center p-6 md:p-8 overflow-y-auto">
+        <div className="w-full max-w-lg pt-4">
+          <div className="mb-6">
+            <h2 className="text-2xl font-black text-slate-900 mb-1">Start a session</h2>
+            <p className="text-slate-500 text-sm">Choose the type of session you'd like to run.</p>
           </div>
+
+          {/* Mode selector */}
+          <div className="grid grid-cols-2 gap-3 mb-6">
+            <button
+              onClick={() => setMode('client')}
+              className={`text-left p-4 rounded-2xl border-2 transition-all ${mode === 'client' ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${mode === 'client' ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                <UserPlus className={`w-4 h-4 ${mode === 'client' ? 'text-white' : 'text-slate-500'}`} />
+              </div>
+              <div className={`font-bold text-sm mb-1 ${mode === 'client' ? 'text-slate-900' : 'text-slate-700'}`}>Client Onboarding</div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">AI listens to your discovery call and builds your intake form in real time.</p>
+            </button>
+            <button
+              onClick={() => setMode('customer')}
+              className={`text-left p-4 rounded-2xl border-2 transition-all ${mode === 'customer' ? 'border-green-600 bg-green-50 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+            >
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-3 ${mode === 'customer' ? 'bg-green-600' : 'bg-slate-100'}`}>
+                <Phone className={`w-4 h-4 ${mode === 'customer' ? 'text-white' : 'text-slate-500'}`} />
+              </div>
+              <div className={`font-bold text-sm mb-1 ${mode === 'customer' ? 'text-green-900' : 'text-slate-700'}`}>Customer Onboarding</div>
+              <p className="text-[11px] text-slate-400 leading-relaxed">Customer calls to enquire — AI fills your form and generates a quote on the call.</p>
+              {mode === 'customer' && (
+                <p className={`text-[10px] font-semibold mt-2 ${hasTemplate ? 'text-green-700' : 'text-amber-600'}`}>
+                  {hasTemplate ? '✓ Using your saved form template' : '⚡ Using default catering form'}
+                </p>
+              )}
+            </button>
+          </div>
+
+          {/* Setup form */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div>
-              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Client Name</label>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                {mode === 'customer' ? 'Customer Name' : 'Client Name'}
+              </label>
               <input
                 autoFocus
                 type="text"
                 value={session.name}
                 onChange={e => setSession(s => ({ ...s, name: e.target.value }))}
-                onKeyDown={e => e.key === 'Enter' && session.name.trim() && setStep('p1')}
-                placeholder="e.g. Jane's Photography"
+                onKeyDown={e => {
+                  if (e.key === 'Enter' && session.name.trim()) {
+                    mode === 'customer' ? startCustomerOnboarding() : setStep('p1');
+                  }
+                }}
+                placeholder={mode === 'customer' ? 'e.g. Sarah Jenkins' : "e.g. Jane's Photography"}
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
               />
             </div>
@@ -4434,14 +4515,15 @@ function OnboardingWorking() {
               />
             </div>
           </div>
+
           <div className="mt-6 flex justify-end">
             <button
-              onClick={() => session.name.trim() && setStep('p1')}
+              onClick={() => { if (!session.name.trim()) return; mode === 'customer' ? startCustomerOnboarding() : setStep('p1'); }}
               disabled={!session.name.trim()}
-              className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+              className={`flex items-center gap-2 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed ${mode === 'customer' ? 'bg-green-600 hover:bg-green-700' : 'bg-slate-900 hover:bg-slate-700'}`}
             >
               <PhoneCall className="w-4 h-4" />
-              Begin Client Onboarding
+              {mode === 'customer' ? 'Begin Customer Onboarding' : 'Begin Client Onboarding'}
             </button>
           </div>
         </div>
@@ -4638,7 +4720,7 @@ function OnboardingWorking() {
               <div onClick={() => !isP2 && setAddingField(true)}
                 className={`border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center ${!isP2 ? 'cursor-pointer hover:border-slate-300 transition-colors' : ''}`}>
                 {isP2
-                  ? <p className="text-slate-300 text-sm">No fields from Client Onboarding. Go back and add some.</p>
+                  ? <p className="text-slate-300 text-sm">{mode === 'customer' ? 'No form template found. Run Client Onboarding first to build your intake form.' : 'No fields from Client Onboarding. Go back and add some.'}</p>
                   : <><Plus className="w-6 h-6 text-slate-300 mx-auto mb-2" /><p className="text-slate-400 text-sm font-medium">Fields build here automatically</p><p className="text-slate-300 text-xs mt-1">AI extracts them from the call — or add one manually</p></>
                 }
               </div>
@@ -4723,9 +4805,15 @@ function OnboardingWorking() {
             {isP2 ? (
               <>
                 <button
-                  onClick={() => { setStep('p1'); setCallState('idle'); setCallSeconds(0); setTranscript(p1Transcript); }}
+                  onClick={() => {
+                    if (mode === 'customer') {
+                      setStep('setup'); setCallState('idle'); setCallSeconds(0);
+                    } else {
+                      setStep('p1'); setCallState('idle'); setCallSeconds(0); setTranscript(p1Transcript);
+                    }
+                  }}
                   className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
-                >← Back to Client Onboarding</button>
+                >{mode === 'customer' ? '← Back to Setup' : '← Back to Client Onboarding'}</button>
                 <button
                   onClick={() => setStep('complete')}
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
@@ -4866,6 +4954,14 @@ function OnboardingWorking() {
               className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
             >New session</button>
           </div>
+          {mode === 'customer' && (
+            <p className="text-center text-xs text-slate-400 mt-4">
+              Want to update your intake form?{' '}
+              <button onClick={() => { reset(); setMode('client'); }} className="font-semibold text-slate-600 hover:text-slate-900 underline underline-offset-2">
+                Run Client Onboarding
+              </button>
+            </p>
+          )}
         </div>
       </div>
     );
