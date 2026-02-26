@@ -93,23 +93,23 @@ const MOCK_CALLS_FOR_CONNECT = [
 
 export function TemplatesView({ navigateTo }) {
   return (
-    <div className="max-w-5xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-8">
+    <div className="max-w-5xl mx-auto p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Catering Templates</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Catering Templates</h1>
           <p className="text-slate-500 text-sm mt-1">
             Build reusable quote flows — items, timings, staff, guest tiers, and auto logic.
           </p>
         </div>
         <button
           onClick={() => navigateTo('template-builder', { ...BLANK_TEMPLATE, isNew: true })}
-          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
+          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center self-start sm:self-auto"
         >
           <Plus className="w-4 h-4 mr-2" /> New Template
         </button>
       </div>
 
-      <div className="grid grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
         {MOCK_TEMPLATES.map(tmpl => (
           <div
             key={tmpl.id}
@@ -160,6 +160,7 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
   const [connectedCall, setConnectedCall] = useState(null);
   const [showCallPicker, setShowCallPicker] = useState(false);
   const [saved, setSaved]             = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [addingRule, setAddingRule]   = useState(false);
   const [newRule, setNewRule]         = useState({
     ifField: 'Guest Count', operator: '>', ifValue: '',
@@ -197,14 +198,14 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
   ];
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] overflow-hidden">
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-3.5rem)] overflow-auto md:overflow-hidden">
 
       {/* ── LEFT: builder canvas ── */}
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* Header + tabs */}
-        <div className="px-8 pt-6 pb-0 border-b border-slate-200 bg-white">
-          <div className="flex items-start justify-between gap-4 mb-5">
+        <div className="px-4 md:px-8 pt-4 md:pt-6 pb-0 border-b border-slate-200 bg-white">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4 md:mb-5">
             <div className="flex-1">
               <input
                 type="text"
@@ -221,7 +222,7 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
                 className="text-sm text-slate-500 mt-1.5 w-full outline-none placeholder-slate-300 bg-transparent"
               />
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
               <select
                 value={template.eventType}
                 onChange={e => update('eventType', e.target.value)}
@@ -232,6 +233,12 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
                 ))}
               </select>
               <button
+                onClick={() => setShowPreview(true)}
+                className="md:hidden text-sm border border-slate-300 text-slate-700 px-3 py-1.5 rounded-md hover:bg-slate-50 transition"
+              >
+                Preview
+              </button>
+              <button
                 onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2000); }}
                 className="bg-slate-900 text-white px-4 py-1.5 rounded-md text-sm font-medium hover:bg-slate-800 transition flex items-center gap-2"
               >
@@ -240,12 +247,12 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
             </div>
           </div>
 
-          <div className="flex gap-0">
+          <div className="flex gap-0 overflow-x-auto scrollbar-none">
             {tabs.map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+                className={`flex items-center gap-2 px-3 md:px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? 'border-slate-900 text-slate-900'
                     : 'border-transparent text-slate-500 hover:text-slate-700'
@@ -264,7 +271,7 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8">
           {activeTab === 'items'   && <ItemsTab   template={template} update={update} />}
           {activeTab === 'timings' && <TimingsTab  template={template} update={update} />}
           {activeTab === 'guests'  && <GuestsStaffTab template={template} update={update} connectedCall={connectedCall} />}
@@ -279,7 +286,8 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
       </div>
 
       {/* ── RIGHT: preview + call connector ── */}
-      <div className="w-80 border-l border-slate-200 bg-slate-50 flex flex-col overflow-hidden flex-shrink-0">
+      {showPreview && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={() => setShowPreview(false)} />}
+      <div className={`fixed inset-y-0 right-0 z-40 md:relative md:inset-auto md:z-auto md:w-80 w-80 border-l border-slate-200 bg-slate-50 flex flex-col overflow-hidden flex-shrink-0 transition-transform duration-200 ${showPreview ? 'translate-x-0' : 'translate-x-full md:translate-x-0'}`}>
 
         {/* Connect to Call */}
         <div className="p-5 border-b border-slate-200 bg-white">
@@ -462,7 +470,8 @@ function ItemsTab({ template, update }) {
                 No {cat.toLowerCase()} items yet.
               </div>
             ) : (
-              <table className="w-full text-sm border-collapse">
+              <div className="overflow-x-auto">
+              <table className="w-full text-sm border-collapse min-w-[480px]">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
                     <th className="px-4 py-2.5 text-left font-medium">Item Name</th>
@@ -528,6 +537,7 @@ function ItemsTab({ template, update }) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -575,7 +585,7 @@ function TimingsTab({ template, update }) {
             <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 text-xs flex items-center justify-center font-medium flex-shrink-0">
               {idx + 1}
             </div>
-            <div className="flex-1 grid grid-cols-3 gap-4 text-sm">
+            <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 text-sm">
               <div>
                 <label className="block text-xs text-slate-400 mb-1">Phase Name</label>
                 <input
@@ -650,7 +660,7 @@ function GuestsStaffTab({ template, update, connectedCall }) {
           Tiers automatically adjust the per-person price. The active tier updates as you type.
         </p>
 
-        <div className="flex items-center gap-5 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-6">
           <div className="bg-white border border-slate-200 rounded-lg p-4 flex items-center gap-4 shadow-sm">
             <div>
               <label className="block text-xs text-slate-400 mb-1">Guests</label>
@@ -688,8 +698,8 @@ function GuestsStaffTab({ template, update, connectedCall }) {
             <Plus className="w-3 h-3" /> Add Tier
           </button>
         </div>
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-          <table className="w-full text-sm border-collapse">
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[420px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
                 <th className="px-4 py-2.5 text-left font-medium">Label</th>
@@ -768,8 +778,8 @@ function GuestsStaffTab({ template, update, connectedCall }) {
             <Plus className="w-3 h-3" /> Add Role
           </button>
         </div>
-        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white">
-          <table className="w-full text-sm border-collapse">
+        <div className="border border-slate-200 rounded-lg overflow-hidden bg-white overflow-x-auto">
+          <table className="w-full text-sm border-collapse min-w-[420px]">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider">
                 <th className="px-4 py-2.5 text-left font-medium">Role</th>

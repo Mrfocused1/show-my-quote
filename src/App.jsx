@@ -1,6 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TemplatesView, TemplateBuilderView } from './TemplateBuilder.jsx';
 import PriceListView from './PriceList.jsx';
+import { transcribeAudio, suggestField, fillFields, analyzeFullConversation } from './openaiHelper.js';
 import {
   Home, Inbox, Phone, FileText, Settings,
   Menu as MenuIcon, Package, Sliders, Calendar,
@@ -10,7 +11,9 @@ import {
   X, Send, Eye, Check, Tag, DollarSign, Star,
   ChevronDown, Edit3, ArrowRight,
   Users, Activity, TrendingUp, Globe, Link2, Bell, Shield, LayoutGrid,
-  Mic, MicOff, PhoneOff, Radio, Pause, Play, UserPlus
+  Mic, MicOff, PhoneOff, Radio, Pause, Play, UserPlus,
+  Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
+  Hash, ToggleRight, CheckSquare, Type as TypeIcon
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -62,6 +65,97 @@ const MOCK_CALLS = [
   }
 ];
 
+const MOCK_CALL_LOGS = [
+  {
+    id: 'cl-1',
+    caller: 'Sarah Jenkins',
+    phone: '+44 7700 900123',
+    email: 'sarah.jenkins@gmail.com',
+    date: 'Today, 2:30 PM',
+    duration: '4m 12s',
+    status: 'transcribed',
+    hasRecording: true,
+    transcript: [
+      { speaker: 'You',   text: "Thanks for calling Elite Catering. How can I help you today?" },
+      { speaker: 'Sarah', text: "Hi, I'm looking to organise catering for my wedding next year." },
+      { speaker: 'You',   text: "Congratulations! Do you have a date and venue in mind?" },
+      { speaker: 'Sarah', text: "Yes — June 15th 2027 at River Grove Estate, in Berkshire." },
+      { speaker: 'You',   text: "Lovely! How many guests are you expecting?" },
+      { speaker: 'Sarah', text: "Around 120 guests — plated sit-down for the wedding breakfast." },
+      { speaker: 'You',   text: "Any dietary requirements we should know about?" },
+      { speaker: 'Sarah', text: "Yes — my sister has a severe nut allergy and we'd love a few vegan options." },
+    ],
+    extracted: { name: 'Sarah Jenkins', eventType: 'Wedding', date: 'Jun 15, 2027', venue: 'River Grove Estate', guestCount: 120, serviceStyle: 'Plated', dietary: ['Nut allergy (severe)', 'Vegan options'] },
+    quote: { id: 'q1', amount: 12400, status: 'draft' },
+    messages: [
+      { type: 'email', direction: 'sent', subject: 'Your wedding catering quote', time: 'Today, 3:15 PM', body: 'Hi Sarah, please find your draft quote for June 15, 2027 at River Grove Estate. Let me know if you have any questions or would like to discuss further.' },
+    ],
+    invoice: null,
+  },
+  {
+    id: 'cl-2',
+    caller: 'Michael Chen',
+    phone: '+44 7700 900456',
+    email: 'michael.chen@techcorp.com',
+    date: 'Today, 11:15 AM',
+    duration: '2m 45s',
+    status: 'transcribed',
+    hasRecording: true,
+    transcript: [
+      { speaker: 'You',     text: "Elite Catering, speaking." },
+      { speaker: 'Michael', text: "Hey, I need a caterer for a corporate retreat next month — about 50 people, simple buffet lunch." },
+      { speaker: 'You',     text: "We'd be happy to help. Do you have a venue in mind?" },
+      { speaker: 'Michael', text: "Yes, it's at our office in central London. Flexible on date within the next 3–4 weeks." },
+    ],
+    extracted: { name: 'Michael Chen', eventType: 'Corporate', date: 'Next Month', guestCount: 50, serviceStyle: 'Buffet', dietary: [] },
+    quote: { id: 'q4', amount: 3100, status: 'draft' },
+    messages: [],
+    invoice: null,
+  },
+  {
+    id: 'cl-3',
+    caller: 'Emma & David',
+    phone: '+44 7700 900789',
+    email: 'emma.harper@gmail.com',
+    date: 'Yesterday, 4:20 PM',
+    duration: '6m 30s',
+    status: 'transcribed',
+    hasRecording: true,
+    transcript: [
+      { speaker: 'You',  text: "Elite Catering Co., how can I help?" },
+      { speaker: 'Emma', text: "Hello! We're planning our wedding for August 2nd and would love to discuss catering." },
+      { speaker: 'You',  text: "Wonderful! Tell me about the event — venue and guest numbers?" },
+      { speaker: 'Emma', text: "About 180 guests at Elmwood Manor — it's an outdoor venue." },
+      { speaker: 'You',  text: "Lovely. What style of service were you thinking?" },
+      { speaker: 'Emma', text: "Family-style platters — very relaxed and sociable." },
+    ],
+    extracted: { name: 'Emma & David', eventType: 'Wedding', date: 'Aug 2, 2026', venue: 'Elmwood Manor', guestCount: 180, serviceStyle: 'Family Style', dietary: [] },
+    quote: { id: 'q2', amount: 18200, status: 'sent' },
+    messages: [
+      { type: 'email', direction: 'sent', subject: 'Wedding catering proposal — Elmwood Manor', time: 'Yesterday, 5:30 PM', body: 'Dear Emma & David, we are delighted to present our proposal for your special day at Elmwood Manor. Please find the full quote at the link below.' },
+      { type: 'sms',   direction: 'sent', text: "Hi Emma! Your quote has been sent to your email. Let us know if you have any questions 😊", time: 'Yesterday, 5:32 PM' },
+    ],
+    invoice: null,
+  },
+  {
+    id: 'cl-4',
+    caller: 'Rivera Family',
+    phone: '+44 7700 900321',
+    email: 'rivera.family@gmail.com',
+    date: 'Oct 22, 10:00 AM',
+    duration: '—',
+    status: 'missed',
+    hasRecording: false,
+    transcript: [],
+    extracted: { name: 'Rivera Family', eventType: 'Birthday', guestCount: 90, serviceStyle: 'Family Style', dietary: ['Gluten Free'] },
+    quote: { id: 'q5', amount: 7800, status: 'viewed' },
+    messages: [
+      { type: 'email', direction: 'sent', subject: 'Sorry we missed your call', time: 'Oct 22, 11:00 AM', body: 'Hi, apologies for missing your call this morning. Please feel free to reply here with any questions, or call us back at your convenience.' },
+    ],
+    invoice: { id: 'INV-001', amount: 7800, status: 'unpaid', dueDate: 'Nov 15, 2025', items: [{ desc: 'Birthday Party Catering — 90 guests (Family Style)', amount: 7800 }] },
+  },
+];
+
 const MOCK_MENUS = [
   {
     id: 'm1', name: 'Classic Elegance', type: 'Plated', basePrice: 85, tags: ['Standard'],
@@ -96,10 +190,10 @@ const MOCK_MENUS = [
 ];
 
 const MOCK_RULES_INITIAL = [
-  { id: 'r1', condition: 'Service Style = Plated', action: 'Multiply Staff Labor by 1.4' },
-  { id: 'r2', condition: 'Guest Count > 150', action: 'Apply 5% Volume Discount' },
-  { id: 'r3', condition: 'Has Dietary: Vegan', action: 'Add £5 prep surcharge per vegan guest' },
-  { id: 'r4', condition: 'Venue Zone = Outside Metro', action: 'Add flat £150 Travel Fee' }
+  { id: 'r1', condition: 'serviceStyle = Plated',        action: 'Multiply staff labor by 1.4',  expression: 'staffCost × 1.4',            raw: 'multiply staff labor by 1.4 for plated service' },
+  { id: 'r2', condition: 'guests > 150',                 action: 'Apply 5% volume discount',     expression: 'total × 0.95',               raw: 'apply 5% discount if guests exceed 150' },
+  { id: 'r3', condition: 'dietary requirements > 0',     action: 'Add £5 per dietary req',       expression: 'total += dietaryCount × £5',  raw: 'charge £5 per dietary requirement' },
+  { id: 'r4', condition: 'venueZone = Outside Metro',    action: 'Add flat travel fee £150',     expression: 'total += £150',              raw: 'add £150 travel fee for outside metro venues' },
 ];
 
 const MOCK_QUOTES = [
@@ -128,36 +222,263 @@ const STATUS_STYLES = {
 };
 
 // --- MAIN APP ---
-export default function GetMyQuoteApp() {
+// ─── Phone Dialer ─────────────────────────────────────────────────────────────
+function PhoneDialer({ onClose, navigateTo }) {
+  const [number, setNumber] = useState('');
+  const [status, setStatus] = useState('idle'); // idle | dialing | connected | ended
+  const [timer, setTimer] = useState(0);
+  const [muted, setMuted] = useState(false);
+  const [held, setHeld] = useState(false);
+  const [transcript, setTranscript] = useState([]);
+
+  const KEYS = [
+    { digit: '1', sub: '' },    { digit: '2', sub: 'ABC' }, { digit: '3', sub: 'DEF' },
+    { digit: '4', sub: 'GHI' }, { digit: '5', sub: 'JKL' }, { digit: '6', sub: 'MNO' },
+    { digit: '7', sub: 'PQRS' },{ digit: '8', sub: 'TUV' }, { digit: '9', sub: 'WXYZ' },
+    { digit: '*', sub: '' },    { digit: '0', sub: '+' },   { digit: '#', sub: '' },
+  ];
+
+  const fmt = s => `${Math.floor(s/60).toString().padStart(2,'0')}:${(s%60).toString().padStart(2,'0')}`;
+
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const id = setInterval(() => setTimer(t => t + 1), 1000);
+    return () => clearInterval(id);
+  }, [status]);
+
+  useEffect(() => {
+    if (status !== 'dialing') return;
+    const t = setTimeout(() => setStatus('connected'), 2500);
+    return () => clearTimeout(t);
+  }, [status]);
+
+  const DEMO_LINES = [
+    { speaker: 'You',    text: 'Thanks for calling Elite Catering, how can I help?' },
+    { speaker: 'Client', text: "Hi, I'm planning a wedding and wanted to get a quote." },
+    { speaker: 'You',    text: 'Congratulations! Do you have a date in mind?' },
+    { speaker: 'Client', text: 'June 15th next year, around 120 guests at River Grove Estate.' },
+    { speaker: 'You',    text: 'Perfect. Were you thinking a plated dinner or buffet?' },
+    { speaker: 'Client', text: 'Plated dinner please, and we need a few vegan options too.' },
+  ];
+
+  useEffect(() => {
+    if (status !== 'connected') return;
+    const timers = DEMO_LINES.map((line, i) =>
+      setTimeout(() => setTranscript(t => [...t, line]), (i + 1) * 3500)
+    );
+    return () => timers.forEach(clearTimeout);
+  }, [status]);
+
+  const press = digit => {
+    if (status === 'connected' || status === 'dialing') return;
+    setNumber(n => n.length < 16 ? n + digit : n);
+  };
+
+  const showPanel = status === 'connected' || status === 'ended';
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
+      <div className={`bg-slate-900 w-full sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col sm:flex-row transition-all duration-300 sm:${showPanel ? 'w-[680px]' : 'w-72'}`} style={{ maxHeight: '95vh' }}>
+
+        {/* ── Keypad panel ── */}
+        <div className="w-full sm:w-72 flex-shrink-0 flex flex-col p-5 sm:p-6">
+
+          {/* Header */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${
+                status === 'connected' ? 'bg-green-400 animate-pulse' :
+                status === 'dialing'   ? 'bg-yellow-400 animate-pulse' : 'bg-slate-600'
+              }`} />
+              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+                {status === 'idle'      ? 'Ready to call' :
+                 status === 'dialing'   ? 'Dialing…' :
+                 status === 'connected' ? `Connected · ${fmt(timer)}` : 'Call ended'}
+              </span>
+            </div>
+            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Number display */}
+          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] flex items-center justify-center">
+            <span className={`font-mono text-xl tracking-widest font-bold ${number ? 'text-white' : 'text-slate-600'}`}>
+              {number || 'Enter number'}
+            </span>
+          </div>
+
+          {/* Keypad */}
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            {KEYS.map(({ digit, sub }) => (
+              <button
+                key={digit}
+                onClick={() => press(digit)}
+                disabled={status === 'connected' || status === 'dialing'}
+                className="flex flex-col items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors select-none"
+              >
+                <span className="text-white font-semibold text-lg leading-none">{digit}</span>
+                {sub && <span className="text-slate-500 text-[9px] font-medium mt-0.5 tracking-widest">{sub}</span>}
+              </button>
+            ))}
+          </div>
+
+          {/* Action buttons */}
+          {(status === 'idle' || status === 'ended') && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setNumber(n => n.slice(0, -1))}
+                className="flex-1 h-12 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors text-lg"
+              >⌫</button>
+              <button
+                onClick={() => { if (number) setStatus('dialing'); }}
+                disabled={!number}
+                className="flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold transition-colors text-sm"
+              >
+                <Phone className="w-4 h-4" /> Call
+              </button>
+            </div>
+          )}
+
+          {status === 'dialing' && (
+            <button
+              onClick={() => setStatus('ended')}
+              className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold transition-colors text-sm"
+            >
+              <PhoneOff className="w-4 h-4" /> Cancel
+            </button>
+          )}
+
+          {status === 'connected' && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setMuted(m => !m)}
+                className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 transition-colors ${muted ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
+              >
+                {muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+                {muted ? 'Unmute' : 'Mute'}
+              </button>
+              <button
+                onClick={() => setHeld(h => !h)}
+                className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 transition-colors ${held ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
+              >
+                {held ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                {held ? 'Resume' : 'Hold'}
+              </button>
+              <button
+                onClick={() => setStatus('ended')}
+                className="flex-1 h-12 flex flex-col items-center justify-center rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-medium gap-1 transition-colors"
+              >
+                <PhoneOff className="w-4 h-4" /> End
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── Live transcript panel ── */}
+        {showPanel && (
+          <div className="flex-1 border-t sm:border-t-0 sm:border-l border-slate-700/50 flex flex-col overflow-hidden">
+            {/* Status bar */}
+            <div className="flex items-center gap-2 px-5 py-3 bg-slate-800/50 border-b border-slate-700/50 flex-shrink-0">
+              {status === 'connected' ? (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Recording & Transcribing</span>
+                </>
+              ) : (
+                <>
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Call ended · Transcript saved</span>
+                </>
+              )}
+            </div>
+
+            {/* Transcript */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-3">
+              {transcript.length === 0 ? (
+                <p className="text-slate-600 text-sm text-center mt-8 animate-pulse">Listening…</p>
+              ) : transcript.map((line, i) => (
+                <div key={i} className={`flex gap-2 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
+                  <span className={`text-[9px] font-bold uppercase tracking-wider pt-2 w-8 flex-shrink-0 ${line.speaker === 'You' ? 'text-slate-500' : 'text-green-400 text-right'}`}>
+                    {line.speaker}
+                  </span>
+                  <div className={`px-3 py-2 rounded-xl text-sm max-w-[195px] leading-relaxed ${
+                    line.speaker === 'You'
+                      ? 'bg-slate-800 text-slate-200'
+                      : 'bg-green-900/40 text-green-100 border border-green-800/40'
+                  }`}>
+                    {line.text}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Auto-extracted fields */}
+            <div className="border-t border-slate-700/50 p-5 flex-shrink-0">
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Auto-extracted</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {[
+                  { label: 'Event type', value: transcript.length >= 2 ? 'Wedding'           : '' },
+                  { label: 'Guests',     value: transcript.length >= 4 ? '120'               : '' },
+                  { label: 'Date',       value: transcript.length >= 4 ? 'Jun 15'            : '' },
+                  { label: 'Venue',      value: transcript.length >= 4 ? 'River Grove Estate': '' },
+                  { label: 'Style',      value: transcript.length >= 6 ? 'Plated dinner'     : '' },
+                  { label: 'Dietary',    value: transcript.length >= 6 ? 'Vegan options'     : '' },
+                ].map(({ label, value }) => (
+                  <div key={label} className="flex flex-col gap-0.5">
+                    <span className="text-[10px] text-slate-500">{label}</span>
+                    <span className={`text-xs font-semibold ${value ? 'text-green-400' : 'text-slate-700'}`}>
+                      {value || '—'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+              {status === 'ended' && transcript.length >= 4 && (
+                <button
+                  onClick={() => { onClose(); navigateTo('quote-builder'); }}
+                  className="mt-4 w-full py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-xl transition-colors"
+                >
+                  Build Quote from this Call →
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function GetMyQuoteApp({ onHome }) {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeRecord, setActiveRecord] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const navigateTo = (view, record = null) => {
     setCurrentView(view);
     setActiveRecord(record);
+    setSidebarOpen(false);
   };
 
   return (
     <div className="flex h-screen bg-white text-slate-800 font-sans antialiased overflow-hidden">
-      <Sidebar currentView={currentView} navigateTo={navigateTo} />
+      <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
-        <header className="h-14 border-b border-slate-200 flex items-center px-6 justify-between bg-white/80 backdrop-blur-sm z-10">
-          <div className="flex items-center text-sm font-medium text-slate-500">
-            <span onClick={() => navigateTo('workspace')} className="hover:bg-slate-100 px-2 py-1 rounded cursor-pointer transition-colors">Get My Quote Workspace</span>
-            <ChevronRight className="w-4 h-4 mx-1" />
-            <span className="text-slate-800 capitalize px-2 py-1">{currentView.replace(/-/g, ' ')}</span>
-            {activeRecord && (
-              <>
-                <ChevronRight className="w-4 h-4 mx-1" />
-                <span className="text-slate-800 font-semibold px-2 py-1 truncate max-w-[200px]">
-                  {activeRecord.name || activeRecord.caller || activeRecord.client || activeRecord.id}
-                </span>
-              </>
-            )}
+        <header className="h-14 border-b border-slate-200 flex items-center px-3 md:px-6 justify-between bg-white/80 backdrop-blur-sm z-10">
+          <div className="flex items-center gap-2 text-sm font-medium text-slate-500 min-w-0">
+            <button
+              className="md:hidden p-1.5 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded transition-colors flex-shrink-0"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <MenuIcon className="w-5 h-5" />
+            </button>
+            <span className="hidden sm:inline hover:bg-slate-100 px-2 py-1 rounded cursor-pointer transition-colors whitespace-nowrap" onClick={() => navigateTo('workspace')}>Show My Quote</span>
+            <ChevronRight className="hidden sm:inline w-4 h-4 flex-shrink-0" />
+            <span className="text-slate-800 capitalize px-2 py-1 truncate">{currentView.replace(/-/g, ' ')}</span>
           </div>
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2 flex-shrink-0">
             <button
               onClick={() => setSearchOpen(true)}
               className="text-slate-400 hover:text-slate-600 p-1.5 rounded hover:bg-slate-100 transition-colors"
@@ -170,11 +491,11 @@ export default function GetMyQuoteApp() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
-          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} />}
-          {currentView === 'calls'         && <CallsListView navigateTo={navigateTo} />}
-          {currentView === 'call-detail'   && <CallDetailView call={activeRecord} navigateTo={navigateTo} />}
+          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => navigateTo('calls')} />}
+          {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} />}
+          {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} />}
           {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} />}
@@ -777,9 +1098,9 @@ function WorkspaceView({ navigateTo }) {
     <>
     <div className="h-full overflow-y-auto">
       {/* Hero banner */}
-      <div className="bg-slate-900 text-white px-10 py-10">
+      <div className="bg-slate-900 text-white px-4 md:px-10 py-8 md:py-10">
         <div className="max-w-6xl mx-auto">
-          <div className="flex items-start justify-between">
+          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-xl font-bold border border-white/20">
                 EC
@@ -790,7 +1111,7 @@ function WorkspaceView({ navigateTo }) {
                 <p className="text-slate-400 text-sm mt-0.5">Premium event catering · Est. 2018 · Admin Plan</p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setLiveCallOpen(true)}
                 className="flex items-center gap-2 bg-green-500 hover:bg-green-400 text-white text-sm font-semibold px-4 py-1.5 rounded-md transition shadow-sm"
@@ -805,7 +1126,7 @@ function WorkspaceView({ navigateTo }) {
           </div>
 
           {/* Stat bar */}
-          <div className="grid grid-cols-4 gap-4 mt-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
             {stats.map((s, i) => (
               <div key={i} className="bg-white/5 border border-white/10 rounded-lg px-5 py-4">
                 <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
@@ -819,16 +1140,16 @@ function WorkspaceView({ navigateTo }) {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto px-10 py-8">
-        <div className="grid grid-cols-3 gap-8">
+      <div className="max-w-6xl mx-auto px-4 md:px-10 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
           {/* Left col: Quick actions + Activity */}
-          <div className="col-span-2 space-y-8">
+          <div className="lg:col-span-2 space-y-8">
 
             {/* Quick Actions */}
             <div>
               <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {quickActions.map((action, i) => (
                   <button
                     key={i}
@@ -947,20 +1268,28 @@ function WorkspaceView({ navigateTo }) {
   );
 }
 
-function DashboardView({ navigateTo }) {
+function DashboardView({ navigateTo, onNewCall }) {
   return (
-    <div className="max-w-5xl mx-auto p-8 space-y-8 pb-20">
-      <div className="flex justify-between items-end mb-6">
+    <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8 pb-20">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 md:mb-6">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-slate-900">Good morning, Team</h1>
           <p className="text-slate-500 mt-1">Here is what's happening today.</p>
         </div>
-        <button
-          onClick={() => navigateTo('quote-builder')}
-          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
-        >
-          <Plus className="w-4 h-4 mr-2" /> New Quote
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={onNewCall}
+            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-500 transition shadow-sm flex items-center gap-2"
+          >
+            <Phone className="w-4 h-4" /> New Call +
+          </button>
+          <button
+            onClick={() => navigateTo('quote-builder')}
+            className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
+          >
+            <Plus className="w-4 h-4 mr-2" /> New Quote
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -997,7 +1326,7 @@ function DashboardView({ navigateTo }) {
             {MOCK_CALLS.map(call => (
               <div
                 key={call.id}
-                onClick={() => navigateTo('call-detail', call)}
+                onClick={() => navigateTo('calls', call.id)}
                 className="group flex items-center justify-between p-3 -mx-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
               >
                 <div>
@@ -1006,7 +1335,7 @@ function DashboardView({ navigateTo }) {
                 </div>
                 {call.status === 'transcribed' && (
                   <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    <Zap className="w-3 h-3 mr-1" /> Extracted
+                    Extracted
                   </span>
                 )}
               </div>
@@ -1042,17 +1371,17 @@ function DashboardView({ navigateTo }) {
 
 function CallsListView({ navigateTo }) {
   return (
-    <div className="max-w-5xl mx-auto p-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="max-w-5xl mx-auto p-4 md:p-8">
+      <div className="flex items-center justify-between mb-6 md:mb-8">
         <div>
-          <h1 className="text-2xl font-bold flex items-center">
-            <Phone className="w-6 h-6 mr-3 text-slate-400" /> Call Inbox (OpenPhone)
+          <h1 className="text-xl md:text-2xl font-bold flex items-center">
+            <Phone className="w-5 h-5 md:w-6 md:h-6 mr-3 text-slate-400" /> Call Inbox
           </h1>
-          <p className="text-slate-500 mt-1">Live transcribed calls ready for quote generation.</p>
+          <p className="text-slate-500 mt-1 text-sm">Live transcribed calls ready for quote generation.</p>
         </div>
       </div>
-      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-        <table className="w-full text-left border-collapse">
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[560px]">
           <thead>
             <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
               <th className="px-6 py-3 font-medium">Caller</th>
@@ -1083,7 +1412,7 @@ function CallsListView({ navigateTo }) {
                 </td>
                 <td className="px-6 py-4 text-right">
                   <button
-                    onClick={() => navigateTo('call-detail', call)}
+                    onClick={() => navigateTo('calls', call.id)}
                     className="text-sm font-medium text-slate-900 bg-white border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-50 shadow-sm"
                   >
                     Review
@@ -1101,8 +1430,8 @@ function CallsListView({ navigateTo }) {
 function CallDetailView({ call, navigateTo }) {
   if (!call) return null;
   return (
-    <div className="max-w-6xl mx-auto p-8 flex gap-8 h-[calc(100vh-3.5rem)] overflow-hidden">
-      <div className="w-3/5 flex flex-col h-full bg-white border border-slate-200 rounded-lg shadow-sm">
+    <div className="max-w-6xl mx-auto p-4 md:p-8 flex flex-col md:flex-row gap-4 md:gap-8 h-[calc(100vh-3.5rem)] overflow-auto md:overflow-hidden">
+      <div className="md:w-3/5 flex flex-col md:h-full bg-white border border-slate-200 rounded-lg shadow-sm min-h-[300px]">
         <div className="p-5 border-b border-slate-200 bg-slate-50 flex justify-between items-center rounded-t-lg">
           <div>
             <h2 className="text-lg font-semibold text-slate-900 flex items-center">
@@ -1130,10 +1459,10 @@ function CallDetailView({ call, navigateTo }) {
         </div>
       </div>
 
-      <div className="w-2/5 flex flex-col gap-6">
+      <div className="md:w-2/5 flex flex-col gap-4 md:gap-6">
         <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-sm flex-1 overflow-y-auto">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
-            <Zap className="w-4 h-4 mr-2 text-yellow-500" /> AI Extracted Requirements
+            AI Extracted Requirements
           </h3>
           <div className="space-y-4">
             {Object.entries(call.extracted).map(([key, value]) => {
@@ -1208,8 +1537,8 @@ function QuoteBuilderView({ initialData, navigateTo }) {
   };
 
   return (
-    <div className="max-w-7xl mx-auto p-6 flex gap-6 h-[calc(100vh-3.5rem)] relative">
-      <div className="w-2/3 bg-white rounded-lg p-8 overflow-y-auto pb-32">
+    <div className="max-w-7xl mx-auto p-4 md:p-6 flex flex-col md:flex-row gap-4 md:gap-6 md:h-[calc(100vh-3.5rem)] relative overflow-auto md:overflow-hidden">
+      <div className="w-full md:w-2/3 bg-white rounded-lg p-4 md:p-8 overflow-y-auto pb-8 md:pb-32">
         <div className="mb-8">
           <input
             type="text"
@@ -1226,7 +1555,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
             <h3 className="text-lg font-semibold border-b border-slate-100 pb-2 mb-4 flex items-center">
               <Calendar className="w-5 h-5 mr-2 text-slate-400" /> Event Details
             </h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
                 <label className="block text-slate-500 mb-1">Guest Count</label>
                 <input
@@ -1304,7 +1633,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
                 value={quoteState.rentalsAmount}
                 onChange={(e) => handleUpdate('rentalsAmount', parseFloat(e.target.value) || 0)}
                 placeholder="0"
-                className="w-1/2 p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
+                className="w-full sm:w-1/2 p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
               />
               <p className="text-slate-400 text-xs mt-1">Tables, linens, glassware, AV, etc.</p>
             </div>
@@ -1313,8 +1642,8 @@ function QuoteBuilderView({ initialData, navigateTo }) {
       </div>
 
       {/* Live Preview Panel */}
-      <div className="w-1/3 flex flex-col">
-        <div className="bg-slate-50 border border-slate-200 rounded-lg p-6 shadow-sm sticky top-6">
+      <div className="w-full md:w-1/3 flex flex-col">
+        <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 md:p-6 shadow-sm md:sticky md:top-6">
           <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-6 flex items-center justify-between">
             Live Preview
             <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded text-xs lowercase normal-case">Drafting</span>
@@ -1452,15 +1781,15 @@ function QuotesView({ navigateTo }) {
   const filtered = filter === 'all' ? MOCK_QUOTES : MOCK_QUOTES.filter(q => q.status === filter);
 
   return (
-    <div className="max-w-6xl mx-auto p-8">
-      <div className="flex justify-between items-center mb-6">
+    <div className="max-w-6xl mx-auto p-4 md:p-8">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Quotes</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Quotes</h1>
           <p className="text-slate-500 mt-1 text-sm">All quotes across your pipeline.</p>
         </div>
         <button
           onClick={() => navigateTo('quote-builder')}
-          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
+          className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center self-start sm:self-auto"
         >
           <Plus className="w-4 h-4 mr-2" /> New Quote
         </button>
@@ -1485,8 +1814,8 @@ function QuotesView({ navigateTo }) {
         ))}
       </div>
 
-      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-        <table className="w-full text-left border-collapse">
+      <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[640px]">
           <thead>
             <tr className="bg-slate-50 text-slate-500 text-sm border-b border-slate-200">
               <th className="px-6 py-3 font-medium">Client</th>
@@ -1552,10 +1881,10 @@ function InquiriesView({ navigateTo }) {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-6xl mx-auto">
           <div className="flex justify-between items-center mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">Inquiries</h1>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Inquiries</h1>
             <div className="flex gap-2 relative">
               <button
                 onClick={() => setFilterOpen(o => !o)}
@@ -1587,8 +1916,8 @@ function InquiriesView({ navigateTo }) {
             </div>
           </div>
 
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm">
-            <table className="w-full text-left text-sm border-collapse">
+          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse min-w-[520px]">
               <thead>
                 <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
                   <th className="px-4 py-3 font-medium border-r border-slate-200 w-1/4">Name</th>
@@ -1629,7 +1958,7 @@ function InquiriesView({ navigateTo }) {
 
       {/* Detail Panel */}
       {selected && (
-        <div className="w-80 border-l border-slate-200 bg-slate-50 p-6 flex flex-col gap-5 overflow-y-auto">
+        <div className="fixed inset-0 z-30 md:relative md:inset-auto md:z-auto md:w-80 border-l border-slate-200 bg-slate-50 p-6 flex flex-col gap-5 overflow-y-auto shadow-xl md:shadow-none">
           <div className="flex justify-between items-start">
             <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
             <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
@@ -1753,16 +2082,16 @@ function MenusView() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="flex-1 p-8 overflow-y-auto">
+      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
         <div className="max-w-4xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <div>
-              <h1 className="text-2xl font-bold text-slate-900">Menus & Packages</h1>
+              <h1 className="text-xl md:text-2xl font-bold text-slate-900">Menus & Packages</h1>
               <p className="text-slate-500 text-sm mt-1">Manage your catering menu offerings and per-person pricing.</p>
             </div>
             <button
               onClick={handleNewMenu}
-              className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
+              className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center self-start sm:self-auto"
             >
               <Plus className="w-4 h-4 mr-2" /> New Menu
             </button>
@@ -1795,7 +2124,7 @@ function MenusView() {
 
       {/* Detail / Edit Panel */}
       {selected && (
-        <div className="w-96 border-l border-slate-200 bg-white flex flex-col overflow-y-auto">
+        <div className="fixed inset-0 z-30 md:relative md:inset-auto md:z-auto md:w-96 border-l border-slate-200 bg-white flex flex-col overflow-y-auto shadow-xl md:shadow-none">
           <div className="p-6 border-b border-slate-200 flex justify-between items-center">
             <div>
               <h2 className="font-semibold text-slate-900">{editing ? 'Edit Menu' : selected.name}</h2>
@@ -1883,92 +2212,244 @@ function MenusView() {
   );
 }
 
+// ─── Natural Language Rule Parser ─────────────────────────────────────────────
+function parseNaturalRule(text) {
+  const t   = text.trim();
+  const low = t.toLowerCase();
+
+  const fix = n => parseFloat(n);
+  const fmtMultiplier = n => (fix(n) % 1 === 0 ? fix(n).toString() : fix(n).toFixed(3).replace(/0+$/, '').replace(/\.$/, ''));
+
+  // add £X for every N guests
+  let m = low.match(/(?:add|charge|include)\s+£(\d+(?:\.\d+)?)\s+(?:for\s+)?every\s+(\d+)\s+(?:guests?|people|persons?)/);
+  if (m) return { condition: 'guests > 0', action: `Add £${m[1]} per ${m[2]} guests`, expression: `⌊guests ÷ ${m[2]}⌋ × £${m[1]}`, confidence: 'high' };
+
+  // add/apply X% surcharge if guests exceed/over N
+  m = low.match(/(?:add|apply|charge)\s+(\d+(?:\.\d+)?)%\s*(?:surcharge|markup|extra|more)?\s+(?:if|when)\s+guests?\s+(?:exceed|over|more\s+than|is\s+over|goes\s+over|>)\s*(\d+)/);
+  if (m) return { condition: `guests > ${m[2]}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
+
+  // apply X% discount if guests exceed N (volume)
+  m = low.match(/(?:apply|give|add|offer)\s+(\d+(?:\.\d+)?)%\s+(?:volume\s+)?discount\s+(?:if|when|for)\s+guests?\s+(?:exceed|over|more\s+than|>)\s*(\d+)/);
+  if (m) return { condition: `guests > ${m[2]}`, action: `Apply ${m[1]}% discount`, expression: `total × ${fmtMultiplier(1 - fix(m[1]) / 100)}`, confidence: 'high' };
+
+  // apply X% discount if guests below N
+  m = low.match(/(?:apply|give|add|offer)\s+(\d+(?:\.\d+)?)%\s+discount\s+(?:if|when|for)\s+guests?\s+(?:below|under|less\s+than|<)\s*(\d+)/);
+  if (m) return { condition: `guests < ${m[2]}`, action: `Apply ${m[1]}% discount`, expression: `total × ${fmtMultiplier(1 - fix(m[1]) / 100)}`, confidence: 'high' };
+
+  // add £X if guests exceed N
+  m = low.match(/(?:add|charge|apply)\s+(?:a\s+)?(?:flat\s+)?£(\d+(?:\.\d+)?)\s+(?:fee\s+)?(?:if|when)\s+guests?\s+(?:exceed|over|more\s+than|>|is\s+over)\s*(\d+)/);
+  if (m) return { condition: `guests > ${m[2]}`, action: `Add flat fee £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' };
+
+  // minimum quote/total of £X
+  m = low.match(/minimum\s+(?:quote|total|price|charge|order)?\s*(?:of\s+)?£(\d+(?:\.\d+)?)/);
+  if (m) return { condition: `total < £${m[1]}`, action: `Enforce minimum of £${m[1]}`, expression: `total = max(total, £${m[1]})`, confidence: 'high' };
+
+  // charge £X per person/head/pp
+  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+per\s+(?:person|head|pp|guest)/);
+  if (m) return { condition: 'guests > 0', action: `Add £${m[1]} per person`, expression: `total += guests × £${m[1]}`, confidence: 'high' };
+
+  // X% surcharge for plated/buffet/family style
+  m = low.match(/(\d+(?:\.\d+)?)%\s+(?:surcharge|markup|extra)\s+for\s+(plated|buffet|family\s+style|cocktail)/);
+  if (m) { const s = m[2].replace(/\b\w/g, c => c.toUpperCase()).replace('Style', 'Style'); return { condition: `serviceStyle = ${s}`, action: `Apply ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' }; }
+
+  // add £X for plated/buffet/family style
+  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+for\s+(plated|buffet|family\s+style|cocktail)/);
+  if (m) { const s = m[2].replace(/\b\w/g, c => c.toUpperCase()).replace('Style', 'Style'); return { condition: `serviceStyle = ${s}`, action: `Add flat fee £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' }; }
+
+  // add £X for weekend/bank holiday
+  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+for\s+(?:weekend|bank\s+holiday|public\s+holiday)/);
+  if (m) { const type = low.includes('weekend') ? 'Weekend' : 'Bank holiday'; return { condition: `day = ${type}`, action: `Add ${type} surcharge £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' }; }
+
+  // charge £X per dietary requirement
+  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+per\s+(?:dietary|vegan|allergy|requirement|special\s+requirement)/);
+  if (m) return { condition: 'dietaryCount > 0', action: `Add £${m[1]} per dietary req`, expression: `total += dietaryCount × £${m[1]}`, confidence: 'high' };
+
+  // multiply [total/food/staff] by X
+  m = low.match(/multiply\s+(?:total|food|staff|labor|labour)\s+by\s+(\d+(?:\.\d+)?)/);
+  if (m) return { condition: 'always', action: `Multiply total by ${m[1]}`, expression: `total × ${m[1]}`, confidence: 'high' };
+
+  // reduce/subtract/deduct £X if/when
+  m = low.match(/(?:reduce|subtract|deduct|remove)\s+£(\d+(?:\.\d+)?)\s+(?:if|when|for)\s+(.+)/);
+  if (m) return { condition: m[2].trim(), action: `Deduct £${m[1]}`, expression: `total -= £${m[1]}`, confidence: 'medium' };
+
+  // add X% for [event type]
+  m = low.match(/add\s+(\d+(?:\.\d+)?)%\s+(?:surcharge\s+)?for\s+(wedding|corporate|birthday|social)/);
+  if (m) { const et = m[2].charAt(0).toUpperCase() + m[2].slice(1); return { condition: `eventType = ${et}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' }; }
+
+  // fallback — has a £ amount but pattern unknown
+  if (/£\d+/.test(low) && t.length > 8) return { condition: '—', action: t, expression: 'Pattern not recognised', confidence: 'low' };
+
+  return { condition: '—', action: t, expression: 'Pattern not recognised', confidence: 'low' };
+}
+
+// ─── Pricing Rules View ────────────────────────────────────────────────────────
 function PricingRulesView() {
   const [rules, setRules] = useState(MOCK_RULES_INITIAL);
-  const [addOpen, setAddOpen] = useState(false);
-  const [newRule, setNewRule] = useState({ condition: '', action: '' });
+  const [input, setInput] = useState('');
+  const [focused, setFocused] = useState(false);
+  const inputRef = useRef(null);
 
-  const deleteRule = (id) => setRules(prev => prev.filter(r => r.id !== id));
+  const parsed = input.trim().length > 5 ? parseNaturalRule(input) : null;
 
-  const addRule = () => {
-    if (!newRule.condition || !newRule.action) return;
-    setRules(prev => [...prev, { id: `r${Date.now()}`, ...newRule }]);
-    setNewRule({ condition: '', action: '' });
-    setAddOpen(false);
+  const commitRule = () => {
+    if (!parsed || parsed.confidence === 'low') return;
+    setRules(prev => [...prev, { id: `r${Date.now()}`, ...parsed, raw: input }]);
+    setInput('');
+    inputRef.current?.focus();
+  };
+
+  const deleteRule = id => setRules(prev => prev.filter(r => r.id !== id));
+
+  const EXAMPLES = [
+    'add £100 for every 30 guests',
+    'apply 10% discount if guests exceed 150',
+    'add 15% surcharge for plated service',
+    'minimum quote of £2000',
+    'charge £50 per dietary requirement',
+    'add £200 for weekend events',
+  ];
+
+  const CONF = {
+    high:   { label: 'Rule recognised',      dot: 'bg-green-500',  text: 'text-green-700',  wrap: 'bg-green-50 border-green-200' },
+    medium: { label: 'Partially recognised', dot: 'bg-yellow-500', text: 'text-yellow-700', wrap: 'bg-yellow-50 border-yellow-200' },
+    low:    { label: 'Not recognised',       dot: 'bg-red-400',    text: 'text-red-700',    wrap: 'bg-red-50 border-red-200' },
   };
 
   return (
-    <div className="max-w-4xl mx-auto p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-900 mb-2">Pricing Rules Engine</h1>
-        <p className="text-slate-500 text-sm">Rules run sequentially when a quote is generated. Drag to reorder.</p>
+    <div className="max-w-4xl mx-auto p-4 md:p-8">
+      <div className="mb-6">
+        <h1 className="text-xl md:text-2xl font-bold text-slate-900 mb-1">Pricing Rules Engine</h1>
+        <p className="text-slate-500 text-sm">Type a rule in plain English — it's automatically converted to an expression.</p>
       </div>
 
-      <div className="space-y-4">
-        {rules.map((rule, idx) => (
-          <div key={rule.id} className="border border-slate-200 rounded-lg p-4 bg-white flex items-center justify-between shadow-sm hover:border-slate-300 transition-colors group">
-            <div className="flex items-center space-x-4">
-              <div className="w-6 h-6 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-xs font-medium flex-shrink-0">
-                {idx + 1}
-              </div>
-              <div className="flex items-center flex-wrap gap-2 text-sm">
-                <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded">IF</span>
-                <span className="text-slate-900">{rule.condition}</span>
-                <span className="font-semibold text-slate-700 bg-slate-100 px-2 py-1 rounded">THEN</span>
-                <span className="text-blue-700 bg-blue-50 border border-blue-100 px-2 py-1 rounded">{rule.action}</span>
-              </div>
+      {/* ── Natural language input ── */}
+      <div className="mb-8">
+        <div className={`bg-white border-2 rounded-xl shadow-sm transition-colors ${focused ? 'border-slate-900' : 'border-slate-200'}`}>
+
+          {/* Input row */}
+          <div className="flex items-center gap-3 px-4 pt-4 pb-2">
+            <div className="w-7 h-7 rounded-md bg-slate-900 flex items-center justify-center flex-shrink-0">
+              <Zap className="w-3.5 h-3.5 text-white" />
             </div>
-            <button
-              onClick={() => deleteRule(rule.id)}
-              className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity ml-4 flex-shrink-0"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
+            <input
+              ref={inputRef}
+              type="text"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={e => e.key === 'Enter' && commitRule()}
+              placeholder='Type a rule in plain English…'
+              className="flex-1 text-slate-900 placeholder-slate-400 outline-none text-sm md:text-base bg-transparent"
+            />
+            {input && (
+              <button onClick={() => setInput('')} className="text-slate-400 hover:text-slate-600 flex-shrink-0 p-1">
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Example chips — shown when empty */}
+          {!input && (
+            <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+              {EXAMPLES.map(ex => (
+                <button
+                  key={ex}
+                  onMouseDown={e => { e.preventDefault(); setInput(ex); inputRef.current?.focus(); }}
+                  className="text-xs text-slate-500 bg-slate-100 hover:bg-slate-200 px-2.5 py-1 rounded-full transition-colors"
+                >
+                  {ex}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Live parse preview */}
+          {parsed && (
+            <div className={`mx-3 mb-3 rounded-lg border p-3 ${CONF[parsed.confidence].wrap}`}>
+              <div className="flex items-center justify-between mb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className={`w-1.5 h-1.5 rounded-full ${CONF[parsed.confidence].dot}`} />
+                  <span className={`text-xs font-semibold ${CONF[parsed.confidence].text}`}>
+                    {CONF[parsed.confidence].label}
+                  </span>
+                </div>
+                {parsed.confidence !== 'low' && (
+                  <button
+                    onMouseDown={e => { e.preventDefault(); commitRule(); }}
+                    className="text-xs font-semibold bg-slate-900 text-white px-3 py-1 rounded-md hover:bg-slate-700 transition-colors flex items-center gap-1"
+                  >
+                    Add Rule <span className="opacity-60 font-normal">↵</span>
+                  </button>
+                )}
+              </div>
+
+              {parsed.confidence !== 'low' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {[
+                    { label: 'IF',   val: parsed.condition  },
+                    { label: 'THEN', val: parsed.action     },
+                    { label: 'f(x)', val: parsed.expression },
+                  ].map(({ label, val }) => (
+                    <div key={label}>
+                      <span className="text-[10px] font-bold uppercase tracking-wider opacity-50">{label}</span>
+                      <div className="mt-0.5 font-mono text-xs text-slate-800 bg-white/70 px-2 py-1.5 rounded border border-black/10 truncate">
+                        {val}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-red-600">
+                  Try: "add £X for every N guests", "apply X% surcharge if guests exceed N", "minimum quote of £X", etc.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── Active rules ── */}
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Active Rules ({rules.length})</h2>
+        <span className="text-xs text-slate-400">Applied in order when a quote is built</span>
+      </div>
+
+      <div className="space-y-2">
+        {rules.length === 0 && (
+          <div className="text-center py-12 text-slate-400 text-sm border-2 border-dashed border-slate-200 rounded-xl">
+            No rules yet — type one above to get started.
+          </div>
+        )}
+        {rules.map((rule, idx) => (
+          <div key={rule.id} className="border border-slate-200 rounded-xl bg-white shadow-sm hover:border-slate-300 transition-colors group overflow-hidden">
+            <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
+                  {idx + 1}
+                </div>
+                <div className="flex items-center flex-wrap gap-1.5 min-w-0">
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">IF</span>
+                  <span className="text-slate-800 text-xs">{rule.condition}</span>
+                  <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded uppercase tracking-wider">THEN</span>
+                  <span className="text-blue-700 bg-blue-50 border border-blue-100 text-xs px-2 py-0.5 rounded">{rule.action}</span>
+                </div>
+              </div>
+              <button
+                onClick={() => deleteRule(rule.id)}
+                className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all ml-3 flex-shrink-0 p-1"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {rule.expression && rule.expression !== 'Pattern not recognised' && (
+              <div className="border-t border-slate-100 px-4 py-1.5 bg-slate-50 flex items-center gap-2">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">f(x)</span>
+                <code className="text-xs text-slate-600 font-mono">{rule.expression}</code>
+              </div>
+            )}
           </div>
         ))}
-
-        {addOpen ? (
-          <div className="border-2 border-slate-300 rounded-lg p-5 bg-white space-y-4">
-            <div className="text-sm font-semibold text-slate-700 mb-3">New Rule</div>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <label className="block text-slate-500 mb-1 text-xs uppercase tracking-wider">IF condition</label>
-                <input
-                  type="text"
-                  value={newRule.condition}
-                  onChange={e => setNewRule(p => ({ ...p, condition: e.target.value }))}
-                  placeholder="e.g. Guest Count > 200"
-                  className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none text-sm"
-                />
-              </div>
-              <div>
-                <label className="block text-slate-500 mb-1 text-xs uppercase tracking-wider">THEN action</label>
-                <input
-                  type="text"
-                  value={newRule.action}
-                  onChange={e => setNewRule(p => ({ ...p, action: e.target.value }))}
-                  placeholder="e.g. Apply 10% discount"
-                  className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none text-sm"
-                />
-              </div>
-            </div>
-            <div className="flex gap-3">
-              <button onClick={addRule} className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition">
-                Add Rule
-              </button>
-              <button onClick={() => setAddOpen(false)} className="border border-slate-300 text-slate-600 px-4 py-2 rounded-md text-sm hover:bg-slate-50 transition">
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setAddOpen(true)}
-            className="w-full border-2 border-dashed border-slate-200 rounded-lg p-4 text-center text-slate-500 hover:bg-slate-50 hover:border-slate-300 transition-colors flex items-center justify-center text-sm font-medium"
-          >
-            <Plus className="w-4 h-4 mr-2" /> Add New Rule
-          </button>
-        )}
       </div>
     </div>
   );
@@ -2084,6 +2565,576 @@ function SettingsView() {
   );
 }
 
+// ─── Call Log View ────────────────────────────────────────────────────────────
+function CallLogView({ initialId, navigateTo }) {
+  const [selectedId, setSelectedId] = useState(
+    (typeof initialId === 'string' ? initialId : null) || MOCK_CALL_LOGS[0].id
+  );
+  const [activeTab, setActiveTab]   = useState('transcript');
+  const [fabState, setFabState]     = useState('icon'); // icon | keypad | active
+  const [dialNumber, setDialNumber] = useState('');
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [callMuted, setCallMuted]   = useState(false);
+  const [callHeld,  setCallHeld]    = useState(false);
+  const [liveLines, setLiveLines]   = useState([]);
+  const [showDetail, setShowDetail] = useState(typeof initialId === 'string');
+  const timerRef   = useRef(null);
+  const timeoutIds = useRef([]);
+
+  const selected = MOCK_CALL_LOGS.find(c => c.id === selectedId) || MOCK_CALL_LOGS[0];
+  const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+
+  const LIVE_DEMO = [
+    { speaker: 'You',    text: "Thanks for calling Elite Catering. How can I help?" },
+    { speaker: 'Client', text: "Hi, I'm looking for catering for a wedding next summer." },
+    { speaker: 'You',    text: "Wonderful! Do you have a date and venue in mind?" },
+    { speaker: 'Client', text: "June 15th at River Grove Estate, around 120 guests." },
+    { speaker: 'You',    text: "Perfect. Plated dinner or buffet?" },
+    { speaker: 'Client', text: "Plated dinner — and we need some vegan options too." },
+  ];
+
+  const startLiveCall = () => {
+    setFabState('active');
+    setLiveLines([]);
+    setCallSeconds(0);
+    setCallMuted(false);
+    setCallHeld(false);
+    timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+    LIVE_DEMO.forEach((line, i) => {
+      const id = setTimeout(() => setLiveLines(prev => [...prev, line]), (i + 1) * 3500);
+      timeoutIds.current.push(id);
+    });
+  };
+
+  const endLiveCall = () => {
+    clearInterval(timerRef.current);
+    timeoutIds.current.forEach(clearTimeout);
+    timeoutIds.current = [];
+    setFabState('icon');
+    setLiveLines([]);
+    setCallSeconds(0);
+  };
+
+  useEffect(() => () => {
+    clearInterval(timerRef.current);
+    timeoutIds.current.forEach(clearTimeout);
+  }, []);
+
+  const handleCallAgain = phone => {
+    setDialNumber(phone);
+    setFabState('keypad');
+  };
+
+  const selectCall = id => {
+    setSelectedId(id);
+    setActiveTab('transcript');
+    setShowDetail(true);
+  };
+
+  const CALL_STATUS = {
+    transcribed: { label: 'Transcribed', dotCls: 'bg-green-500', textCls: 'text-green-700', bgCls: 'bg-green-50 border-green-200' },
+    missed:      { label: 'Missed',      dotCls: 'bg-red-500',   textCls: 'text-red-700',   bgCls: 'bg-red-50   border-red-200'   },
+    new:         { label: 'New',         dotCls: 'bg-blue-500',  textCls: 'text-blue-700',  bgCls: 'bg-blue-50  border-blue-200'  },
+  };
+
+  const QUOTE_STATUS_CLS = {
+    draft:  'bg-slate-100 text-slate-700',
+    sent:   'bg-blue-100  text-blue-700',
+    viewed: 'bg-purple-100 text-purple-700',
+    won:    'bg-green-100 text-green-700',
+    lost:   'bg-red-100   text-red-700',
+  };
+
+  const tabs = [
+    { id: 'transcript', label: 'Transcript' },
+    { id: 'quote',      label: 'Quote' },
+    { id: 'messages',   label: `Messages${selected.messages.length > 0 ? ` (${selected.messages.length})` : ''}` },
+    { id: 'invoice',    label: 'Invoice' },
+  ];
+
+  return (
+    <div className="flex h-full overflow-hidden relative">
+
+      {/* ── Left: call list ── */}
+      <div className={`w-full md:w-72 lg:w-80 border-r border-slate-200 flex-col bg-white flex-shrink-0 ${showDetail ? 'hidden md:flex' : 'flex'}`}>
+        <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
+          <div>
+            <h2 className="font-semibold text-slate-900 text-sm">Call Log</h2>
+            <p className="text-xs text-slate-400 mt-0.5">{MOCK_CALL_LOGS.length} calls</p>
+          </div>
+          <button
+            onClick={() => setFabState(fabState === 'keypad' ? 'icon' : 'keypad')}
+            className="w-8 h-8 bg-green-600 hover:bg-green-500 text-white rounded-full flex items-center justify-center transition-colors shadow-sm"
+            title="New call"
+          >
+            <Phone className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {MOCK_CALL_LOGS.map(call => {
+            const st = CALL_STATUS[call.status] || CALL_STATUS.new;
+            const isSel = selectedId === call.id;
+            return (
+              <button
+                key={call.id}
+                onClick={() => selectCall(call.id)}
+                className={`w-full text-left px-4 py-3.5 hover:bg-slate-50 transition-colors border-l-[3px] ${isSel ? 'bg-slate-50 border-l-slate-900' : 'border-l-transparent'}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
+                      {call.caller.charAt(0)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-medium text-slate-900 text-sm truncate">{call.caller}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{call.date}</div>
+                    </div>
+                  </div>
+                  <div className="flex-shrink-0 text-right">
+                    <span className={`inline-flex items-center gap-1 text-[10px] font-semibold px-1.5 py-0.5 rounded border ${st.bgCls} ${st.textCls}`}>
+                      <span className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dotCls}`} />
+                      {st.label}
+                    </span>
+                    <div className="text-[11px] text-slate-400 mt-1">{call.duration}</div>
+                  </div>
+                </div>
+                <div className="text-xs text-slate-500 mt-1.5 pl-10 truncate">
+                  {call.extracted?.eventType} · {call.extracted?.guestCount ?? '—'} guests
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* ── Right: detail pane ── */}
+      <div className={`flex-1 flex-col overflow-hidden ${showDetail ? 'flex' : 'hidden md:flex'}`}>
+        {selected && (
+          <>
+            {/* Call header */}
+            <div className="px-4 md:px-6 py-3 border-b border-slate-200 bg-white flex items-center justify-between gap-3 flex-shrink-0">
+              <div className="flex items-center gap-3 min-w-0">
+                <button onClick={() => setShowDetail(false)} className="md:hidden text-slate-400 hover:text-slate-600 flex-shrink-0 p-1">
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 flex-shrink-0 text-sm">
+                  {selected.caller.charAt(0)}
+                </div>
+                <div className="min-w-0">
+                  <div className="font-semibold text-slate-900 text-sm">{selected.caller}</div>
+                  <div className="text-xs text-slate-500 truncate">{selected.phone} · {selected.date} · {selected.duration}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => handleCallAgain(selected.phone)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
+                >
+                  <PhoneForwarded className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Call again</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Recording bar */}
+            {selected.hasRecording && (
+              <div className="px-4 md:px-6 py-2.5 bg-slate-900 text-white flex items-center gap-3 flex-shrink-0">
+                <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center flex-shrink-0 transition-colors">
+                  <Play className="w-3.5 h-3.5 ml-0.5" />
+                </button>
+                <div className="flex items-center gap-0.5 h-5 flex-1 min-w-0">
+                  {Array.from({ length: 56 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="w-0.5 bg-green-400/50 rounded-full flex-shrink-0"
+                      style={{ height: `${Math.max(15, Math.min(90, 35 + Math.sin(i * 0.9) * 28 + Math.cos(i * 0.35) * 18))}%` }}
+                    />
+                  ))}
+                </div>
+                <span className="text-xs text-slate-400 flex-shrink-0">{selected.duration}</span>
+                <button className="text-slate-500 hover:text-white transition-colors flex-shrink-0">
+                  <Volume2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* Tabs */}
+            <div className="flex border-b border-slate-200 bg-white flex-shrink-0 overflow-x-auto scrollbar-none">
+              {tabs.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`px-4 md:px-5 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 -mb-px transition-colors ${
+                    activeTab === tab.id
+                      ? 'border-slate-900 text-slate-900'
+                      : 'border-transparent text-slate-500 hover:text-slate-700'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab body */}
+            <div className="flex-1 overflow-y-auto bg-[#F7F7F5]">
+
+              {/* ── TRANSCRIPT ── */}
+              {activeTab === 'transcript' && (
+                <div className="p-4 md:p-6 max-w-3xl">
+                  {/* Live call section */}
+                  {fabState === 'active' && liveLines.length > 0 && (
+                    <div className="mb-6 border border-green-200 bg-green-50 rounded-2xl p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                        <span className="text-xs font-bold text-red-500 uppercase tracking-wider">Live · {fmt(callSeconds)}</span>
+                        <span className="ml-auto text-[10px] bg-green-100 text-green-700 border border-green-200 px-1.5 py-0.5 rounded-full font-semibold">Transcribing</span>
+                      </div>
+                      <div className="space-y-3">
+                        {liveLines.map((line, i) => (
+                          <div key={i} className={`flex gap-2.5 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
+                            <div className={`w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-[10px] font-bold ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-900 text-white'}`}>
+                              {line.speaker.charAt(0)}
+                            </div>
+                            <div className={`max-w-[80%] px-3 py-2 rounded-xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-white border border-slate-200 text-slate-800' : 'bg-slate-900 text-white'}`}>
+                              {line.text}
+                            </div>
+                          </div>
+                        ))}
+                        <div className="flex gap-1 pl-8 mt-1">
+                          {[0, 150, 300].map(d => <span key={d} className="w-1.5 h-1.5 bg-green-400 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />)}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selected.status === 'missed' ? (
+                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                      <div className="w-14 h-14 bg-red-50 border border-red-100 rounded-2xl flex items-center justify-center">
+                        <PhoneOff className="w-7 h-7 text-red-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">Call was missed</div>
+                        <div className="text-sm text-slate-500 mt-1">No transcript available for this call.</div>
+                      </div>
+                      <button
+                        onClick={() => handleCallAgain(selected.phone)}
+                        className="flex items-center gap-2 px-4 py-2 bg-green-600 text-white text-sm font-semibold rounded-lg hover:bg-green-500 transition-colors shadow-sm"
+                      >
+                        <Phone className="w-4 h-4" /> Call back now
+                      </button>
+                    </div>
+                  ) : selected.transcript.length === 0 ? (
+                    <div className="flex items-center justify-center py-16 text-slate-400 text-sm">No transcript available.</div>
+                  ) : (
+                    <div className="space-y-4">
+                      {selected.transcript.map((line, i) => (
+                        <div key={i} className={`flex gap-2.5 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
+                          <div className={`w-7 h-7 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-900 text-white'}`}>
+                            {line.speaker.charAt(0)}
+                          </div>
+                          <div className={`max-w-[78%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed shadow-sm ${
+                            line.speaker === 'You'
+                              ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
+                              : 'bg-slate-900 text-white rounded-tr-sm'
+                          }`}>
+                            {line.text}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* AI-extracted details */}
+                  {selected.extracted && selected.status !== 'missed' && (
+                    <div className="mt-8 border-t border-slate-200 pt-6">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                          AI-extracted details
+                        </h3>
+                        <button
+                          onClick={() => navigateTo('quote-builder', selected.extracted)}
+                          className="text-xs font-semibold text-slate-700 border border-slate-300 px-2.5 py-1 rounded-md hover:bg-white transition-colors flex items-center gap-1"
+                        >
+                          <Calculator className="w-3 h-3" /> Build Quote
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
+                        {Object.entries(selected.extracted)
+                          .filter(([, v]) => v && !(Array.isArray(v) && v.length === 0))
+                          .map(([key, value]) => (
+                            <div key={key} className="bg-white border border-slate-200 rounded-xl px-3 py-2.5 shadow-sm">
+                              <div className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider mb-1 capitalize">
+                                {key.replace(/([A-Z])/g, ' $1').trim()}
+                              </div>
+                              <div className="text-sm font-medium text-slate-800">
+                                {Array.isArray(value) ? value.join(', ') : String(value)}
+                              </div>
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── QUOTE ── */}
+              {activeTab === 'quote' && (
+                <div className="p-4 md:p-6 max-w-lg">
+                  {selected.quote ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-slate-900">{selected.caller} — Catering Quote</div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {selected.extracted?.eventType} · {selected.extracted?.guestCount} guests · {selected.extracted?.serviceStyle}
+                          </div>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${QUOTE_STATUS_CLS[selected.quote.status] || 'bg-slate-100 text-slate-700'}`}>
+                          {selected.quote.status}
+                        </span>
+                      </div>
+                      <div className="px-5 py-5">
+                        <div className="flex items-end justify-between mb-5">
+                          <div>
+                            <div className="text-xs text-slate-400">Total estimate</div>
+                            <div className="text-3xl font-bold text-slate-900">£{selected.quote.amount.toLocaleString()}</div>
+                          </div>
+                          <button
+                            onClick={() => navigateTo('quote-builder', selected.extracted)}
+                            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors"
+                          >
+                            <FileEdit className="w-4 h-4" /> View / Edit
+                          </button>
+                        </div>
+                        <div className="flex gap-2.5">
+                          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                            <Send className="w-3.5 h-3.5" /> Send to client
+                          </button>
+                          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                            <Copy className="w-3.5 h-3.5" /> Copy link
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                      <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center">
+                        <FileText className="w-7 h-7 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">No quote yet</div>
+                        <div className="text-sm text-slate-500 mt-1">Generate a quote from the extracted call details</div>
+                      </div>
+                      <button
+                        onClick={() => navigateTo('quote-builder', selected.extracted)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm"
+                      >
+                        <Calculator className="w-4 h-4" /> Build Quote
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ── MESSAGES ── */}
+              {activeTab === 'messages' && (
+                <div className="p-4 md:p-6 max-w-2xl">
+                  {selected.messages.length > 0 ? (
+                    <div className="space-y-3">
+                      {selected.messages.map((msg, i) => (
+                        <div key={i} className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                          <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between gap-3">
+                            <div className="flex items-center gap-2 min-w-0">
+                              {msg.type === 'email'
+                                ? <Mail className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                                : <MessageSquare className="w-4 h-4 text-green-500 flex-shrink-0" />}
+                              <span className="text-sm font-medium text-slate-900 truncate">{msg.subject || 'SMS message'}</span>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-100 capitalize">
+                                {msg.direction}
+                              </span>
+                              <span className="text-xs text-slate-400">{msg.time}</span>
+                            </div>
+                          </div>
+                          <div className="px-4 py-3.5 text-sm text-slate-600 leading-relaxed">{msg.body || msg.text}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                      <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center">
+                        <Mail className="w-7 h-7 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">No messages yet</div>
+                        <div className="text-sm text-slate-500 mt-1">Send a follow-up email or text to this client</div>
+                      </div>
+                    </div>
+                  )}
+                  <div className="flex gap-2 mt-4">
+                    <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+                      <Mail className="w-4 h-4" /> Send Email
+                    </button>
+                    <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-white transition-colors">
+                      <MessageSquare className="w-4 h-4" /> Send SMS
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* ── INVOICE ── */}
+              {activeTab === 'invoice' && (
+                <div className="p-4 md:p-6 max-w-lg">
+                  {selected.invoice ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-slate-900">Invoice #{selected.invoice.id}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">Due {selected.invoice.dueDate}</div>
+                        </div>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${selected.invoice.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                          {selected.invoice.status}
+                        </span>
+                      </div>
+                      <div className="p-5 space-y-3">
+                        {selected.invoice.items.map((item, i) => (
+                          <div key={i} className="flex justify-between text-sm gap-4">
+                            <span className="text-slate-600">{item.desc}</span>
+                            <span className="font-semibold text-slate-900 flex-shrink-0">£{item.amount.toLocaleString()}</span>
+                          </div>
+                        ))}
+                        <div className="border-t border-slate-100 pt-3 flex justify-between font-bold text-slate-900">
+                          <span>Total</span>
+                          <span>£{selected.invoice.amount.toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className="px-5 pb-5 flex gap-2.5">
+                        <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                          <Eye className="w-3.5 h-3.5" /> View
+                        </button>
+                        {selected.invoice.status !== 'paid' && (
+                          <button className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors">
+                            <Send className="w-3.5 h-3.5" /> Send
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
+                      <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center">
+                        <ReceiptText className="w-7 h-7 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">No invoice yet</div>
+                        <div className="text-sm text-slate-500 mt-1">Create an invoice once the quote is accepted</div>
+                      </div>
+                      <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+                        <Plus className="w-4 h-4" /> Create Invoice
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+            </div>{/* end tab body */}
+          </>
+        )}
+      </div>
+
+      {/* ── FAB Dialer: icon state ── */}
+      {fabState === 'icon' && (
+        <button
+          onClick={() => setFabState('keypad')}
+          className="fixed bottom-6 right-6 w-14 h-14 bg-green-600 hover:bg-green-500 text-white rounded-full shadow-xl flex items-center justify-center transition-all hover:scale-105 z-20"
+          title="New call"
+        >
+          <Phone className="w-6 h-6" />
+        </button>
+      )}
+
+      {/* ── FAB Dialer: keypad state ── */}
+      {fabState === 'keypad' && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 rounded-2xl shadow-2xl z-20 w-64 overflow-hidden anim-pop-in">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Call</span>
+            <button onClick={() => setFabState('icon')} className="text-slate-500 hover:text-white p-1 transition-colors">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="px-4 py-3">
+            <div className="mb-3 bg-slate-800 rounded-lg px-3 py-2.5 min-h-[42px] flex items-center justify-center">
+              <span className={`font-mono text-lg tracking-widest font-bold ${dialNumber ? 'text-white' : 'text-slate-600'}`}>
+                {dialNumber || '—'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5 mb-3">
+              {['1','2','3','4','5','6','7','8','9','*','0','#'].map(k => (
+                <button
+                  key={k}
+                  onClick={() => setDialNumber(n => n.length < 15 ? n + k : n)}
+                  className="h-10 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-semibold text-base transition-colors select-none"
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setDialNumber(n => n.slice(0, -1))}
+                className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-lg transition-colors"
+              >⌫</button>
+              <button
+                onClick={() => { if (dialNumber) startLiveCall(); }}
+                disabled={!dialNumber}
+                className="flex-[2] h-10 bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+              >
+                <Phone className="w-3.5 h-3.5" /> Call
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── FAB Dialer: active call pill ── */}
+      {fabState === 'active' && (
+        <div className="fixed bottom-6 right-6 bg-slate-900 rounded-2xl shadow-2xl z-20 flex items-center gap-3 px-4 py-3">
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            <span className="text-xs font-bold text-red-400 uppercase tracking-wider">Live</span>
+            <span className="text-sm font-mono font-bold text-white tabular-nums">{fmt(callSeconds)}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setCallMuted(m => !m)}
+              title={callMuted ? 'Unmute' : 'Mute'}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${callMuted ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
+            >
+              {callMuted ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={() => setCallHeld(h => !h)}
+              title={callHeld ? 'Resume' : 'Hold'}
+              className={`w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${callHeld ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
+            >
+              {callHeld ? <Play className="w-3.5 h-3.5" /> : <Pause className="w-3.5 h-3.5" />}
+            </button>
+            <button
+              onClick={endLiveCall}
+              title="End call"
+              className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 flex items-center justify-center transition-colors"
+            >
+              <PhoneOff className="w-3.5 h-3.5 text-white" />
+            </button>
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}
+
 // --- SEARCH OVERLAY ---
 function SearchOverlay({ onClose, navigateTo }) {
   const [query, setQuery] = useState('');
@@ -2092,7 +3143,7 @@ function SearchOverlay({ onClose, navigateTo }) {
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const allItems = [
-    ...MOCK_CALLS.map(c => ({ type: 'Call', label: c.caller, sub: `${c.extracted.eventType} • ${c.date}`, action: () => navigateTo('call-detail', c) })),
+    ...MOCK_CALL_LOGS.map(c => ({ type: 'Call', label: c.caller, sub: `${c.extracted.eventType} • ${c.date}`, action: () => navigateTo('calls', c.id) })),
     ...MOCK_QUOTES.map(q => ({ type: 'Quote', label: q.client, sub: `${q.eventType} • £${q.amount.toLocaleString()} • ${q.status}`, action: () => navigateTo('quotes') })),
     ...MOCK_INQUIRIES_INITIAL.map(i => ({ type: 'Inquiry', label: i.name, sub: `${i.eventType} • ${i.status}`, action: () => navigateTo('inquiries') })),
     ...MOCK_MENUS.map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • £${m.basePrice}/pp`, action: () => navigateTo('menus') })),
@@ -2152,8 +3203,1422 @@ function SearchOverlay({ onClose, navigateTo }) {
   );
 }
 
+// --- ONBOARDING DEMO ---
+const P1_SEQUENCE = [
+  { at: 1200,  speaker: 'You',    text: "Perfect — just walk me through the questions you'd normally ask a new client when they first call." },
+  { at: 5000,  speaker: 'Client', text: "Sure. I always start with the event date — everything else depends on that." },
+  { at: 8200,  addField: { key: 'date', label: 'Event Date', type: 'text', placeholder: 'e.g. 14 Sep 2026' } },
+  { at: 9800,  speaker: 'Client', text: "Then the venue name and location — access, parking, setup time all depend on it." },
+  { at: 13500, addField: { key: 'venue', label: 'Venue Name & Location', type: 'text', placeholder: 'e.g. Cliveden House, Berkshire' } },
+  { at: 15000, speaker: 'Client', text: "Guest count is really important for my pricing — it changes the whole package." },
+  { at: 18200, addField: { key: 'guests', label: 'Guest Count', type: 'number', placeholder: 'e.g. 80' } },
+  { at: 19800, speaker: 'Client', text: "I ask whether they want ceremony only, ceremony and reception, or the full day." },
+  { at: 23500, addField: { key: 'coverage', label: 'Coverage Required', type: 'select', options: ['Ceremony Only', 'Ceremony + Reception', 'Full Day'] } },
+  { at: 25000, speaker: 'Client', text: "And budget — I ask for a rough range so I can match them to the right package." },
+  { at: 28200, addField: { key: 'budget', label: 'Budget Range', type: 'text', placeholder: 'e.g. £2,500 – £4,000' } },
+  { at: 29800, speaker: 'Client', text: "Last one — any special requests. Golden hour portraits, specific locations, that kind of thing." },
+  { at: 33500, addField: { key: 'requests', label: 'Special Requests', type: 'textarea', placeholder: 'e.g. golden hour portraits, woodland walk...' } },
+  { at: 35500, speaker: 'You',    text: "That's your entire intake form — built live from our conversation. Ready to see it fill itself?" },
+];
+
+const P2_SEQUENCE = [
+  { at: 1200,  speaker: 'You',    text: "Hi, I'm looking for a wedding photographer for next year." },
+  { at: 4000,  speaker: 'Client', text: "Wonderful! Let me take a few details. What's your wedding date?" },
+  { at: 7000,  speaker: 'You',    text: "It's the 14th of September 2026." },
+  { at: 9000,  fillField: { key: 'date', value: '14 Sep 2026' } },
+  { at: 11000, speaker: 'Client', text: "Lovely. Do you have a venue confirmed?" },
+  { at: 13500, speaker: 'You',    text: "Yes — Cliveden House, in Berkshire." },
+  { at: 16000, fillField: { key: 'venue', value: 'Cliveden House, Berkshire' } },
+  { at: 18000, speaker: 'Client', text: "Beautiful venue. How many guests are you expecting?" },
+  { at: 21000, speaker: 'You',    text: "Around 85." },
+  { at: 22500, fillField: { key: 'guests', value: '85' } },
+  { at: 24500, speaker: 'Client', text: "And are you looking for ceremony coverage only, or the full day?" },
+  { at: 27500, speaker: 'You',    text: "We'd love the full day — from getting ready all the way through to the evening." },
+  { at: 30000, fillField: { key: 'coverage', value: 'Full Day' } },
+  { at: 32000, speaker: 'Client', text: "Perfect. Do you have a rough budget in mind?" },
+  { at: 35000, speaker: 'You',    text: "We're thinking around three to three and a half thousand pounds." },
+  { at: 37500, fillField: { key: 'budget', value: '£3,000 – £3,500' } },
+  { at: 39500, speaker: 'Client', text: "Great. Any special requests — golden hour, particular locations, anything like that?" },
+  { at: 42500, speaker: 'You',    text: "Golden hour portraits by the river would be amazing, and a woodland walk if possible." },
+  { at: 45500, fillField: { key: 'requests', value: 'Golden hour portraits by the river, woodland walk' } },
+  { at: 47500, speaker: 'Client', text: "That all sounds wonderful. I'll put a package together and send it over today!" },
+];
+
+function OnboardingExample() {
+  const [phase, setPhase] = useState('intro');
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [lines, setLines] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [fieldValues, setFieldValues] = useState({});
+  const [highlightKey, setHighlightKey] = useState(null);
+  const timerRef = useRef(null);
+  const seqTimeoutsRef = useRef([]);
+  const transcriptRef = useRef(null);
+
+  useEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }
+  }, [lines]);
+
+  useEffect(() => {
+    if (phase === 'p1-call' || phase === 'p2-call') {
+      timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+    } else {
+      clearInterval(timerRef.current);
+      if (phase === 'p1-dialling' || phase === 'p2-dialling') setCallSeconds(0);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [phase]);
+
+  const clearSeq = () => { seqTimeoutsRef.current.forEach(clearTimeout); seqTimeoutsRef.current = []; };
+  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  const runSequence = (seq, onDone) => {
+    seq.forEach(step => {
+      const t = setTimeout(() => {
+        if (step.speaker) setLines(prev => [...prev, { speaker: step.speaker, text: step.text }]);
+        if (step.addField) {
+          setFields(prev => [...prev, step.addField]);
+          setHighlightKey(step.addField.key);
+          const ht = setTimeout(() => setHighlightKey(k => k === step.addField.key ? null : k), 1600);
+          seqTimeoutsRef.current.push(ht);
+        }
+        if (step.fillField) {
+          setFieldValues(prev => ({ ...prev, [step.fillField.key]: step.fillField.value }));
+          setHighlightKey(step.fillField.key);
+          const ht = setTimeout(() => setHighlightKey(k => k === step.fillField.key ? null : k), 1600);
+          seqTimeoutsRef.current.push(ht);
+        }
+      }, step.at);
+      seqTimeoutsRef.current.push(t);
+    });
+    const lastAt = Math.max(...seq.map(s => s.at));
+    const td = setTimeout(onDone, lastAt + 3500);
+    seqTimeoutsRef.current.push(td);
+  };
+
+  const startP1 = () => {
+    clearSeq();
+    setPhase('p1-dialling');
+    setLines([]);
+    setFields([]);
+    setFieldValues({});
+    setHighlightKey(null);
+    const t = setTimeout(() => {
+      setPhase('p1-call');
+      runSequence(P1_SEQUENCE, () => setPhase('p1-done'));
+    }, 2500);
+    seqTimeoutsRef.current.push(t);
+  };
+
+  const startP2 = () => {
+    clearSeq();
+    setPhase('p2-dialling');
+    setLines([]);
+    setHighlightKey(null);
+    setFieldValues({});
+    const t = setTimeout(() => {
+      setPhase('p2-call');
+      runSequence(P2_SEQUENCE, () => setPhase('p2-done'));
+    }, 2500);
+    seqTimeoutsRef.current.push(t);
+  };
+
+  const reset = () => {
+    clearSeq();
+    clearInterval(timerRef.current);
+    setPhase('intro');
+    setLines([]);
+    setFields([]);
+    setFieldValues({});
+    setHighlightKey(null);
+    setCallSeconds(0);
+  };
+
+  useEffect(() => () => { clearSeq(); clearInterval(timerRef.current); }, []);
+
+  if (phase === 'intro') {
+    return (
+      <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center p-8">
+        <div className="w-full max-w-2xl">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-2 bg-green-50 text-green-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-5">
+              <UserPlus className="w-3.5 h-3.5" />
+              Onboarding Demo Tool
+            </div>
+            <h1 className="text-3xl font-black text-slate-900 mb-3">Show your clients what's possible</h1>
+            <p className="text-slate-500 text-sm max-w-md mx-auto leading-relaxed">A two-part live demo. First we build their intake form from a conversation. Then we fill it — without a single keystroke.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-4 mb-8">
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
+                <Phone className="w-5 h-5 text-slate-700" />
+              </div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Part 1</div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Discovery Call</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">Ask your prospect what questions they ask their clients. Our AI listens and builds their intake form in real time — field by field as they speak.</p>
+            </div>
+            <div className="bg-white rounded-2xl border border-slate-200 p-6">
+              <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
+                <Mic className="w-5 h-5 text-slate-700" />
+              </div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Part 2</div>
+              <h3 className="text-base font-bold text-slate-900 mb-2">Demo Call</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">Call back and roleplay as one of their customers. Answer the questions. Watch the form they just built fill itself live — no typing required.</p>
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <button onClick={startP1} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md">
+              <PhoneCall className="w-4 h-4" />
+              Begin Part 1 — Discovery Call
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'p1-dialling' || phase === 'p2-dialling') {
+    const isP2 = phase === 'p2-dialling';
+    return (
+      <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center">
+        <div className="text-center">
+          <div className="relative w-24 h-24 mx-auto mb-6">
+            <div className="absolute inset-0 bg-green-500 rounded-full opacity-20 animate-ping" />
+            <div className="relative w-24 h-24 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
+              <Phone className="w-10 h-10 text-white" />
+            </div>
+          </div>
+          <p className="text-slate-900 font-bold text-lg mb-1">Calling...</p>
+          <p className="text-slate-500 text-sm">{isP2 ? 'Reconnecting for the demo call' : 'Starting the discovery call'}</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'p1-call' || phase === 'p2-call') {
+    const isP2 = phase === 'p2-call';
+    return (
+      <div className="h-full flex overflow-hidden">
+        {/* Left: Call + transcript */}
+        <div className="w-[42%] flex flex-col border-r border-slate-200 bg-white overflow-hidden">
+          <div className="bg-slate-900 px-5 py-4 flex items-center gap-3 flex-shrink-0">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+            <div className="flex-1 min-w-0">
+              <div className="text-white text-sm font-semibold">Live Call — {isP2 ? 'Demo' : 'Discovery'}</div>
+              <div className="text-slate-400 text-xs font-mono">{fmt(callSeconds)}</div>
+            </div>
+            <div className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{isP2 ? 'PART 2' : 'PART 1'}</div>
+          </div>
+          <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center gap-2 flex-shrink-0">
+            <Radio className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+            <span className="text-xs text-green-700 font-medium">
+              AI listening — {isP2 ? 'filling form in real time' : 'extracting questions in real time'}
+            </span>
+          </div>
+          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {lines.length === 0 && (
+              <p className="text-center text-slate-300 text-sm py-10">Transcript will appear here…</p>
+            )}
+            {lines.map((line, i) => (
+              <div key={i} className={`flex gap-2.5 anim-slide-up ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-white'}`}>
+                  {line.speaker === 'You' ? 'Y' : 'C'}
+                </div>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-slate-800 text-white rounded-tr-sm'}`}>
+                  {line.text}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Right: Form panel */}
+        <div className="flex-1 flex flex-col bg-[#F7F7F5] overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Intake Form — Filling Live' : 'Intake Form — Building Live'}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">{fields.length} {fields.length === 1 ? 'field' : 'fields'} {isP2 ? 'ready' : 'extracted so far'}</p>
+            </div>
+            <div className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
+              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+              {isP2 ? 'Auto-filling' : 'Auto-building'}
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto p-6">
+            {fields.length === 0 && (
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center">
+                <p className="text-slate-300 text-sm">Form fields will appear here as your client describes their process…</p>
+              </div>
+            )}
+            <div className="space-y-4">
+              {fields.map(field => {
+                const isHighlighted = highlightKey === field.key;
+                const val = fieldValues[field.key] || '';
+                const hasVal = !!val;
+                return (
+                  <div
+                    key={field.key}
+                    className={`bg-white rounded-xl border px-4 py-3 transition-all duration-500 anim-slide-up ${isHighlighted ? 'border-green-400 shadow-[0_0_0_3px_rgba(74,222,128,0.2)]' : 'border-slate-200'}`}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{field.label}</label>
+                      {isHighlighted && !isP2 && (
+                        <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full">Extracted</span>
+                      )}
+                      {isHighlighted && isP2 && (
+                        <span className="text-[10px] font-semibold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full flex items-center gap-1"><Check className="w-2.5 h-2.5" /> Filled</span>
+                      )}
+                      {!isHighlighted && hasVal && isP2 && (
+                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded-full flex items-center gap-1"><Check className="w-2.5 h-2.5" /> Done</span>
+                      )}
+                    </div>
+                    <div className={`w-full px-3 py-2 rounded-lg border text-sm transition-all duration-300 ${isHighlighted ? 'border-green-300 bg-green-50 text-green-800' : hasVal ? 'border-slate-200 bg-white text-slate-800' : 'border-slate-200 bg-slate-50 text-slate-400'} ${field.type === 'textarea' ? 'min-h-[60px]' : ''}`}>
+                      {val || (isP2 ? 'Listening…' : field.placeholder)}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'p1-done') {
+    return (
+      <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center p-8">
+        <div className="w-full max-w-lg">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Part 1 complete</h2>
+            <p className="text-slate-500 text-sm">Your client's intake form was built in real time — just from a phone call.</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+            <h3 className="text-sm font-bold text-slate-700 mb-4">{fields.length} fields extracted from the call</h3>
+            <div className="space-y-2.5">
+              {fields.map(f => (
+                <div key={f.key} className="flex items-center gap-3">
+                  <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  <span className="text-sm text-slate-700">{f.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <p className="text-center text-sm text-slate-500 mb-6">Now let's show how the form fills itself. Call back and roleplay as one of their customers.</p>
+          <div className="flex justify-center gap-3">
+            <button onClick={reset} className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
+              Start over
+            </button>
+            <button onClick={startP2} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md">
+              <PhoneCall className="w-4 h-4" />
+              Begin Part 2 — Demo Call
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === 'p2-done') {
+    const filledCount = Object.keys(fieldValues).length;
+    return (
+      <div className="h-full bg-[#F7F7F5] overflow-y-auto">
+        <div className="w-full max-w-lg mx-auto py-8 px-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Star className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Demo complete</h2>
+            <p className="text-slate-500 text-sm">Your client just watched their form build itself — then fill itself — entirely from a phone call.</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-700">Completed intake form</h3>
+              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{filledCount}/{fields.length} fields filled</span>
+            </div>
+            <div className="space-y-3">
+              {fields.map(f => (
+                <div key={f.key} className="flex items-start gap-3">
+                  <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
+                    <div className="text-sm text-slate-800">{fieldValues[f.key] || '—'}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="flex justify-center">
+            <button onClick={reset} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md">
+              Run demo again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+// --- SMART FIELD TYPES ---
+const FIELD_TYPE_DEFS = [
+  { id: 'text',        label: 'Short Text',   Icon: TypeIcon,      bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-300'  },
+  { id: 'number',      label: 'Number',       Icon: Hash,          bg: 'bg-blue-50',     text: 'text-blue-600',    border: 'border-blue-300'   },
+  { id: 'currency',    label: 'Budget',       Icon: DollarSign,    bg: 'bg-green-50',    text: 'text-green-700',   border: 'border-green-300'  },
+  { id: 'date',        label: 'Date',         Icon: Calendar,      bg: 'bg-purple-50',   text: 'text-purple-600',  border: 'border-purple-300' },
+  { id: 'time',        label: 'Time',         Icon: Clock,         bg: 'bg-orange-50',   text: 'text-orange-600',  border: 'border-orange-300' },
+  { id: 'toggle',      label: 'Yes / No',     Icon: ToggleRight,   bg: 'bg-teal-50',     text: 'text-teal-600',    border: 'border-teal-300'   },
+  { id: 'select',      label: 'Choose One',   Icon: ChevronDown,   bg: 'bg-indigo-50',   text: 'text-indigo-600',  border: 'border-indigo-300' },
+  { id: 'multi-check', label: 'Multi-select', Icon: CheckSquare,   bg: 'bg-pink-50',     text: 'text-pink-600',    border: 'border-pink-300'   },
+  { id: 'priced-item', label: 'Priced Item',  Icon: Tag,           bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-300'  },
+];
+
+const detectFieldType = (text) => {
+  const t = text.toLowerCase();
+  if (/\bdate\b|\bwhen\b|\bbirthday\b|\banniversary\b/.test(t)) return 'date';
+  if (/\btime\b|\bstart\b|\barrive\b|\bfinish\b/.test(t)) return 'time';
+  if (/\bguests?\b|\bhow many\b|\bnumber of\b|\bpeople\b|\bheads\b|\bpax\b|\battendees?\b/.test(t)) return 'number';
+  if (/\bbudget\b|\bspend\b|\btotal budget\b/.test(t)) return 'currency';
+  if (/yes.{0,5}no\b|\bdo (you|they)\b|\bwould (you|they)\b|\bneed\b|\brequire\b|\bhave (you|they)\b/.test(t)) return 'toggle';
+  if (/\bdietary\b|\ballerg|\bvegan\b|\bhalal\b|\bkosher\b|\bgluten\b|\brestrict|\bintoler/.test(t)) return 'multi-check';
+  if (/\btype\b|\bstyle\b|\bwhich\b|\boption\b|\bprefer|\bpackage\b|\btier\b/.test(t)) return 'select';
+  if (/\bdish\b|\bfood\b|\bmenu\b|\bmeal\b|\bcourse\b|\bstarter\b|\bmain\b|\bdessert\b|\bdrink\b|\bwine\b|\bcanap|\bbuffet\b|\bper head\b|\bitem\b/.test(t)) return 'priced-item';
+  return 'text';
+};
+
+const extractFieldLabel = (text) => {
+  const label = text
+    .replace(/^(i always |i usually |i also |i )?ask(s)? (about |for |the |their |if |whether )?/i, '')
+    .replace(/^(i need to know |i want to know |i find out |i check |i always start with )/i, '')
+    .replace(/^(what('?s)? (the |their |your )?|when is (the |their )?|how many |do (you|they) (have |need )?|would (you|they) (like )?|are (you|they) |have (you|they) (got )?)/i, '')
+    .replace(/^(the |their |your |a |an )/i, '')
+    .replace(/[?.!]+$/, '')
+    .trim()
+    .replace(/\b\w/g, c => c.toUpperCase());
+  return label.substring(0, 45) || text.substring(0, 45);
+};
+
+// Split a long transcript block into sentence-level chunks for per-sentence GPT processing.
+// Priority: punctuation → transition phrases → word-count slices (≤25 words each).
+function splitIntoChunks(text) {
+  const MIN_WORDS = 4;
+
+  // 1. Try punctuation boundaries
+  const byPunctuation = text
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.split(/\s+/).length >= MIN_WORDS);
+  if (byPunctuation.length > 1) return byPunctuation;
+
+  // 2. Try natural speech transitions (common in unformatted speech-to-text)
+  const transitionRe = /(?<!\w)\s+(?=i also\b|i ask\b|i get\b|i find\b|i check\b|i need\b|i collect\b|i require\b|also i\b|then i\b|next i\b|we also\b|we ask\b|we get\b|we find\b|we check\b|we need\b|and then\b|and also\b|also we\b|then we\b|next we\b|finally\b)/gi;
+  const byTransition = text
+    .split(transitionRe)
+    .map(s => s.trim())
+    .filter(s => s.split(/\s+/).length >= MIN_WORDS);
+  if (byTransition.length > 1) return byTransition;
+
+  // 3. Hard word-count split (≤18 words per chunk — keeps each chunk focused for GPT)
+  const words = text.trim().split(/\s+/);
+  if (words.length <= 18) return [text];
+  const chunks = [];
+  for (let i = 0; i < words.length; i += 18) {
+    chunks.push(words.slice(i, i + 18).join(' '));
+  }
+  return chunks;
+}
+
+function OnboardingWorking() {
+  const [step, setStep] = useState('setup');
+  const [session, setSession] = useState({ name: '', phone: '' });
+  const [callState, setCallState] = useState('idle');
+  const [callSeconds, setCallSeconds] = useState(0);
+  const [transcript, setTranscript] = useState([]);
+  const [fields, setFields] = useState([]);
+  const [fieldValues, setFieldValues] = useState({});
+  const [addingField, setAddingField] = useState(false);
+  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+  const [lastAdded, setLastAdded] = useState(null);
+  const [editingPriceKey, setEditingPriceKey] = useState(null);
+  const [reAnalyzing, setReAnalyzing] = useState(false);
+  const [conversationSummary, setConversationSummary] = useState('');
+  const [p1Transcript, setP1Transcript] = useState([]);
+  const [lineText, setLineText] = useState('');
+  const [lineSpeaker, setLineSpeaker] = useState('Client');
+  const [micActive, setMicActive] = useState(false);
+  const [interimText, setInterimText] = useState('');
+  const [aiThinking, setAiThinking] = useState(false);
+  const [apiError, setApiError] = useState(null);
+  const transcriptRef = useRef(null);   // DOM scroll ref
+  const transcriptDataRef = useRef([]); // always-current transcript data
+  const fieldsRef = useRef([]);         // always-current fields data
+  const aiPendingRef = useRef(0);       // count of in-flight AI calls
+  const intentionalStopRef = useRef(false); // distinguish user-stop vs browser-stop
+  const timerRef = useRef(null);
+  const lineInputRef = useRef(null);
+  const streamRef = useRef(null);
+  const speakerRef = useRef('Client');
+  const recognitionRef = useRef(null);
+  const speechBufferRef = useRef('');
+  const bufferTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (transcriptRef.current) {
+      transcriptRef.current.scrollTop = transcriptRef.current.scrollHeight;
+    }
+  }, [transcript]);
+  useEffect(() => { speakerRef.current = lineSpeaker; }, [lineSpeaker]);
+  useEffect(() => { transcriptDataRef.current = transcript; }, [transcript]);
+  useEffect(() => { fieldsRef.current = fields; }, [fields]);
+  useEffect(() => () => { stopMic(); clearInterval(timerRef.current); clearTimeout(bufferTimerRef.current); }, []);
+
+  // ── localStorage persistence ─────────────────────────────────────────────
+  const SESSION_KEY = 'smq_session_v1';
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(SESSION_KEY));
+      if (saved?.step && saved.step !== 'setup') {
+        if (saved.step)               setStep(saved.step);
+        if (saved.session)            setSession(saved.session);
+        if (saved.fields?.length)     setFields(saved.fields);
+        if (saved.fieldValues)        setFieldValues(saved.fieldValues);
+        if (saved.transcript?.length) setTranscript(saved.transcript);
+        if (saved.p1Transcript?.length) setP1Transcript(saved.p1Transcript);
+        if (saved.conversationSummary) setConversationSummary(saved.conversationSummary);
+      }
+    } catch { /* ignore corrupt storage */ }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // run once on mount
+
+  useEffect(() => {
+    if (step === 'setup') return; // don't persist the blank setup screen
+    try {
+      localStorage.setItem(SESSION_KEY, JSON.stringify({
+        step, session, fields, fieldValues, transcript, p1Transcript, conversationSummary,
+      }));
+    } catch { /* ignore storage quota errors */ }
+  }, [step, session, fields, fieldValues, transcript, p1Transcript, conversationSummary]);
+  // ────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (callState === 'active') {
+      timerRef.current = setInterval(() => setCallSeconds(s => s + 1), 1000);
+    } else {
+      clearInterval(timerRef.current);
+    }
+    return () => clearInterval(timerRef.current);
+  }, [callState]);
+
+  const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+
+  // --- TWILIO HOOKS — wire these up when ready ---
+  const startCall = () => {
+    // TODO: Twilio.Device.connect({ params: { To: session.phone } })
+    setCallState('connecting');
+    setTimeout(() => setCallState('active'), 1500); // Remove when Twilio is wired
+  };
+  const endCall = () => {
+    // TODO: Twilio.Device.disconnectAll()
+    stopMic();
+    setCallState('ended');
+  };
+  // --- END TWILIO HOOKS ---
+
+  // Called by Twilio (or mic recording) when a new transcript line arrives.
+  // _skipTranscript=true is used internally when flushing a buffered fragment
+  // that was already added to the transcript — we only need the AI analysis.
+  const onTranscriptLine = useCallback(async (speaker, text, _skipTranscript = false) => {
+    if (!_skipTranscript) {
+      setTranscript(prev => [...prev, { speaker, text }]);
+    }
+
+    // Track pending calls to show/hide AI thinking indicator correctly
+    aiPendingRef.current += 1;
+    setAiThinking(true);
+
+    try {
+      if (step === 'p1' && speaker === 'Client') {
+        // Buffer very short fragments — combine with next line
+        const wordCount = text.trim().split(/\s+/).length;
+        let lineToAnalyse = text;
+        if (!_skipTranscript && wordCount < 5) {
+          speechBufferRef.current = speechBufferRef.current
+            ? `${speechBufferRef.current} ${text}`
+            : text;
+          // Auto-flush after 5s in case no longer line ever follows
+          clearTimeout(bufferTimerRef.current);
+          bufferTimerRef.current = setTimeout(() => {
+            const buffered = speechBufferRef.current;
+            if (buffered) {
+              speechBufferRef.current = '';
+              onTranscriptLineRef.current(speaker, buffered, true);
+            }
+          }, 5000);
+          return;
+        }
+        // A normal line cancels any pending buffer flush
+        clearTimeout(bufferTimerRef.current);
+        if (!_skipTranscript && speechBufferRef.current) {
+          lineToAnalyse = `${speechBufferRef.current} ${text}`;
+          speechBufferRef.current = '';
+        }
+
+        // Split into sentence-level chunks and process SEQUENTIALLY so each chunk
+        // receives an up-to-date label list — prevents the same field appearing
+        // multiple times when it's mentioned across several chunks in one speech block.
+        const chunks = splitIntoChunks(lineToAnalyse);
+        const context = transcriptDataRef.current.slice(-4);
+
+        // rollingLabels grows as we find fields — passed to every subsequent chunk call
+        const rollingLabels = fieldsRef.current.map(f => f.label);
+        const allNewFields = [];
+
+        for (let ci = 0; ci < chunks.length; ci++) {
+          const result = await suggestField(chunks[ci], context, rollingLabels);
+          if (!result.suggest || !result.fields?.length) continue;
+
+          for (const f of result.fields) {
+            const cleanLabel = (f.label || '')
+              .replace(/[_-]/g, ' ')
+              .replace(/\b\w/g, c => c.toUpperCase());
+
+            // Fuzzy dedup: strip filler words, sort remaining words, compare
+            // catches "Monthly Budget" == "Budget Monthly", "Client Name" == "Name"
+            const labelKey = cleanLabel
+              .toLowerCase()
+              .replace(/\b(client|my|their|the|a|an)\b/g, '')
+              .replace(/[^a-z0-9\s]/g, '').trim()
+              .split(/\s+/).filter(Boolean).sort().join(' ');
+
+            const alreadyExists = rollingLabels.some(existing => {
+              const existKey = existing
+                .toLowerCase()
+                .replace(/\b(client|my|their|the|a|an)\b/g, '')
+                .replace(/[^a-z0-9\s]/g, '').trim()
+                .split(/\s+/).filter(Boolean).sort().join(' ');
+              return existKey === labelKey;
+            });
+
+            if (!alreadyExists) {
+              allNewFields.push({
+                key: `f_${Date.now()}_${ci}_${allNewFields.length}`,
+                label: cleanLabel,
+                type: f.type || 'text',
+                options: ['select','multi-check'].includes(f.type) ? (f.options || []) : [],
+                price: f.price || 0,
+                priceUnit: f.priceUnit || 'per_head',
+              });
+              rollingLabels.push(cleanLabel); // update so next chunk sees it
+            }
+          }
+        }
+
+        if (allNewFields.length) {
+          setFields(prev => [...prev, ...allNewFields]);
+          setLastAdded(allNewFields.map(f => f.label).join(', '));
+          setTimeout(() => setLastAdded(null), 3000);
+        }
+      }
+
+      // P2: only process Client lines so agent questions don't trigger false fills
+      if (step === 'p2' && speaker === 'Client') {
+        const context = transcriptDataRef.current.slice(-4);
+        const result = await fillFields(text, fieldsRef.current, context);
+        result.fills?.forEach(({ key, value }) => setVal(key, value));
+      }
+    } catch (err) {
+      console.error('AI error:', err);
+      setApiError('AI analysis failed — check your connection');
+      setTimeout(() => setApiError(null), 4000);
+    } finally {
+      aiPendingRef.current -= 1;
+      if (aiPendingRef.current === 0) setAiThinking(false);
+    }
+  }, [step]);
+
+  // Keep a ref so async callbacks (Web Speech, Whisper) always call the latest version
+  const onTranscriptLineRef = useRef(null);
+  onTranscriptLineRef.current = onTranscriptLine;
+
+  // --- MIC RECORDING — Web Speech API (real-time), Whisper fallback ---
+  const recorderRef = useRef(null);
+  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const startMic = async () => {
+    if (micActive) return;
+    intentionalStopRef.current = false; // reset so auto-restart works after a manual stop/start cycle
+    if (SpeechRecognition) {
+      // Real-time path: Web Speech API
+      const recognition = new SpeechRecognition();
+      recognitionRef.current = recognition;
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+      recognition.onresult = (event) => {
+        let interim = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          const t = event.results[i][0].transcript;
+          if (event.results[i].isFinal) {
+            setInterimText('');
+            onTranscriptLineRef.current(speakerRef.current, t.trim());
+          } else {
+            interim += t;
+          }
+        }
+        setInterimText(interim);
+      };
+      recognition.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'permission-denied') {
+          setApiError('Microphone access denied — check browser permissions');
+          setTimeout(() => setApiError(null), 5000);
+          intentionalStopRef.current = true;
+        }
+      };
+      recognition.onend = () => {
+        setInterimText('');
+        // Auto-restart unless the user explicitly stopped or mic was denied
+        if (!intentionalStopRef.current && recognitionRef.current) {
+          try { recognition.start(); } catch { setMicActive(false); }
+        } else {
+          setMicActive(false);
+        }
+      };
+      recognition.start();
+      setMicActive(true);
+    } else {
+      // Fallback: Whisper batch
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        streamRef.current = stream;
+        const chunks = [];
+        const recorder = new MediaRecorder(stream);
+        recorderRef.current = recorder;
+        recorder.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = async () => {
+          stream.getTracks().forEach(t => t.stop());
+          streamRef.current = null;
+          setMicActive(false);
+          const blob = new Blob(chunks, { type: 'audio/webm' });
+          if (blob.size > 1500) {
+            try {
+              const text = await transcribeAudio(blob);
+              if (text) await onTranscriptLineRef.current(speakerRef.current, text);
+            } catch (err) { console.error('Whisper error:', err); }
+          }
+        };
+        recorder.start();
+        setMicActive(true);
+      } catch {
+        alert('Microphone access denied. Check browser permissions.');
+      }
+    }
+  };
+
+  const stopMic = () => {
+    intentionalStopRef.current = true;
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    } else if (recorderRef.current?.state === 'recording') {
+      recorderRef.current.stop();
+    }
+    setMicActive(false);
+    setInterimText('');
+  };
+  // --- END MIC ---
+
+  // Test-mode manual entry
+  const addTranscriptLine = () => {
+    if (!lineText.trim()) return;
+    onTranscriptLine(lineSpeaker, lineText.trim());
+    setLineText('');
+    lineInputRef.current?.focus();
+  };
+
+
+  const commitField = () => {
+    if (!newField.label.trim()) return;
+    const key = `f_${Date.now()}`;
+    setFields(prev => [...prev, {
+      key,
+      label: newField.label.trim(),
+      type: newField.type,
+      options: ['select','multi-check'].includes(newField.type)
+        ? newField.options.split(',').map(o => o.trim()).filter(Boolean)
+        : [],
+      price: parseFloat(newField.price) || 0,
+      priceUnit: newField.priceUnit,
+    }]);
+    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+    setAddingField(false);
+  };
+
+  const removeField = key => setFields(prev => prev.filter(f => f.key !== key));
+  const setVal = (key, val) => setFieldValues(prev => ({ ...prev, [key]: val }));
+
+  const goToP2 = async () => {
+    // Cancel any pending buffer flush and grab any remaining fragment
+    clearTimeout(bufferTimerRef.current);
+    const finalTranscript = speechBufferRef.current
+      ? [...transcript, { speaker: speakerRef.current, text: speechBufferRef.current }]
+      : [...transcript];
+    speechBufferRef.current = '';
+
+    setReAnalyzing(true);
+    setP1Transcript(finalTranscript);
+    try {
+      const result = await analyzeFullConversation(finalTranscript, fields);
+      if (result.fields?.length) {
+        setFields(result.fields.map((f, i) => ({
+          key: `f_rev_${i}_${Date.now()}`,
+          label: f.label,
+          type: f.type || 'text',
+          options: f.options || [],
+          price: f.price || 0,
+          priceUnit: f.priceUnit || 'per_head',
+        })));
+      }
+      if (result.summary) setConversationSummary(result.summary);
+    } catch (e) {
+      console.error('Re-analysis error:', e);
+      setApiError('Re-analysis failed — fields kept as detected');
+      setTimeout(() => setApiError(null), 5000);
+    }
+    setReAnalyzing(false);
+    setCallState('idle'); setCallSeconds(0); setTranscript([]); setFieldValues({});
+    setStep('p2');
+  };
+
+  const reset = () => {
+    clearInterval(timerRef.current);
+    clearTimeout(bufferTimerRef.current);
+    try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
+    speechBufferRef.current = '';
+    aiPendingRef.current = 0;
+    setStep('setup'); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
+    setTranscript([]); setFields([]); setFieldValues({});
+    setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+    setLastAdded(null); setConversationSummary(''); setP1Transcript([]); setLineText('');
+    setAiThinking(false); setApiError(null);
+  };
+
+  const typeDef = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
+
+  const renderFieldPreview = (field) => {
+    const def = typeDef(field.type);
+    const { Icon } = def;
+    const isEditingPrice = editingPriceKey === field.key;
+    return (
+      <div key={field.key} className={`bg-white rounded-xl border px-4 py-3 anim-slide-up ${def.border}`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${def.bg}`}>
+              <Icon className={`w-3.5 h-3.5 ${def.text}`} />
+            </span>
+            <span className="text-sm font-semibold text-slate-700">{field.label}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${def.bg} ${def.text}`}>{def.label}</span>
+            <button onClick={() => removeField(field.key)} className="text-slate-300 hover:text-red-400 transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+        {field.type === 'priced-item' && (
+          <div className="mt-1">
+            {isEditingPrice ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-slate-500 font-medium">£</span>
+                <input
+                  autoFocus
+                  type="number"
+                  defaultValue={field.price || ''}
+                  onBlur={e => { setFields(p => p.map(f => f.key === field.key ? { ...f, price: parseFloat(e.target.value) || 0 } : f)); setEditingPriceKey(null); }}
+                  onKeyDown={e => e.key === 'Enter' && e.target.blur()}
+                  className="w-24 px-2 py-1.5 rounded-lg border border-amber-300 text-sm outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="0.00"
+                />
+                <select
+                  defaultValue={field.priceUnit}
+                  onChange={e => setFields(p => p.map(f => f.key === field.key ? { ...f, priceUnit: e.target.value } : f))}
+                  className="text-xs border border-slate-200 rounded-lg px-2 py-1.5 outline-none bg-white"
+                >
+                  <option value="per_head">per head</option>
+                  <option value="flat">flat rate</option>
+                </select>
+              </div>
+            ) : (
+              <button
+                onClick={() => setEditingPriceKey(field.key)}
+                className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span className="font-semibold">{field.price > 0 ? `£${field.price}` : 'Set price'}</span>
+                {field.price > 0 && <span className="text-amber-500 font-normal">{field.priceUnit === 'per_head' ? 'per head' : 'flat rate'}</span>}
+                <Edit3 className="w-3 h-3 text-amber-400 ml-1" />
+              </button>
+            )}
+          </div>
+        )}
+        {['select','multi-check'].includes(field.type) && field.options?.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {field.options.map(o => (
+              <span key={o} className={`text-[11px] font-medium px-2 py-0.5 rounded-full ${def.bg} ${def.text}`}>{o}</span>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderFieldInput = (field) => {
+    const val = fieldValues[field.key];
+    const def = typeDef(field.type);
+    const { Icon } = def;
+    const filled = val !== undefined && val !== '' && val !== false && !(Array.isArray(val) && val.length === 0);
+    const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300 ${filled ? 'border-green-300 bg-green-50 text-green-900' : 'border-slate-200 bg-white'}`;
+    return (
+      <div key={field.key} className={`bg-white rounded-xl border px-4 py-3 transition-all duration-300 ${filled ? 'border-green-200 shadow-sm shadow-green-50' : 'border-slate-200'}`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${def.bg}`}>
+              <Icon className={`w-3.5 h-3.5 ${def.text}`} />
+            </span>
+            <label className="text-sm font-semibold text-slate-700">{field.label}</label>
+          </div>
+          {filled && <span className="text-[10px] font-bold text-green-600 bg-green-50 px-1.5 py-0.5 rounded-full flex items-center gap-1"><Check className="w-2.5 h-2.5" />Filled</span>}
+        </div>
+
+        {field.type === 'toggle' && (
+          <button
+            onClick={() => setVal(field.key, !val)}
+            className={`flex items-center gap-3 px-4 py-2.5 rounded-xl border-2 transition-all w-full ${val ? 'border-green-300 bg-green-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'}`}
+          >
+            <div className={`w-11 h-6 rounded-full relative transition-colors flex-shrink-0 ${val ? 'bg-green-500' : 'bg-slate-300'}`}>
+              <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${val ? 'translate-x-6' : 'translate-x-1'}`} />
+            </div>
+            <span className={`text-sm font-semibold ${val ? 'text-green-700' : 'text-slate-500'}`}>{val ? 'Yes' : 'No — tap to toggle'}</span>
+          </button>
+        )}
+
+        {field.type === 'multi-check' && (
+          <div className="space-y-2">
+            {(field.options?.length ? field.options : ['Option A','Option B']).map(opt => {
+              const checked = Array.isArray(val) && val.includes(opt);
+              return (
+                <label key={opt} className="flex items-center gap-3 cursor-pointer group py-0.5">
+                  <div
+                    onClick={() => { const c = Array.isArray(val) ? val : []; setVal(field.key, checked ? c.filter(v => v !== opt) : [...c, opt]); }}
+                    className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all flex-shrink-0 ${checked ? 'bg-green-500 border-green-500' : 'border-slate-300 group-hover:border-slate-400'}`}
+                  >
+                    {checked && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className="text-sm text-slate-700">{opt}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+
+        {field.type === 'select' && (
+          <select value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={`${inputCls} bg-white`}>
+            <option value="">Select…</option>
+            {(field.options || []).map(o => <option key={o} value={o}>{o}</option>)}
+          </select>
+        )}
+
+        {field.type === 'priced-item' && (
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold ${filled ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
+              <DollarSign className="w-3.5 h-3.5" />
+              £{field.price || '—'} <span className="font-normal text-xs">{field.priceUnit === 'per_head' ? 'per head' : 'flat'}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => setVal(field.key, Math.max(0, (parseInt(val)||0) - 1))} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-700 font-bold text-lg leading-none">−</button>
+              <span className="text-base font-bold text-slate-900 w-8 text-center tabular-nums">{parseInt(val) || 0}</span>
+              <button onClick={() => setVal(field.key, (parseInt(val)||0) + 1)} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-700 font-bold text-lg leading-none">+</button>
+            </div>
+            {field.price > 0 && (parseInt(val)||0) > 0 && (
+              <span className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">
+                = £{(field.price * (parseInt(val)||0)).toFixed(2)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {field.type === 'currency' && (
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">£</span>
+            <input type="number" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0.00" className={`${inputCls} pl-8`} />
+          </div>
+        )}
+        {field.type === 'date' && <input type="date" value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={inputCls} />}
+        {field.type === 'time' && <input type="time" value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={inputCls} />}
+        {field.type === 'number' && <input type="number" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0" className={inputCls} />}
+        {field.type === 'text' && <input type="text" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="Type answer…" className={inputCls} />}
+      </div>
+    );
+  };
+
+  // SETUP
+  if (step === 'setup') {
+    return (
+      <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center p-8">
+        <div className="w-full max-w-md">
+          <div className="mb-8">
+            <h2 className="text-2xl font-black text-slate-900 mb-1">New onboarding session</h2>
+            <p className="text-slate-500 text-sm">Enter your prospect's details to get started.</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Client Name</label>
+              <input
+                autoFocus
+                type="text"
+                value={session.name}
+                onChange={e => setSession(s => ({ ...s, name: e.target.value }))}
+                onKeyDown={e => e.key === 'Enter' && session.name.trim() && setStep('p1')}
+                placeholder="e.g. Jane's Photography"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
+                Phone Number <span className="text-slate-300 font-normal normal-case tracking-normal">— connect via Twilio</span>
+              </label>
+              <input
+                type="tel"
+                value={session.phone}
+                onChange={e => setSession(s => ({ ...s, phone: e.target.value }))}
+                placeholder="+44 7700 900123"
+                className="w-full px-3 py-2.5 rounded-lg border border-slate-200 text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
+              />
+            </div>
+          </div>
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => session.name.trim() && setStep('p1')}
+              disabled={!session.name.trim()}
+              className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <PhoneCall className="w-4 h-4" />
+              Begin Part 1 — Discovery Call
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // P1 + P2 SHARED CALL LAYOUT
+  if (step === 'p1' || step === 'p2') {
+    const isP2 = step === 'p2';
+    const filledCount = Object.keys(fieldValues).filter(k => fieldValues[k] !== '' && fieldValues[k] !== undefined && fieldValues[k] !== false && !(Array.isArray(fieldValues[k]) && !fieldValues[k].length)).length;
+
+    if (reAnalyzing) return (
+      <div className="h-full flex flex-col items-center justify-center bg-[#F7F7F5] gap-6">
+        <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-slate-900 animate-spin" />
+        <div className="text-center">
+          <p className="font-semibold text-slate-800 text-lg">Reviewing conversation…</p>
+          <p className="text-slate-500 text-sm mt-1">AI is reading the full transcript to refine your form</p>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="h-full flex overflow-hidden">
+
+        {/* LEFT: Call + Transcript */}
+        <div className="w-[40%] flex flex-col border-r border-slate-200 bg-white overflow-hidden">
+
+          {/* Call header */}
+          <div className={`px-4 py-3 flex items-center gap-3 flex-shrink-0 transition-colors ${callState === 'active' ? 'bg-slate-900' : 'bg-slate-100 border-b border-slate-200'}`}>
+            {callState === 'active' && <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0" />}
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-semibold truncate ${callState === 'active' ? 'text-white' : 'text-slate-700'}`}>
+                {session.name} — {isP2 ? 'Part 2' : 'Part 1'}
+              </div>
+              <div className={`text-xs font-mono ${callState === 'active' ? 'text-slate-400' : 'text-slate-400'}`}>
+                {callState === 'active' ? fmt(callSeconds) : callState === 'connecting' ? 'Connecting…' : callState === 'ended' ? 'Call ended' : 'Not connected'}
+              </div>
+            </div>
+            {(callState === 'idle' || callState === 'ended') && (
+              <button onClick={startCall} className="flex items-center gap-1.5 bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors flex-shrink-0">
+                <Phone className="w-3 h-3" /> Call
+              </button>
+            )}
+            {callState === 'active' && (
+              <button onClick={endCall} className="flex items-center gap-1.5 bg-red-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-red-600 transition-colors flex-shrink-0">
+                <PhoneOff className="w-3 h-3" /> End
+              </button>
+            )}
+            {callState === 'connecting' && (
+              <div className="text-[10px] text-slate-400 flex-shrink-0 animate-pulse">Connecting…</div>
+            )}
+          </div>
+
+          {/* Status banner */}
+          {callState !== 'active' && (
+            <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2 flex-shrink-0">
+              <div className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" />
+              <span className="text-xs text-amber-700">Twilio not connected — add transcript lines manually below</span>
+            </div>
+          )}
+          {callState === 'active' && (
+            <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center gap-2 flex-shrink-0">
+              <Radio className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
+              <span className="text-xs text-green-700 font-medium">
+                AI listening — {isP2 ? 'filling form in real time' : 'extracting questions in real time'}
+              </span>
+            </div>
+          )}
+          {apiError && (
+            <div className="px-4 py-2 bg-red-50 border-b border-red-100 flex items-center gap-2 flex-shrink-0 anim-slide-up">
+              <div className="w-1.5 h-1.5 bg-red-500 rounded-full flex-shrink-0" />
+              <span className="text-xs text-red-700 font-medium">{apiError}</span>
+            </div>
+          )}
+
+          {/* Transcript */}
+          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {transcript.length === 0 && (
+              <p className="text-center text-slate-300 text-sm py-10">
+                {callState === 'active' ? 'Listening — transcript will appear here…' : 'Press Call to start. Transcript appears here automatically.'}
+              </p>
+            )}
+            {transcript.map((line, i) => (
+              <div key={i} className={`flex gap-2.5 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-white'}`}>
+                  {line.speaker === 'You' ? 'Y' : line.speaker[0].toUpperCase()}
+                </div>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-slate-800 text-white rounded-tr-sm'}`}>
+                  {line.text}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Auto-add toast (P1) */}
+          {!isP2 && lastAdded && (
+            <div className="border-t border-green-100 bg-green-50 px-3 py-2 flex-shrink-0 anim-slide-up flex items-center gap-2">
+              <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                <svg className="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+              </div>
+              <span className="text-xs font-semibold text-green-700">Added: <span className="font-bold">{lastAdded}</span></span>
+            </div>
+          )}
+
+          {/* Test input — remove when Twilio is live */}
+          <div className="border-t border-slate-200 p-3 flex-shrink-0 bg-white space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" />
+                <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wide">Test mode</span>
+              </div>
+              {aiThinking && (
+                <div className="flex items-center gap-1.5 text-[10px] text-green-600 font-medium">
+                  <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                  AI thinking…
+                </div>
+              )}
+            </div>
+            <div className="flex gap-2 items-center">
+              {['You', 'Client'].map(s => (
+                <button key={s} onClick={() => setLineSpeaker(s)}
+                  className={`text-xs px-3 py-1 rounded-full font-medium transition-colors flex-shrink-0 ${lineSpeaker === s ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                >{s}</button>
+              ))}
+              {/* Mic button — hold to speak */}
+              <button
+                onClick={micActive ? stopMic : startMic}
+                title={micActive ? 'Click to stop recording' : 'Click to start recording'}
+                className={`p-2 rounded-lg transition-colors flex-shrink-0 ${micActive ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+              >
+                <Mic className="w-4 h-4" />
+              </button>
+              <input
+                ref={lineInputRef} type="text" value={lineText}
+                onChange={e => setLineText(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && addTranscriptLine()}
+                placeholder="Or type a line and press Enter…"
+                className="flex-1 px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-sm outline-none focus:ring-2 focus:ring-amber-400 transition placeholder:text-slate-300"
+              />
+              <button onClick={addTranscriptLine} className="p-2 bg-slate-900 text-white rounded-lg hover:bg-slate-700 transition-colors flex-shrink-0">
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+            {micActive && (
+              <div className="flex items-center gap-2 px-2 py-1.5 bg-red-50 rounded-lg border border-red-200 min-h-[32px]">
+                <div className="flex gap-0.5 items-end h-4 flex-shrink-0">
+                  {[3,5,4,6,3,5,2,4,6,3].map((h, i) => (
+                    <div key={i} className="w-0.5 bg-red-400 rounded-full animate-pulse" style={{ height: `${h * 2}px`, animationDelay: `${i * 80}ms` }} />
+                  ))}
+                </div>
+                {interimText
+                  ? <span className="text-xs text-red-700 italic flex-1">{interimText}</span>
+                  : <span className="text-xs text-red-500 flex-1">Listening… speak now</span>
+                }
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT: Form panel */}
+        <div className="flex-1 flex flex-col bg-[#F7F7F5] overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
+            <div>
+              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Intake Form — Fill in live' : 'Intake Form — Build it out'}</h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {isP2 ? `${filledCount}/${fields.length} fields filled` : `${fields.length} ${fields.length === 1 ? 'field' : 'fields'} — ${FIELD_TYPE_DEFS.length} types available`}
+              </p>
+            </div>
+            {!isP2 && (
+              <button onClick={() => setAddingField(true)}
+                className="flex items-center gap-1.5 text-xs font-semibold bg-slate-900 text-white px-3 py-1.5 rounded-lg hover:bg-slate-700 transition-colors">
+                <Plus className="w-3.5 h-3.5" /> Add Field
+              </button>
+            )}
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-5">
+            {fields.length === 0 && !addingField && (
+              <div onClick={() => !isP2 && setAddingField(true)}
+                className={`border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center ${!isP2 ? 'cursor-pointer hover:border-slate-300 transition-colors' : ''}`}>
+                {isP2
+                  ? <p className="text-slate-300 text-sm">No fields built in Part 1. Go back and add some.</p>
+                  : <><Plus className="w-6 h-6 text-slate-300 mx-auto mb-2" /><p className="text-slate-400 text-sm font-medium">Fields build here automatically</p><p className="text-slate-300 text-xs mt-1">AI extracts them from the call — or add one manually</p></>
+                }
+              </div>
+            )}
+
+            <div className="space-y-3">
+              {isP2 ? fields.map(f => renderFieldInput(f)) : fields.map(f => renderFieldPreview(f))}
+
+              {/* Add field inline form — enhanced with type picker */}
+              {addingField && !isP2 && (
+                <div className="bg-white rounded-xl border-2 border-slate-900 px-4 py-4 space-y-3 anim-slide-up">
+                  <input
+                    autoFocus type="text" value={newField.label}
+                    onChange={e => { const v = e.target.value; setNewField(f => ({ ...f, label: v, type: detectFieldType(v) || f.type })); }}
+                    onKeyDown={e => e.key === 'Enter' && commitField()}
+                    placeholder="Field label — e.g. Guest Count, Event Date, Vegan Option"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
+                  />
+                  {/* Type grid */}
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {FIELD_TYPE_DEFS.map(def => (
+                      <button key={def.id} onClick={() => setNewField(f => ({ ...f, type: def.id }))}
+                        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all ${newField.type === def.id ? `${def.bg} ${def.border} ${def.text} font-semibold` : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
+                        <def.Icon className="w-3.5 h-3.5 flex-shrink-0" />
+                        <span className="text-xs leading-tight">{def.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {/* Type-specific options */}
+                  {['select','multi-check'].includes(newField.type) && (
+                    <input type="text" value={newField.options} onChange={e => setNewField(f => ({...f, options: e.target.value}))}
+                      placeholder="Options, comma-separated (e.g. Seated, Buffet, Canapés)"
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300" />
+                  )}
+                  {newField.type === 'priced-item' && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
+                      <DollarSign className="w-4 h-4 text-amber-600 flex-shrink-0" />
+                      <span className="text-sm text-amber-700 font-medium">£</span>
+                      <input type="number" value={newField.price} onChange={e => setNewField(f => ({...f, price: e.target.value}))}
+                        placeholder="0.00" className="w-24 px-2 py-1.5 rounded-lg border border-amber-300 text-sm outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+                      <select value={newField.priceUnit} onChange={e => setNewField(f => ({...f, priceUnit: e.target.value}))}
+                        className="text-xs border border-amber-200 rounded-lg px-2 py-1.5 outline-none bg-white text-amber-700">
+                        <option value="per_head">per head</option>
+                        <option value="flat">flat rate</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
+                    <button onClick={() => { setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' }); }}
+                      className="flex-1 py-2 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+                    <button onClick={commitField} disabled={!newField.label.trim()}
+                      className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition-colors disabled:opacity-40">Add Field</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Footer CTA */}
+          <div className="border-t border-slate-200 bg-white px-6 py-4 flex justify-between items-center flex-shrink-0">
+            {isP2 ? (
+              <>
+                <button
+                  onClick={() => { setStep('p1'); setCallState('idle'); setCallSeconds(0); setTranscript(p1Transcript); }}
+                  className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
+                >← Back to Part 1</button>
+                <button
+                  onClick={() => setStep('complete')}
+                  className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
+                >
+                  <CheckCircle2 className="w-4 h-4" /> Complete Demo
+                </button>
+              </>
+            ) : (
+              <>
+                <button onClick={reset} className="text-sm text-slate-500 hover:text-slate-800 transition-colors">Start over</button>
+                <button
+                  onClick={goToP2}
+                  disabled={fields.length === 0}
+                  className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Continue to Part 2 <ArrowRight className="w-4 h-4" />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // COMPLETE
+  if (step === 'complete') {
+    const renderCompleteValue = (f) => {
+      const v = fieldValues[f.key];
+      if (v === undefined || v === '') return <span className="text-slate-300 italic">—</span>;
+      if (f.type === 'toggle') return <span className={v ? 'text-green-700 font-semibold' : 'text-slate-500'}>{ v ? 'Yes' : 'No' }</span>;
+      if (f.type === 'multi-check') return Array.isArray(v) && v.length ? v.join(', ') : <span className="text-slate-300 italic">—</span>;
+      if (f.type === 'priced-item') {
+        const qty = parseInt(v) || 0;
+        return <span>{qty} {qty === 1 ? 'portion' : 'portions'}{f.price > 0 ? ` — £${(f.price * qty).toFixed(2)}` : ''}</span>;
+      }
+      if (f.type === 'currency') return `£${v}`;
+      return String(v);
+    };
+    const pricedTotal = fields
+      .filter(f => f.type === 'priced-item' && f.price > 0 && parseInt(fieldValues[f.key]) > 0)
+      .reduce((sum, f) => sum + f.price * (parseInt(fieldValues[f.key]) || 0), 0);
+    const filledCount = fields.filter(f => {
+      const v = fieldValues[f.key];
+      return v !== undefined && v !== '' && v !== false && !(Array.isArray(v) && !v.length);
+    }).length;
+    return (
+      <div className="h-full bg-[#F7F7F5] overflow-y-auto">
+        <div className="w-full max-w-lg mx-auto py-8 px-8">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Star className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-1">Demo complete</h2>
+            <p className="text-slate-500 text-sm">{session.name} — onboarding session finished.</p>
+          </div>
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-700">Completed intake form</h3>
+              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{filledCount}/{fields.length} filled</span>
+            </div>
+            <div className="space-y-3">
+              {fields.map(f => {
+                const def = typeDef(f.type);
+                return (
+                  <div key={f.key} className="flex items-start gap-3">
+                    <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${def.bg}`}>
+                      <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
+                      <div className="text-sm text-slate-800">{renderCompleteValue(f)}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {pricedTotal > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">Estimated food total</div>
+                <div className="text-xs text-amber-600">Based on priced items selected</div>
+              </div>
+              <div className="text-2xl font-black text-amber-800">£{pricedTotal.toFixed(2)}</div>
+            </div>
+          )}
+          {/* AI Conversation Log */}
+          {(conversationSummary || p1Transcript.length > 0) && (
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4">
+              <div className="flex items-center gap-2 mb-3">
+                <div className="w-5 h-5 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+                </div>
+                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">AI Conversation Log</span>
+              </div>
+              {conversationSummary && (
+                <p className="text-sm text-slate-600 leading-relaxed mb-3">{conversationSummary}</p>
+              )}
+              {p1Transcript.length > 0 && (
+                <details className="group">
+                  <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 select-none list-none flex items-center gap-1">
+                    <svg className="w-3 h-3 group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
+                    View full transcript ({p1Transcript.length} lines)
+                  </summary>
+                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
+                    {p1Transcript.map((l, i) => (
+                      <div key={i} className="text-xs text-slate-500">
+                        <span className="font-semibold text-slate-700">{l.speaker}:</span> {l.text}
+                      </div>
+                    ))}
+                  </div>
+                </details>
+              )}
+            </div>
+          )}
+
+          <div className="flex justify-center gap-3">
+            <button
+              onClick={() => { setStep('p2'); setFieldValues({}); setTranscript([]); setCallState('idle'); setCallSeconds(0); }}
+              className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition-colors"
+            >Redo Part 2</button>
+            <button
+              onClick={reset}
+              className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
+            >New session</button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function OnboardingView() {
+  const [activeTab, setActiveTab] = useState('working');
+  return (
+    <div className="h-full flex flex-col overflow-hidden">
+      <div className="border-b border-slate-200 bg-white px-6 flex items-center gap-1 flex-shrink-0 h-11">
+        <button
+          onClick={() => setActiveTab('working')}
+          className={`text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${activeTab === 'working' ? 'text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+        >Live Session</button>
+        <button
+          onClick={() => setActiveTab('example')}
+          className={`text-sm font-medium px-3 py-1.5 rounded-md transition-colors ${activeTab === 'example' ? 'text-slate-900 bg-slate-100' : 'text-slate-500 hover:text-slate-800 hover:bg-slate-50'}`}
+        >
+          Example Demo
+          <span className="ml-1.5 text-[10px] font-bold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full uppercase tracking-wide">Preview</span>
+        </button>
+      </div>
+      <div className="flex-1 overflow-hidden">
+        {activeTab === 'working' ? <OnboardingWorking /> : <OnboardingExample />}
+      </div>
+    </div>
+  );
+}
+
 // --- SIDEBAR ---
-function Sidebar({ currentView, navigateTo }) {
+function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose }) {
   const navGroups = [
     {
       title: 'Workspace',
@@ -2161,12 +4626,13 @@ function Sidebar({ currentView, navigateTo }) {
         { id: 'dashboard', icon: Home, label: 'Dashboard' },
         { id: 'inquiries', icon: Inbox, label: 'Inquiries' },
         { id: 'quotes', icon: FileText, label: 'Quotes' },
-        { id: 'calls', icon: Phone, label: 'Calls (OpenPhone)', badge: '2' },
+        { id: 'calls', icon: Phone, label: 'Call Log', badge: '2' },
       ]
     },
     {
       title: 'Admin',
       items: [
+        { id: 'onboarding', icon: UserPlus, label: 'Onboarding' },
         { id: 'templates', icon: LayoutGrid, label: 'Templates' },
         { id: 'price-list', icon: Tag, label: 'Price List' },
         { id: 'menus', icon: Package, label: 'Menus & Packages' },
@@ -2177,12 +4643,11 @@ function Sidebar({ currentView, navigateTo }) {
   ];
 
   return (
-    <div className="w-64 bg-[#F7F7F5] border-r border-slate-200 h-full flex flex-col z-20">
+    <>
+      {isOpen && <div className="fixed inset-0 bg-black/40 z-30 md:hidden" onClick={onClose} />}
+    <div className={`fixed inset-y-0 left-0 z-40 w-64 bg-[#F7F7F5] border-r border-slate-200 h-full flex flex-col transition-transform duration-200 ease-in-out md:relative md:translate-x-0 md:z-auto ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
       <div className="h-14 flex items-center px-4 font-semibold text-slate-800 border-b border-transparent">
-        <div className="w-6 h-6 bg-slate-900 rounded flex items-center justify-center mr-2 text-white shadow-sm">
-          <MenuIcon className="w-4 h-4" />
-        </div>
-        Get My Quote
+        <img src="/logo.svg" alt="Show My Quote" className="h-6 w-auto" />
       </div>
 
       <div className="flex-1 py-4 overflow-y-auto">
@@ -2212,6 +4677,17 @@ function Sidebar({ currentView, navigateTo }) {
         ))}
       </div>
 
+      {onHome && (
+        <div className="px-4 pb-2">
+          <button
+            onClick={onHome}
+            className="w-full flex items-center px-3 py-1.5 rounded-md text-sm text-slate-500 hover:bg-slate-200/40 hover:text-slate-900 transition-colors"
+          >
+            <Home className="w-4 h-4 mr-3 text-slate-400" />
+            Back to homepage
+          </button>
+        </div>
+      )}
       <div className="p-4 border-t border-slate-200/60 text-sm text-slate-500 flex items-center hover:bg-slate-200/40 cursor-pointer transition-colors">
         <div className="w-8 h-8 rounded bg-slate-300 mr-3 overflow-hidden flex-shrink-0">
           <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=e2e8f0" alt="avatar" />
@@ -2222,5 +4698,6 @@ function Sidebar({ currentView, navigateTo }) {
         </div>
       </div>
     </div>
+    </>
   );
 }

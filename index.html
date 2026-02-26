@@ -3,8 +3,30 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Get My Quote</title>
+    <title>Show My Quote</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes slideUp {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0);   }
+      }
+      .anim-slide-up { animation: slideUp 0.35s ease-out; }
+      @keyframes popIn {
+        0%   { opacity: 0; transform: scale(0.92); }
+        100% { opacity: 1; transform: scale(1);    }
+      }
+      .anim-pop-in { animation: popIn 0.3s ease-out; }
+      @keyframes marquee {
+        from { transform: translateX(0); }
+        to   { transform: translateX(-50%); }
+      }
+      .anim-marquee { animation: marquee 28s linear infinite; }
+      html, body { scrollbar-width: none; -ms-overflow-style: none; font-family: 'DM Sans', sans-serif; }
+      html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+    </style>
   </head>
   <body>
     <div id="root"></div>
