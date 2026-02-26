@@ -7,7 +7,12 @@ export default async function handler(req, res) {
   const KEY = process.env.OPENAI_API_KEY;
   if (!KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
 
-  const fieldList = fields.map(f =>
+  // Formula and layout fields cannot be filled by AI
+  const SKIP_TYPES = ['formula','section-header','divider','instructions'];
+  const fillable = fields.filter(f => !SKIP_TYPES.includes(f.type));
+  if (!fillable.length) return res.json({ fills: [] });
+
+  const fieldList = fillable.map(f =>
     `key="${f.key}" label="${f.label}" type="${f.type}"` +
     (f.options?.length ? ` options=[${f.options.join(', ')}]` : '') +
     (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit === 'per_head' ? 'per head' : 'flat'}` : '')
@@ -27,14 +32,25 @@ export default async function handler(req, res) {
 { "fills": [ { "key": "...", "value": ... } ] }
 
 Value format by type:
+- text / select → plain string
+- long-text → full transcribed multi-sentence text, preserve exact wording
+- email → valid email string (e.g. "jane@example.com")
+- phone → formatted phone number string (e.g. "+44 7700 900123")
+- url → full URL string including https:// (e.g. "https://example.com")
+- address → full address as a single string (e.g. "12 Main St, London, SW1A 1AA")
 - toggle → true or false (boolean)
 - number → integer
-- priced-item → integer quantity (if client just confirms they want it without a number, return 1)
+- decimal → numeric string with decimals (e.g. "24.5")
+- currency → numeric string (e.g. "3500")
+- percentage → numeric string without % symbol (e.g. "20" means 20%)
+- rating → integer 1–5
+- slider → integer within the field's implied range
+- priced-item → integer quantity (if client confirms without a number, return 1)
 - multi-check → array of strings matching available options
 - date → "DD Mon YYYY" (e.g. "14 Sep 2026")
-- time → "HH:MM" 24h
-- currency → numeric string (e.g. "3500")
-- text / select → plain string
+- time → "HH:MM" 24h format
+- datetime → ISO 8601 string "YYYY-MM-DDTHH:MM" (e.g. "2027-06-15T14:00")
+- duration → JSON object { "hours": N, "minutes": N }
 
 Use the conversation context to resolve short answers like "yes", "120", "June" to the correct field.
 

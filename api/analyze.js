@@ -11,7 +11,8 @@ export default async function handler(req, res) {
   const existing = currentFields.map(f =>
     `label="${f.label}" type="${f.type}"` +
     (f.options?.length ? ` options=[${f.options.join(', ')}]` : '') +
-    (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit}` : '')
+    (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit}` : '') +
+    (f.type === 'formula' ? ` formulaExpression="${f.formulaExpression}"` : '')
   ).join('\n') || '(none yet)';
 
   try {
@@ -26,13 +27,31 @@ export default async function handler(req, res) {
             role: 'system',
             content: `You are reviewing a completed discovery call transcript. Return a valid JSON object with two keys:
 
-"fields": clean, deduplicated array of ALL data points the owner mentioned. Each: { "label": string, "type": one of text/number/currency/date/time/toggle/select/multi-check/priced-item, "options": [] (only select/multi-check), "price": number (only priced-item), "priceUnit": "per_head"|"flat" (only priced-item) }
+"fields": clean, deduplicated array of ALL data points the owner mentioned. Each field:
+{
+  "label": string,
+  "type": one of text/number/currency/date/time/toggle/select/multi-check/priced-item/long-text/email/phone/url/decimal/percentage/rating/slider/datetime/duration/address/formula,
+  "options": [] (only for select/multi-check),
+  "price": number (only for priced-item),
+  "priceUnit": "per_head"|"flat" (only for priced-item),
+  "formulaExpression": "{Field A} * {Field B}" (only for formula),
+  "suggested": true (only for formula),
+  "content": "string" (only for section-header/instructions)
+}
 
 "summary": 2-3 sentence plain-English summary of what this business collects.
 
 Rules:
 - Merge duplicates (e.g. "Event Date" and "Date of Event" → one field)
-- Correct wrong types (guest count → "number", not "text")
+- Correct wrong types:
+  - guest count, quantities → "number" not "text"
+  - email addresses → "email" not "text"
+  - phone numbers → "phone" not "text"
+  - URLs/websites → "url" not "text"
+  - Notes/Special Requirements → "long-text" not "text"
+  - Full addresses → "address" not "text"
+  - budget/spend → "currency" not "text" or "number"
+  - yes/no questions → "toggle" not "text"
 - Add clearly mentioned fields that were missed
 - Remove false positives from small talk
 - Preserve the order fields were first mentioned`,

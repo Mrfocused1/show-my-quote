@@ -13,7 +13,8 @@ import {
   Users, Activity, TrendingUp, Globe, Link2, Bell, Shield, LayoutGrid,
   Mic, MicOff, PhoneOff, Radio, Pause, Play, UserPlus,
   Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
-  Hash, ToggleRight, CheckSquare, Type as TypeIcon
+  Hash, ToggleRight, CheckSquare, Type as TypeIcon,
+  AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -3568,19 +3569,54 @@ function OnboardingExample() {
 
 // --- SMART FIELD TYPES ---
 const FIELD_TYPE_DEFS = [
-  { id: 'text',        label: 'Short Text',   Icon: TypeIcon,      bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-300'  },
-  { id: 'number',      label: 'Number',       Icon: Hash,          bg: 'bg-blue-50',     text: 'text-blue-600',    border: 'border-blue-300'   },
-  { id: 'currency',    label: 'Budget',       Icon: DollarSign,    bg: 'bg-green-50',    text: 'text-green-700',   border: 'border-green-300'  },
-  { id: 'date',        label: 'Date',         Icon: Calendar,      bg: 'bg-purple-50',   text: 'text-purple-600',  border: 'border-purple-300' },
-  { id: 'time',        label: 'Time',         Icon: Clock,         bg: 'bg-orange-50',   text: 'text-orange-600',  border: 'border-orange-300' },
-  { id: 'toggle',      label: 'Yes / No',     Icon: ToggleRight,   bg: 'bg-teal-50',     text: 'text-teal-600',    border: 'border-teal-300'   },
-  { id: 'select',      label: 'Choose One',   Icon: ChevronDown,   bg: 'bg-indigo-50',   text: 'text-indigo-600',  border: 'border-indigo-300' },
-  { id: 'multi-check', label: 'Multi-select', Icon: CheckSquare,   bg: 'bg-pink-50',     text: 'text-pink-600',    border: 'border-pink-300'   },
-  { id: 'priced-item', label: 'Priced Item',  Icon: Tag,           bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-300'  },
+  // ── Text ────────────────────────────────────────────────────────────────
+  { id: 'text',          label: 'Short Text',    Icon: TypeIcon,         bg: 'bg-slate-100',   text: 'text-slate-600',   border: 'border-slate-300',   group: 'Text'        },
+  { id: 'long-text',     label: 'Long Text',     Icon: AlignLeft,        bg: 'bg-slate-100',   text: 'text-slate-500',   border: 'border-slate-300',   group: 'Text'        },
+  { id: 'email',         label: 'Email',         Icon: Mail,             bg: 'bg-sky-50',      text: 'text-sky-600',     border: 'border-sky-300',     group: 'Text'        },
+  { id: 'phone',         label: 'Phone',         Icon: Phone,            bg: 'bg-cyan-50',     text: 'text-cyan-600',    border: 'border-cyan-300',    group: 'Text'        },
+  { id: 'url',           label: 'URL / Link',    Icon: Link2,            bg: 'bg-violet-50',   text: 'text-violet-600',  border: 'border-violet-300',  group: 'Text'        },
+  // ── Numbers ─────────────────────────────────────────────────────────────
+  { id: 'number',        label: 'Number',        Icon: Hash,             bg: 'bg-blue-50',     text: 'text-blue-600',    border: 'border-blue-300',    group: 'Numbers'     },
+  { id: 'decimal',       label: 'Decimal',       Icon: Hash,             bg: 'bg-blue-50',     text: 'text-blue-500',    border: 'border-blue-200',    group: 'Numbers'     },
+  { id: 'currency',      label: 'Budget',        Icon: DollarSign,       bg: 'bg-green-50',    text: 'text-green-700',   border: 'border-green-300',   group: 'Numbers'     },
+  { id: 'percentage',    label: 'Percentage',    Icon: Percent,          bg: 'bg-lime-50',     text: 'text-lime-700',    border: 'border-lime-300',    group: 'Numbers'     },
+  { id: 'rating',        label: 'Star Rating',   Icon: Star,             bg: 'bg-yellow-50',   text: 'text-yellow-500',  border: 'border-yellow-300',  group: 'Numbers'     },
+  { id: 'slider',        label: 'Slider',        Icon: SlidersHorizontal,bg: 'bg-fuchsia-50',  text: 'text-fuchsia-600', border: 'border-fuchsia-300', group: 'Numbers'     },
+  // ── Date & Time ─────────────────────────────────────────────────────────
+  { id: 'date',          label: 'Date',          Icon: Calendar,         bg: 'bg-purple-50',   text: 'text-purple-600',  border: 'border-purple-300',  group: 'Date & Time' },
+  { id: 'time',          label: 'Time',          Icon: Clock,            bg: 'bg-orange-50',   text: 'text-orange-600',  border: 'border-orange-300',  group: 'Date & Time' },
+  { id: 'datetime',      label: 'Date + Time',   Icon: CalendarClock,    bg: 'bg-purple-50',   text: 'text-purple-500',  border: 'border-purple-200',  group: 'Date & Time' },
+  { id: 'duration',      label: 'Duration',      Icon: Timer,            bg: 'bg-orange-50',   text: 'text-orange-500',  border: 'border-orange-200',  group: 'Date & Time' },
+  // ── Choice ──────────────────────────────────────────────────────────────
+  { id: 'toggle',        label: 'Yes / No',      Icon: ToggleRight,      bg: 'bg-teal-50',     text: 'text-teal-600',    border: 'border-teal-300',    group: 'Choice'      },
+  { id: 'select',        label: 'Choose One',    Icon: ChevronDown,      bg: 'bg-indigo-50',   text: 'text-indigo-600',  border: 'border-indigo-300',  group: 'Choice'      },
+  { id: 'multi-check',   label: 'Multi-select',  Icon: CheckSquare,      bg: 'bg-pink-50',     text: 'text-pink-600',    border: 'border-pink-300',    group: 'Choice'      },
+  // ── Structured ──────────────────────────────────────────────────────────
+  { id: 'address',       label: 'Address',       Icon: MapPin,           bg: 'bg-rose-50',     text: 'text-rose-600',    border: 'border-rose-300',    group: 'Structured'  },
+  { id: 'priced-item',   label: 'Priced Item',   Icon: Tag,              bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-300',   group: 'Structured'  },
+  // ── Calculated ──────────────────────────────────────────────────────────
+  { id: 'formula',       label: 'Formula',       Icon: Calculator,       bg: 'bg-amber-50',    text: 'text-amber-700',   border: 'border-amber-400',   group: 'Calculated'  },
+  // ── Layout ──────────────────────────────────────────────────────────────
+  { id: 'section-header',label: 'Section Header',Icon: TypeIcon,         bg: 'bg-slate-50',    text: 'text-slate-400',   border: 'border-slate-200',   group: 'Layout'      },
+  { id: 'divider',       label: 'Divider',       Icon: Minus,            bg: 'bg-slate-50',    text: 'text-slate-300',   border: 'border-slate-200',   group: 'Layout'      },
+  { id: 'instructions',  label: 'Instructions',  Icon: Info,             bg: 'bg-blue-50',     text: 'text-blue-400',    border: 'border-blue-200',    group: 'Layout'      },
 ];
 
 const detectFieldType = (text) => {
   const t = text.toLowerCase();
+  if (/\bemail\b|\be-mail\b/.test(t)) return 'email';
+  if (/\bphone\b|\bmobile\b|\btel\b|\bcontact number\b/.test(t)) return 'phone';
+  if (/\bwebsite\b|\burl\b|\blink\b|\bsocial\b|\binstagram\b|\bfacebook\b/.test(t)) return 'url';
+  if (/\bnotes\b|\bdescription\b|\bdetails\b|\blong\b|\bcomments\b|\bmore info\b|\bspecial req/.test(t)) return 'long-text';
+  if (/\baddress\b|\blocation\b.*\bfull\b|\bpostcode\b|\bzip\b/.test(t)) return 'address';
+  if (/\bpercent\b|\bpercentage\b|\bdiscount\b|\bvat\b|\btax rate\b|\bservice charge\b/.test(t)) return 'percentage';
+  if (/\brating\b|\bscore\b|\bstars?\b|\brate\b/.test(t)) return 'rating';
+  if (/\bduration\b|\bhow long\b|\blength of\b/.test(t)) return 'duration';
+  if (/\bdate.{0,4}time\b|\bdatetime\b/.test(t)) return 'datetime';
+  if (/\bformula\b|\bcalcul/.test(t)) return 'formula';
+  if (/\bsection\b|\bheading\b|\bheader\b/.test(t)) return 'section-header';
+  if (/\bdivider\b|\bseparator\b/.test(t)) return 'divider';
+  if (/\binstructi|\bnote to\b|\bread only\b/.test(t)) return 'instructions';
   if (/\bdate\b|\bwhen\b|\bbirthday\b|\banniversary\b/.test(t)) return 'date';
   if (/\btime\b|\bstart\b|\barrive\b|\bfinish\b/.test(t)) return 'time';
   if (/\bguests?\b|\bhow many\b|\bnumber of\b|\bpeople\b|\bheads\b|\bpax\b|\battendees?\b/.test(t)) return 'number';
@@ -3643,7 +3679,7 @@ function OnboardingWorking() {
   const [fields, setFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
   const [addingField, setAddingField] = useState(false);
-  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
   const [lastAdded, setLastAdded] = useState(null);
   const [editingPriceKey, setEditingPriceKey] = useState(null);
   const [reAnalyzing, setReAnalyzing] = useState(false);
@@ -3814,6 +3850,9 @@ function OnboardingWorking() {
                 options: ['select','multi-check'].includes(f.type) ? (f.options || []) : [],
                 price: f.price || 0,
                 priceUnit: f.priceUnit || 'per_head',
+                formulaExpression: f.type === 'formula' ? (f.formulaExpression || '') : '',
+                content: ['section-header','instructions'].includes(f.type) ? (f.content || '') : '',
+                suggested: f.suggested === true,
               });
               rollingLabels.push(cleanLabel); // update so next chunk sees it
             }
@@ -3955,8 +3994,11 @@ function OnboardingWorking() {
         : [],
       price: parseFloat(newField.price) || 0,
       priceUnit: newField.priceUnit,
+      formulaExpression: newField.type === 'formula' ? newField.formulaExpression.trim() : '',
+      content: ['section-header','instructions'].includes(newField.type) ? newField.content.trim() : '',
+      suggested: false,
     }]);
-    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
     setAddingField(false);
   };
 
@@ -3983,6 +4025,9 @@ function OnboardingWorking() {
           options: f.options || [],
           price: f.price || 0,
           priceUnit: f.priceUnit || 'per_head',
+          formulaExpression: f.formulaExpression || '',
+          content: f.content || '',
+          suggested: f.suggested === true,
         })));
       }
       if (result.summary) setConversationSummary(result.summary);
@@ -4004,19 +4049,74 @@ function OnboardingWorking() {
     aiPendingRef.current = 0;
     setStep('setup'); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
     setTranscript([]); setFields([]); setFieldValues({});
-    setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' });
+    setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
     setLastAdded(null); setConversationSummary(''); setP1Transcript([]); setLineText('');
     setAiThinking(false); setApiError(null);
   };
 
   const typeDef = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
 
+  const evaluateFormula = (expression, allFields, values) => {
+    if (!expression) return <span className="text-amber-400 italic text-xs">No expression set</span>;
+    try {
+      const resolved = expression.replace(/\{([^}]+)\}/g, (_, label) => {
+        const match = allFields.find(f => f.label.toLowerCase() === label.toLowerCase());
+        if (!match) return 0;
+        const v = values[match.key];
+        return (v !== undefined && v !== '' ? parseFloat(v) || 0 : 0);
+      });
+      if (!/^[\d\s+\-*/().]+$/.test(resolved)) {
+        return <span className="text-red-400 text-xs">Invalid expression</span>;
+      }
+      // eslint-disable-next-line no-new-func
+      const result = Function('"use strict"; return (' + resolved + ')')();
+      return <span className="text-amber-900 font-bold">{isNaN(result) ? '—' : result.toFixed(2)}</span>;
+    } catch {
+      return <span className="text-red-400 text-xs">Error evaluating</span>;
+    }
+  };
+
   const renderFieldPreview = (field) => {
+    // ── Layout types: structural rendering, no standard card ──────────────
+    if (field.type === 'section-header') {
+      return (
+        <div key={field.key} className="flex items-center justify-between pt-2 pb-1">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest flex-1">{field.label || 'Section Header'}</h3>
+          <button onClick={() => removeField(field.key)} className="text-slate-200 hover:text-red-400 transition-colors ml-2">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+    if (field.type === 'divider') {
+      return (
+        <div key={field.key} className="flex items-center gap-2 py-1">
+          <hr className="flex-1 border-slate-200" />
+          <button onClick={() => removeField(field.key)} className="text-slate-200 hover:text-red-400 transition-colors">
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      );
+    }
+    if (field.type === 'instructions') {
+      return (
+        <div key={field.key} className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start justify-between gap-2">
+          <div className="flex items-start gap-2 flex-1 min-w-0">
+            <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700 leading-relaxed">{field.content || field.label || 'Instruction text'}</p>
+          </div>
+          <button onClick={() => removeField(field.key)} className="text-blue-200 hover:text-red-400 transition-colors flex-shrink-0">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+
     const def = typeDef(field.type);
     const { Icon } = def;
     const isEditingPrice = editingPriceKey === field.key;
     return (
-      <div key={field.key} className={`bg-white rounded-xl border px-4 py-3 anim-slide-up ${def.border}`}>
+      <div key={field.key} className={`bg-white rounded-xl px-4 py-3 anim-slide-up ${field.suggested ? 'border-2 border-dashed border-amber-400 bg-amber-50/30' : `border ${def.border}`}`}>
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${def.bg}`}>
@@ -4025,7 +4125,7 @@ function OnboardingWorking() {
             <span className="text-sm font-semibold text-slate-700">{field.label}</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${def.bg} ${def.text}`}>{def.label}</span>
+            {!field.suggested && <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${def.bg} ${def.text}`}>{def.label}</span>}
             <button onClick={() => removeField(field.key)} className="text-slate-300 hover:text-red-400 transition-colors">
               <X className="w-3.5 h-3.5" />
             </button>
@@ -4074,16 +4174,97 @@ function OnboardingWorking() {
             ))}
           </div>
         )}
+        {field.type === 'rating' && (
+          <div className="flex items-center gap-1 mt-1">
+            {[1,2,3,4,5].map(n => <Star key={n} className="w-4 h-4 text-yellow-300" />)}
+            <span className="text-xs text-slate-400 ml-1">1–5 stars</span>
+          </div>
+        )}
+        {field.type === 'slider' && (
+          <div className="mt-2 px-1">
+            <input type="range" min={0} max={100} defaultValue={50} disabled className="w-full accent-fuchsia-500 opacity-60" />
+          </div>
+        )}
+        {field.type === 'formula' && (
+          <div className="mt-2">
+            {field.suggested ? (
+              <div className="rounded-lg border-2 border-dashed border-amber-400 bg-amber-50 px-3 py-2 space-y-2">
+                <div className="flex items-center gap-1.5">
+                  <Zap className="w-3 h-3 text-amber-600 flex-shrink-0" />
+                  <span className="text-[10px] font-bold text-amber-600 uppercase tracking-wider">AI Suggestion</span>
+                </div>
+                <code className="text-xs text-amber-800 font-mono leading-relaxed block">= {field.formulaExpression || '…'}</code>
+                <div className="flex gap-2 pt-1">
+                  <button
+                    onClick={() => setFields(prev => prev.map(f => f.key === field.key ? { ...f, suggested: false } : f))}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700 transition-colors"
+                  >
+                    <Check className="w-3 h-3" /> Confirm
+                  </button>
+                  <button
+                    onClick={() => removeField(field.key)}
+                    className="flex items-center gap-1 px-3 py-1 rounded-lg border border-amber-300 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors"
+                  >
+                    <X className="w-3 h-3" /> Dismiss
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-amber-50 rounded-lg px-3 py-2">
+                <code className="text-xs text-amber-700 font-mono">= {field.formulaExpression || '(no expression)'}</code>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     );
   };
 
   const renderFieldInput = (field) => {
+    // ── Layout types: structural rendering, no input ──────────────────────
+    if (field.type === 'section-header') {
+      return (
+        <div key={field.key} className="flex items-center pt-3 pb-1">
+          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest">{field.label}</h3>
+        </div>
+      );
+    }
+    if (field.type === 'divider') {
+      return <hr key={field.key} className="border-slate-200 my-1" />;
+    }
+    if (field.type === 'instructions') {
+      return (
+        <div key={field.key} className="bg-blue-50 border border-blue-100 rounded-xl px-4 py-3 flex items-start gap-2">
+          <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+          <p className="text-xs text-blue-700 leading-relaxed">{field.content || field.label}</p>
+        </div>
+      );
+    }
+
     const val = fieldValues[field.key];
     const def = typeDef(field.type);
     const { Icon } = def;
-    const filled = val !== undefined && val !== '' && val !== false && !(Array.isArray(val) && val.length === 0);
+    const filled = val !== undefined && val !== '' && val !== false && !(Array.isArray(val) && val.length === 0) && !(typeof val === 'object' && !Array.isArray(val) && val !== null && val.hours === undefined);
     const inputCls = `w-full px-3 py-2.5 rounded-lg border text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300 ${filled ? 'border-green-300 bg-green-50 text-green-900' : 'border-slate-200 bg-white'}`;
+
+    // ── Formula: read-only calculated display ─────────────────────────────
+    if (field.type === 'formula') {
+      return (
+        <div key={field.key} className="bg-white rounded-xl border border-amber-200 px-4 py-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 bg-amber-50">
+              <Calculator className="w-3.5 h-3.5 text-amber-700" />
+            </span>
+            <label className="text-sm font-semibold text-slate-700">{field.label}</label>
+          </div>
+          <div className="px-3 py-2.5 rounded-lg border border-amber-200 bg-amber-50">
+            <span className="text-[10px] text-amber-500 font-semibold block mb-1">Calculated</span>
+            <span className="text-sm font-mono">{evaluateFormula(field.formulaExpression, fields, fieldValues)}</span>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div key={field.key} className={`bg-white rounded-xl border px-4 py-3 transition-all duration-300 ${filled ? 'border-green-200 shadow-sm shadow-green-50' : 'border-slate-200'}`}>
         <div className="flex items-center justify-between mb-2">
@@ -4161,8 +4342,59 @@ function OnboardingWorking() {
         )}
         {field.type === 'date' && <input type="date" value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={inputCls} />}
         {field.type === 'time' && <input type="time" value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={inputCls} />}
+        {field.type === 'datetime' && <input type="datetime-local" value={val || ''} onChange={e => setVal(field.key, e.target.value)} className={inputCls} />}
         {field.type === 'number' && <input type="number" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0" className={inputCls} />}
+        {field.type === 'decimal' && <input type="number" step="0.01" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0.00" className={inputCls} />}
         {field.type === 'text' && <input type="text" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="Type answer…" className={inputCls} />}
+        {field.type === 'long-text' && <textarea rows={3} value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="Type answer…" className={`${inputCls} resize-none`} />}
+        {field.type === 'email' && <input type="email" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="name@example.com" className={inputCls} />}
+        {field.type === 'phone' && <input type="tel" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="+44 7700 900123" className={inputCls} />}
+        {field.type === 'url' && <input type="url" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="https://" className={inputCls} />}
+        {field.type === 'address' && <textarea rows={3} value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="Street address, city, postcode" className={`${inputCls} resize-none`} />}
+        {field.type === 'percentage' && (
+          <div className="relative">
+            <input type="number" step="0.1" min={0} max={100} value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0" className={`${inputCls} pr-8`} />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">%</span>
+          </div>
+        )}
+        {field.type === 'rating' && (
+          <div className="flex items-center gap-1.5 py-1">
+            {[1,2,3,4,5].map(n => {
+              const active = parseInt(val) >= n;
+              return (
+                <button key={n} onClick={() => setVal(field.key, n)} className="transition-transform hover:scale-110 active:scale-95">
+                  <Star className={`w-7 h-7 transition-colors ${active ? 'text-yellow-400 fill-yellow-400' : 'text-slate-200'}`} />
+                </button>
+              );
+            })}
+            {val && <span className="text-sm font-semibold text-slate-600 ml-2">{val} / 5</span>}
+          </div>
+        )}
+        {field.type === 'slider' && (
+          <div className="space-y-2">
+            <input
+              type="range"
+              min={field.sliderMin ?? 0}
+              max={field.sliderMax ?? 100}
+              value={val ?? (field.sliderMin ?? 0)}
+              onChange={e => setVal(field.key, Number(e.target.value))}
+              className="w-full accent-fuchsia-500"
+            />
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>{field.sliderMin ?? 0}</span>
+              <span className="font-bold text-fuchsia-700 text-sm">{val ?? '—'}</span>
+              <span>{field.sliderMax ?? 100}</span>
+            </div>
+          </div>
+        )}
+        {field.type === 'duration' && (
+          <div className="flex items-center gap-2 flex-wrap">
+            <input type="number" min={0} value={val?.hours ?? ''} onChange={e => setVal(field.key, { ...(val||{}), hours: parseInt(e.target.value) || 0 })} placeholder="0" className={`${inputCls} w-20`} />
+            <span className="text-sm text-slate-500 font-medium">h</span>
+            <input type="number" min={0} max={59} value={val?.minutes ?? ''} onChange={e => setVal(field.key, { ...(val||{}), minutes: parseInt(e.target.value) || 0 })} placeholder="0" className={`${inputCls} w-20`} />
+            <span className="text-sm text-slate-500 font-medium">min</span>
+          </div>
+        )}
       </div>
     );
   };
@@ -4220,7 +4452,12 @@ function OnboardingWorking() {
   // P1 + P2 SHARED CALL LAYOUT
   if (step === 'p1' || step === 'p2') {
     const isP2 = step === 'p2';
-    const filledCount = Object.keys(fieldValues).filter(k => fieldValues[k] !== '' && fieldValues[k] !== undefined && fieldValues[k] !== false && !(Array.isArray(fieldValues[k]) && !fieldValues[k].length)).length;
+    const LAYOUT_TYPES = ['section-header','divider','instructions'];
+    const fillableFields = fields.filter(f => !LAYOUT_TYPES.includes(f.type) && f.type !== 'formula');
+    const filledCount = fillableFields.filter(f => {
+      const v = fieldValues[f.key];
+      return v !== undefined && v !== '' && v !== false && !(Array.isArray(v) && !v.length);
+    }).length;
 
     if (reAnalyzing) return (
       <div className="h-full flex flex-col items-center justify-center bg-[#F7F7F5] gap-6">
@@ -4385,7 +4622,7 @@ function OnboardingWorking() {
             <div>
               <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Intake Form — Fill in live' : 'Intake Form — Build it out'}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                {isP2 ? `${filledCount}/${fields.length} fields filled` : `${fields.length} ${fields.length === 1 ? 'field' : 'fields'} — ${FIELD_TYPE_DEFS.length} types available`}
+                {isP2 ? `${filledCount}/${fillableFields.length} fields filled` : `${fields.length} ${fields.length === 1 ? 'field' : 'fields'} — ${FIELD_TYPE_DEFS.length} types available`}
               </p>
             </div>
             {!isP2 && (
@@ -4420,15 +4657,26 @@ function OnboardingWorking() {
                     placeholder="Field label — e.g. Guest Count, Event Date, Vegan Option"
                     className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
                   />
-                  {/* Type grid */}
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {FIELD_TYPE_DEFS.map(def => (
-                      <button key={def.id} onClick={() => setNewField(f => ({ ...f, type: def.id }))}
-                        className={`flex items-center gap-2 px-2.5 py-2 rounded-lg border text-left transition-all ${newField.type === def.id ? `${def.bg} ${def.border} ${def.text} font-semibold` : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
-                        <def.Icon className="w-3.5 h-3.5 flex-shrink-0" />
-                        <span className="text-xs leading-tight">{def.label}</span>
-                      </button>
-                    ))}
+                  {/* Type grid — grouped */}
+                  <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+                    {['Text','Numbers','Date & Time','Choice','Structured','Calculated','Layout'].map(group => {
+                      const defs = FIELD_TYPE_DEFS.filter(d => d.group === group);
+                      if (!defs.length) return null;
+                      return (
+                        <div key={group}>
+                          <div className="text-[9px] font-black text-slate-300 uppercase tracking-widest px-0.5 pb-1">{group}</div>
+                          <div className="grid grid-cols-4 gap-1">
+                            {defs.map(def => (
+                              <button key={def.id} onClick={() => setNewField(f => ({ ...f, type: def.id }))}
+                                className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${newField.type === def.id ? `${def.bg} ${def.border} ${def.text} font-semibold` : 'border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50'}`}>
+                                <def.Icon className="w-3 h-3 flex-shrink-0" />
+                                <span className="text-[10px] leading-tight truncate">{def.label}</span>
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                   {/* Type-specific options */}
                   {['select','multi-check'].includes(newField.type) && (
@@ -4449,8 +4697,18 @@ function OnboardingWorking() {
                       </select>
                     </div>
                   )}
+                  {newField.type === 'formula' && (
+                    <input type="text" value={newField.formulaExpression} onChange={e => setNewField(f => ({...f, formulaExpression: e.target.value}))}
+                      placeholder="e.g. {Guest Count} * {Price Per Head} + {Setup Fee}"
+                      className="w-full px-3 py-2 rounded-lg border border-amber-300 bg-amber-50 text-sm font-mono outline-none focus:ring-2 focus:ring-amber-400 transition placeholder:text-slate-400" />
+                  )}
+                  {['section-header','instructions'].includes(newField.type) && (
+                    <input type="text" value={newField.content} onChange={e => setNewField(f => ({...f, content: e.target.value}))}
+                      placeholder={newField.type === 'section-header' ? 'Section title…' : 'Instruction text shown to user…'}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300" />
+                  )}
                   <div className="flex gap-2">
-                    <button onClick={() => { setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head' }); }}
+                    <button onClick={() => { setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' }); }}
                       className="flex-1 py-2 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
                     <button onClick={commitField} disabled={!newField.label.trim()}
                       className="flex-1 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold hover:bg-slate-700 transition-colors disabled:opacity-40">Add Field</button>
@@ -4495,8 +4753,11 @@ function OnboardingWorking() {
 
   // COMPLETE
   if (step === 'complete') {
+    const LAYOUT_TYPES_COMPLETE = ['section-header','divider','instructions'];
     const renderCompleteValue = (f) => {
+      if (LAYOUT_TYPES_COMPLETE.includes(f.type)) return null;
       const v = fieldValues[f.key];
+      if (f.type === 'formula') return <span className="font-mono text-amber-800">{evaluateFormula(f.formulaExpression, fields, fieldValues)}</span>;
       if (v === undefined || v === '') return <span className="text-slate-300 italic">—</span>;
       if (f.type === 'toggle') return <span className={v ? 'text-green-700 font-semibold' : 'text-slate-500'}>{ v ? 'Yes' : 'No' }</span>;
       if (f.type === 'multi-check') return Array.isArray(v) && v.length ? v.join(', ') : <span className="text-slate-300 italic">—</span>;
@@ -4505,12 +4766,19 @@ function OnboardingWorking() {
         return <span>{qty} {qty === 1 ? 'portion' : 'portions'}{f.price > 0 ? ` — £${(f.price * qty).toFixed(2)}` : ''}</span>;
       }
       if (f.type === 'currency') return `£${v}`;
+      if (f.type === 'percentage') return `${v}%`;
+      if (f.type === 'rating') return `${v} / 5 stars`;
+      if (f.type === 'duration') return (v?.hours !== undefined) ? `${v.hours || 0}h ${v.minutes || 0}min` : String(v);
+      if (f.type === 'email') return <a href={`mailto:${v}`} className="text-sky-600 underline">{v}</a>;
+      if (f.type === 'url') return <a href={v} target="_blank" rel="noopener noreferrer" className="text-violet-600 underline">{v}</a>;
+      if (f.type === 'long-text' || f.type === 'address') return <span className="whitespace-pre-wrap">{String(v)}</span>;
       return String(v);
     };
     const pricedTotal = fields
       .filter(f => f.type === 'priced-item' && f.price > 0 && parseInt(fieldValues[f.key]) > 0)
       .reduce((sum, f) => sum + f.price * (parseInt(fieldValues[f.key]) || 0), 0);
-    const filledCount = fields.filter(f => {
+    const fillableFieldsComplete = fields.filter(f => !LAYOUT_TYPES_COMPLETE.includes(f.type) && f.type !== 'formula');
+    const filledCount = fillableFieldsComplete.filter(f => {
       const v = fieldValues[f.key];
       return v !== undefined && v !== '' && v !== false && !(Array.isArray(v) && !v.length);
     }).length;
@@ -4527,10 +4795,13 @@ function OnboardingWorking() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-bold text-slate-700">Completed intake form</h3>
-              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{filledCount}/{fields.length} filled</span>
+              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{filledCount}/{fillableFieldsComplete.length} filled</span>
             </div>
             <div className="space-y-3">
               {fields.map(f => {
+                if (f.type === 'divider') return <hr key={f.key} className="border-slate-100" />;
+                if (f.type === 'section-header') return <div key={f.key} className="pt-2 pb-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{f.label}</span></div>;
+                if (f.type === 'instructions') return <div key={f.key} className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">{f.content || f.label}</div>;
                 const def = typeDef(f.type);
                 return (
                   <div key={f.key} className="flex items-start gap-3">

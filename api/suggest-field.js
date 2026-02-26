@@ -1,4 +1,8 @@
-const VALID_TYPES = ['text','number','currency','date','time','toggle','select','multi-check','priced-item'];
+const VALID_TYPES = [
+  'text','number','currency','date','time','toggle','select','multi-check','priced-item',
+  'long-text','email','phone','url','decimal','percentage','rating','slider',
+  'datetime','duration','address','formula','section-header','divider','instructions',
+];
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
@@ -29,25 +33,35 @@ KEY PATTERNS TO RECOGNISE:
 1. Rapid-fire oral lists — business owners often rattle off many fields in one breath with no punctuation. Treat each item as a separate field. E.g. "we ask name email date type of event" → 4 fields.
 2. Question form — "what's your name / what's your email / when is the event" → extract the implied field for each.
 3. Phrase form — "I ask about their name, the date, how many guests" → extract each.
-4. Speech-to-text has no punctuation and may mis-hear words ("should" may mean "and" or "or"). Use context to infer intent.
+4. Speech-to-text has no punctuation and may mis-hear words. Use context to infer intent.
 5. Conditional yes/no — "do you have allergies / do you bring your own waiter" → toggle fields.
+6. Formula detection — if someone describes a value that is CALCULATED from other values, output type="formula". Examples:
+   - "the total is guest count times price per head" → { label: "Total", type: "formula", formulaExpression: "{Guest Count} * {Price Per Head}", suggested: true }
+   - "deposit is 20 percent of the total" → { label: "Deposit", type: "formula", formulaExpression: "{Total} * 0.2", suggested: true }
+   - "setup fee is 50 flat plus 5 per head" → { label: "Setup Fee", type: "formula", formulaExpression: "50 + ({Guest Count} * 5)", suggested: true }
+   Always set suggested=true for formula fields. Use {Label} references matching known field labels exactly.
 
 Common fields — extract these even if only briefly mentioned:
 - "name" / "what's your name" → Client Name (text)
-- "email" → Client Email (text)
-- "phone" / "contact number" → Phone Number (text)
+- "email" / "email address" → Client Email (email)
+- "phone" / "mobile" / "contact number" → Phone Number (phone)
+- "website" / "url" / "social media" → Website (url)
+- "notes" / "comments" / "description" / "special requirements" → Notes (long-text)
+- "address" / "venue address" / "full address" / "postcode" → Address (address)
 - "date" / "when" / "event date" → Event Date (date)
 - "time" / "start time" / "arrival" → Start Time (time)
 - "type of event" / "what's the occasion" → Event Type (select/text)
 - "how many" / "guests" / "headcount" / "people" → Guest Count (number)
 - "venue" / "location" / "where" → Venue (text)
 - "budget" / "spend" → Budget (currency)
+- "duration" / "how long" / "event length" → Event Duration (duration)
+- "percent" / "discount" / "VAT" / "tax rate" → Percentage (percentage)
+- "rating" / "out of 5" / "star rating" → Rating (rating)
 - "course" / "3-course" / "buffet" / "meal style" → Meal Style (select)
 - "food type" / "cuisine" → Food Type (text)
 - "allergies" / "dietary" / "requirements" → Dietary Requirements (multi-check)
 - "drinks" / "bar" / "bring own drinks" → Drinks Provided (toggle or select)
 - "waiter" / "staff" / "servers" → Waiter Provided (toggle)
-- "entertainment" → Entertainment Options (text)
 
 Return:
 {
@@ -55,28 +69,42 @@ Return:
   "fields": [
     {
       "label": "concise field name",
-      "type": "text" | "number" | "currency" | "date" | "time" | "toggle" | "select" | "multi-check" | "priced-item",
+      "type": "text" | "number" | "currency" | "date" | "time" | "toggle" | "select" | "multi-check" | "priced-item" | "long-text" | "email" | "phone" | "url" | "decimal" | "percentage" | "rating" | "slider" | "datetime" | "duration" | "address" | "formula",
       "options": ["Option A", "Option B"],
       "price": 45,
-      "priceUnit": "per_head" | "flat"
+      "priceUnit": "per_head" | "flat",
+      "formulaExpression": "{Field A} * {Field B}",
+      "suggested": true,
+      "content": "text content"
     }
   ]
 }
 
 Type rules:
+- "email" for any email address field
+- "phone" for any telephone/mobile field
+- "url" for any website/link field
+- "long-text" for free-text notes, comments, descriptions, special requirements (anything needing multi-line answer)
+- "address" for any full address, venue address, postcode/zip
 - "date" for any date/when/anniversary
 - "time" for start/arrival/finish/setup times
-- "number" for guest count, headcount, quantity, staff count
+- "datetime" for date + time together
+- "number" for guest count, headcount, quantity, staff count (whole numbers)
+- "decimal" for measurements, weights, distances (decimal numbers)
 - "currency" for budget, spend, total cost
-- "toggle" for yes/no questions (allergies present, speeches, disabled access, bring own drinks, bring own waiter)
+- "percentage" for rates, discounts, percentages, VAT, tax rates, service charges
+- "rating" for star ratings, scores out of N
+- "duration" for event duration, how long it lasts (hours/minutes)
+- "toggle" for yes/no questions (allergies present, speeches, disabled access)
 - "select" for single-choice from fixed options (service style, package tier, meal course count)
 - "multi-check" for multiple-choice selections (dietary requirements, food preferences)
 - "priced-item" for specific food dishes, drinks, or menu items with a price
-- "text" for everything else (names, email, phone, venue, free-text notes)
+- "formula" for calculated values derived from other fields — ALWAYS set suggested=true
+- "text" for everything else (names, free-text)
 
-Only include "options" for select/multi-check. Only include "price"/"priceUnit" for priced-item.
+Only include "options" for select/multi-check. Only include "price"/"priceUnit" for priced-item. Only include "formulaExpression" and "suggested" for formula. Only include "content" for section-header/instructions.
 
-Only return { "suggest": false } when the line is PURELY small talk (greetings, filler words like "okay", "that's great", "sure") with absolutely no intake fields at all.`,
+Only return { "suggest": false } when the line is PURELY small talk with absolutely no intake fields.`,
           },
           {
             role: 'user',
@@ -103,11 +131,14 @@ Only return { "suggest": false } when the line is PURELY small talk (greetings, 
     if (result.suggest && result.field && !result.fields) {
       result.fields = [result.field];
     }
-    // Sanitise types
+    // Sanitise types and forward new properties
     if (result.fields) {
       result.fields = result.fields.map(f => ({
         ...f,
         type: VALID_TYPES.includes(f.type) ? f.type : 'text',
+        formulaExpression: f.type === 'formula' ? (f.formulaExpression || '') : undefined,
+        suggested: f.type === 'formula' ? (f.suggested !== false) : undefined,
+        content: ['section-header','instructions'].includes(f.type) ? (f.content || '') : undefined,
       }));
     }
 
