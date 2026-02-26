@@ -4075,12 +4075,8 @@ function OnboardingWorking() {
       localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ fields: savedFields })); // legacy compat
     } catch { /* ignore */ }
 
-    // Show success banner then reset to setup
-    setSavedBanner(templateName);
-    setTimeout(() => {
-      setSavedBanner(null);
-      reset();
-    }, 2200);
+    // Go to completion screen — user starts a new session from there
+    setStep('p1-complete');
   };
 
   // Start Customer Onboarding — load selected template or default fields
@@ -4466,14 +4462,6 @@ function OnboardingWorking() {
     return (
       <div className="min-h-full bg-[#F7F7F5] flex items-start justify-center p-6 md:p-8 overflow-y-auto">
         <div className="w-full max-w-lg pt-4 pb-8">
-
-          {/* Saved banner */}
-          {savedBanner && (
-            <div className="mb-4 flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
-              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
-              <p className="text-sm text-green-800 font-medium">Form saved — <span className="font-bold">{savedBanner}</span></p>
-            </div>
-          )}
 
           <div className="mb-6">
             <h2 className="text-2xl font-black text-slate-900 mb-1">Start a session</h2>
@@ -4900,6 +4888,68 @@ function OnboardingWorking() {
                 </button>
               </>
             )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // CLIENT ONBOARDING COMPLETE
+  if (step === 'p1-complete') {
+    const typeDef = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
+    const SKIP = ['section-header','divider','instructions'];
+    const savedName = session.name || 'Untitled form';
+    return (
+      <div className="h-full bg-[#F7F7F5] overflow-y-auto">
+        <div className="w-full max-w-lg mx-auto py-10 px-6">
+          <div className="text-center mb-8">
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-8 h-8 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-black text-slate-900 mb-1">Form saved</h2>
+            <p className="text-slate-500 text-sm">
+              <span className="font-semibold text-slate-700">{savedName}</span> has been saved to your template library.
+            </p>
+          </div>
+
+          {conversationSummary && (
+            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 mb-4">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">AI Summary</p>
+              <p className="text-sm text-slate-600 leading-relaxed">{conversationSummary}</p>
+            </div>
+          )}
+
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-slate-700">Saved intake form</h3>
+              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{fields.filter(f => !SKIP.includes(f.type)).length} fields</span>
+            </div>
+            <div className="space-y-2.5">
+              {fields.map(f => {
+                if (f.type === 'divider') return <hr key={f.key} className="border-slate-100" />;
+                if (f.type === 'section-header') return <div key={f.key} className="pt-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{f.label}</span></div>;
+                if (f.type === 'instructions') return <div key={f.key} className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">{f.content || f.label}</div>;
+                const def = typeDef(f.type);
+                return (
+                  <div key={f.key} className="flex items-center gap-3">
+                    <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${def.bg}`}>
+                      <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
+                    </span>
+                    <span className="text-sm text-slate-700">{f.label}</span>
+                    <span className="text-[10px] text-slate-300 ml-auto">{def.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="flex justify-center">
+            <button
+              onClick={reset}
+              className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
+            >
+              Start new session
+            </button>
           </div>
         </div>
       </div>
