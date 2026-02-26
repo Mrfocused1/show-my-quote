@@ -3356,7 +3356,7 @@ function OnboardingExample() {
               <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
                 <Phone className="w-5 h-5 text-slate-700" />
               </div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Part 1</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Client Onboarding</div>
               <h3 className="text-base font-bold text-slate-900 mb-2">Discovery Call</h3>
               <p className="text-sm text-slate-500 leading-relaxed">Ask your prospect what questions they ask their clients. Our AI listens and builds their intake form in real time — field by field as they speak.</p>
             </div>
@@ -3364,7 +3364,7 @@ function OnboardingExample() {
               <div className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center mb-4">
                 <Mic className="w-5 h-5 text-slate-700" />
               </div>
-              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Part 2</div>
+              <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Customer Onboarding</div>
               <h3 className="text-base font-bold text-slate-900 mb-2">Demo Call</h3>
               <p className="text-sm text-slate-500 leading-relaxed">Call back and roleplay as one of their customers. Answer the questions. Watch the form they just built fill itself live — no typing required.</p>
             </div>
@@ -3372,7 +3372,7 @@ function OnboardingExample() {
           <div className="flex justify-center">
             <button onClick={startP1} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-3 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md">
               <PhoneCall className="w-4 h-4" />
-              Begin Part 1 — Discovery Call
+              Begin Client Onboarding
             </button>
           </div>
         </div>
@@ -3392,7 +3392,7 @@ function OnboardingExample() {
             </div>
           </div>
           <p className="text-slate-900 font-bold text-lg mb-1">Calling...</p>
-          <p className="text-slate-500 text-sm">{isP2 ? 'Reconnecting for the demo call' : 'Starting the discovery call'}</p>
+          <p className="text-slate-500 text-sm">{isP2 ? 'Starting the customer onboarding call' : 'Starting the client onboarding call'}</p>
         </div>
       </div>
     );
@@ -3407,10 +3407,10 @@ function OnboardingExample() {
           <div className="bg-slate-900 px-5 py-4 flex items-center gap-3 flex-shrink-0">
             <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
             <div className="flex-1 min-w-0">
-              <div className="text-white text-sm font-semibold">Live Call — {isP2 ? 'Demo' : 'Discovery'}</div>
+              <div className="text-white text-sm font-semibold">Live Call — {isP2 ? 'Customer Onboarding' : 'Client Onboarding'}</div>
               <div className="text-slate-400 text-xs font-mono">{fmt(callSeconds)}</div>
             </div>
-            <div className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{isP2 ? 'PART 2' : 'PART 1'}</div>
+            <div className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded">{isP2 ? 'CUSTOMER' : 'CLIENT'}</div>
           </div>
           <div className="px-4 py-2.5 bg-green-50 border-b border-green-100 flex items-center gap-2 flex-shrink-0">
             <Radio className="w-3.5 h-3.5 text-green-600 flex-shrink-0" />
@@ -3439,7 +3439,7 @@ function OnboardingExample() {
         <div className="flex-1 flex flex-col bg-[#F7F7F5] overflow-hidden">
           <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Intake Form — Filling Live' : 'Intake Form — Building Live'}</h2>
+              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Customer Intake Form' : 'Client Intake Form'}</h2>
               <p className="text-xs text-slate-500 mt-0.5">{fields.length} {fields.length === 1 ? 'field' : 'fields'} {isP2 ? 'ready' : 'extracted so far'}</p>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-green-600 font-medium">
@@ -3496,7 +3496,7 @@ function OnboardingExample() {
             <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle2 className="w-8 h-8 text-green-600" />
             </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">Part 1 complete</h2>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">Client Onboarding Complete</h2>
             <p className="text-slate-500 text-sm">Your client's intake form was built in real time — just from a phone call.</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
@@ -3510,14 +3510,14 @@ function OnboardingExample() {
               ))}
             </div>
           </div>
-          <p className="text-center text-sm text-slate-500 mb-6">Now let's show how the form fills itself. Call back and roleplay as one of their customers.</p>
+          <p className="text-center text-sm text-slate-500 mb-6">Your intake form is ready. Now call a customer and watch it fill itself in live.</p>
           <div className="flex justify-center gap-3">
             <button onClick={reset} className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition-colors">
               Start over
             </button>
             <button onClick={startP2} className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md">
               <PhoneCall className="w-4 h-4" />
-              Begin Part 2 — Demo Call
+              Begin Customer Onboarding
             </button>
           </div>
         </div>
@@ -4405,8 +4405,8 @@ function OnboardingWorking() {
       <div className="min-h-full bg-[#F7F7F5] flex items-center justify-center p-8">
         <div className="w-full max-w-md">
           <div className="mb-8">
-            <h2 className="text-2xl font-black text-slate-900 mb-1">New onboarding session</h2>
-            <p className="text-slate-500 text-sm">Enter your prospect's details to get started.</p>
+            <h2 className="text-2xl font-black text-slate-900 mb-1">Client Onboarding</h2>
+            <p className="text-slate-500 text-sm">Enter the client's details — the AI will build their intake form from the call.</p>
           </div>
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
             <div>
@@ -4441,7 +4441,7 @@ function OnboardingWorking() {
               className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <PhoneCall className="w-4 h-4" />
-              Begin Part 1 — Discovery Call
+              Begin Client Onboarding
             </button>
           </div>
         </div>
@@ -4480,7 +4480,7 @@ function OnboardingWorking() {
             {callState === 'active' && <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse flex-shrink-0" />}
             <div className="flex-1 min-w-0">
               <div className={`text-sm font-semibold truncate ${callState === 'active' ? 'text-white' : 'text-slate-700'}`}>
-                {session.name} — {isP2 ? 'Part 2' : 'Part 1'}
+                {session.name} — {isP2 ? 'Customer Onboarding' : 'Client Onboarding'}
               </div>
               <div className={`text-xs font-mono ${callState === 'active' ? 'text-slate-400' : 'text-slate-400'}`}>
                 {callState === 'active' ? fmt(callSeconds) : callState === 'connecting' ? 'Connecting…' : callState === 'ended' ? 'Call ended' : 'Not connected'}
@@ -4620,7 +4620,7 @@ function OnboardingWorking() {
         <div className="flex-1 flex flex-col bg-[#F7F7F5] overflow-hidden min-h-0">
           <div className="px-6 py-4 border-b border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
             <div>
-              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Intake Form — Fill in live' : 'Intake Form — Build it out'}</h2>
+              <h2 className="text-sm font-bold text-slate-900">{isP2 ? 'Customer Intake Form' : 'Client Intake Form'}</h2>
               <p className="text-xs text-slate-500 mt-0.5">
                 {isP2 ? `${filledCount}/${fillableFields.length} fields filled` : `${fields.length} ${fields.length === 1 ? 'field' : 'fields'} — ${FIELD_TYPE_DEFS.length} types available`}
               </p>
@@ -4638,7 +4638,7 @@ function OnboardingWorking() {
               <div onClick={() => !isP2 && setAddingField(true)}
                 className={`border-2 border-dashed border-slate-200 rounded-2xl p-10 text-center ${!isP2 ? 'cursor-pointer hover:border-slate-300 transition-colors' : ''}`}>
                 {isP2
-                  ? <p className="text-slate-300 text-sm">No fields built in Part 1. Go back and add some.</p>
+                  ? <p className="text-slate-300 text-sm">No fields from Client Onboarding. Go back and add some.</p>
                   : <><Plus className="w-6 h-6 text-slate-300 mx-auto mb-2" /><p className="text-slate-400 text-sm font-medium">Fields build here automatically</p><p className="text-slate-300 text-xs mt-1">AI extracts them from the call — or add one manually</p></>
                 }
               </div>
@@ -4725,7 +4725,7 @@ function OnboardingWorking() {
                 <button
                   onClick={() => { setStep('p1'); setCallState('idle'); setCallSeconds(0); setTranscript(p1Transcript); }}
                   className="text-sm text-slate-500 hover:text-slate-800 transition-colors"
-                >← Back to Part 1</button>
+                >← Back to Client Onboarding</button>
                 <button
                   onClick={() => setStep('complete')}
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
@@ -4741,7 +4741,7 @@ function OnboardingWorking() {
                   disabled={fields.length === 0}
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Continue to Part 2 <ArrowRight className="w-4 h-4" />
+                  Begin Customer Onboarding <ArrowRight className="w-4 h-4" />
                 </button>
               </>
             )}
@@ -4860,7 +4860,7 @@ function OnboardingWorking() {
             <button
               onClick={() => { setStep('p2'); setFieldValues({}); setTranscript([]); setCallState('idle'); setCallSeconds(0); }}
               className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-            >Redo Part 2</button>
+            >Redo Customer Onboarding</button>
             <button
               onClick={reset}
               className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
