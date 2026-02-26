@@ -5286,22 +5286,32 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-0 -mb-px overflow-x-auto">
+        {/* Tabs — mobile: all 4; desktop: Dashboard / Send toggle */}
+        <div className="flex gap-0 -mb-px overflow-x-auto lg:hidden">
           {tabs.map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
             >{t.label}</button>
           ))}
         </div>
+        <div className="hidden lg:flex gap-0 -mb-px">
+          <button onClick={() => { if (tab === 'send') setTab('overview'); }}
+            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab !== 'send' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
+            Dashboard
+          </button>
+          <button onClick={() => setTab('send')}
+            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === 'send' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
+            Send
+          </button>
+        </div>
       </div>
 
       {/* Tab content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className={`flex-1 overflow-hidden ${tab !== 'send' ? 'lg:grid lg:grid-cols-[260px_1fr_280px] lg:divide-x lg:divide-slate-100' : ''}`}>
 
         {/* ── OVERVIEW ── */}
-        {tab === 'overview' && (
-          <div className="max-w-lg mx-auto px-5 py-5 space-y-4">
+        <div className={`${tab === 'overview' ? '' : 'hidden'} ${tab !== 'send' ? 'lg:block lg:overflow-y-auto' : ''}`}>
+          <div className="max-w-lg mx-auto px-5 py-5 space-y-4 lg:max-w-none lg:mx-0">
 
             {/* Call card */}
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
@@ -5351,11 +5361,11 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               </button>
             )}
           </div>
-        )}
+        </div>
 
         {/* ── TRANSCRIPT ── */}
-        {tab === 'transcript' && (
-          <div className="max-w-lg mx-auto px-5 py-5">
+        <div className={`${tab === 'transcript' ? '' : 'hidden'} ${tab !== 'send' ? 'lg:block lg:overflow-y-auto' : ''}`}>
+          <div className="max-w-lg mx-auto px-5 py-5 lg:max-w-none lg:mx-0">
             {transcript.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-400 text-sm">No transcript recorded for this session.</p>
@@ -5376,11 +5386,11 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               </div>
             )}
           </div>
-        )}
+        </div>
 
         {/* ── FORM ── */}
-        {tab === 'form' && (
-          <div className="max-w-lg mx-auto px-5 py-5">
+        <div className={`${tab === 'form' ? '' : 'hidden'} ${tab !== 'send' ? 'lg:block lg:overflow-y-auto' : ''}`}>
+          <div className="max-w-lg mx-auto px-5 py-5 lg:max-w-none lg:mx-0">
             <div className="bg-white rounded-2xl border border-slate-200 p-5">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-700">
@@ -5534,10 +5544,10 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               )}
             </div>
           </div>
-        )}
+        </div>
 
         {/* ── SEND ── */}
-        {tab === 'send' && (
+        <div className={`${tab === 'send' ? '' : 'hidden'} overflow-y-auto`}>
           <div className="max-w-lg mx-auto px-5 py-5 space-y-4">
 
             {/* Type selector */}
@@ -5766,7 +5776,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               <p className="text-sm text-slate-400 text-center py-4">Choose a format above to generate AI-drafted content.</p>
             )}
           </div>
-        )}
+        </div>
 
       </div>
     </div>
