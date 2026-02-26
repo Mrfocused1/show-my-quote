@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, CheckCircle2 } from 'lucide-react';
 
 export default function BookDemo({ onHome, onEnterApp }) {
   const [form, setForm] = useState({
@@ -18,14 +18,12 @@ export default function BookDemo({ onHome, onEnterApp }) {
     <div className="min-h-screen bg-white">
 
       {/* Navbar */}
-      <nav className="flex items-center justify-between px-10 py-5 border-b border-slate-100">
-        <div className="flex items-center space-x-2.5">
-          <button onClick={onHome} className="flex items-center space-x-2.5 group">
-            <img src="/logo.svg" alt="Show My Quote" className="h-24 w-auto" />
-          </button>
-        </div>
+      <nav className="flex items-center justify-between px-4 md:px-10 py-4 md:py-5 border-b border-slate-100">
+        <button onClick={onHome}>
+          <img src="/logo.svg" alt="Show My Quote" className="h-10 md:h-16 w-auto" />
+        </button>
 
-        <div className="flex items-center space-x-8">
+        <div className="hidden md:flex items-center space-x-8">
           <button onClick={onHome}
             className="text-sm text-slate-600 hover:text-slate-900 transition-colors font-medium">
             Home
@@ -39,13 +37,13 @@ export default function BookDemo({ onHome, onEnterApp }) {
         </div>
 
         <button onClick={onEnterApp}
-          className="px-5 py-2.5 bg-white text-slate-800 text-sm font-semibold rounded-full border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm">
+          className="px-4 py-2 bg-white text-slate-800 text-sm font-semibold rounded-full border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm">
           Sign in
         </button>
       </nav>
 
       {/* Back link */}
-      <div className="px-10 pt-8">
+      <div className="px-4 md:px-10 pt-6 md:pt-8">
         <button onClick={onHome}
           className="flex items-center space-x-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors group">
           <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
@@ -54,12 +52,12 @@ export default function BookDemo({ onHome, onEnterApp }) {
       </div>
 
       {/* Content */}
-      <div className="max-w-5xl mx-auto px-10 py-12 grid grid-cols-2 gap-16 items-start">
+      <div className="max-w-5xl mx-auto px-4 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-start">
 
         {/* Left — pitch */}
         <div className="pt-2">
           <p className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Book a Demo</p>
-          <h1 className="text-4xl font-black text-slate-900 leading-tight mb-6">
+          <h1 className="text-3xl md:text-4xl font-black text-slate-900 leading-tight mb-6">
             See Show My Quote<br />in action — live.
           </h1>
           <p className="text-slate-600 text-base leading-relaxed mb-8">
@@ -81,7 +79,7 @@ export default function BookDemo({ onHome, onEnterApp }) {
         </div>
 
         {/* Right — form */}
-        <div className="bg-[#F7F7F5] rounded-2xl border border-slate-200 p-8">
+        <div className="bg-[#F7F7F5] rounded-2xl border border-slate-200 p-6 md:p-8">
           {submitted ? (
             <div className="flex flex-col items-center text-center py-8">
               <div className="w-14 h-14 rounded-full bg-green-100 flex items-center justify-center mb-5">
@@ -103,7 +101,7 @@ export default function BookDemo({ onHome, onEnterApp }) {
                 <p className="text-sm text-slate-500">We'll confirm a 15-minute slot by email.</p>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                     Your Name
@@ -146,7 +144,7 @@ export default function BookDemo({ onHome, onEnterApp }) {
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
                     Phone (optional)
@@ -204,7 +202,7 @@ export default function BookDemo({ onHome, onEnterApp }) {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-slate-100 px-10 py-8 mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <footer className="border-t border-slate-100 px-4 md:px-10 py-6 md:py-8 mt-8 md:mt-12 flex flex-col sm:flex-row items-center justify-between gap-4">
         <p className="text-xs text-slate-400">© 2025 Show My Quote. All rights reserved.</p>
         <div className="flex items-center gap-6">
           <button onClick={onHome} className="text-xs text-slate-400 hover:text-slate-900 transition-colors">Home</button>
