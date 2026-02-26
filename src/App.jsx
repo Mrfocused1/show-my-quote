@@ -3695,7 +3695,11 @@ function OnboardingWorking() {
   const [aiThinking, setAiThinking] = useState(false);
   const [apiError, setApiError] = useState(null);
   const [showTranscript, setShowTranscript] = useState(false);
+  const [callStartTime, setCallStartTime] = useState(null);
+  const [recordingUrl, setRecordingUrl] = useState(null);
   const transcriptRef = useRef(null);   // DOM scroll ref
+  const mediaRecorderRef = useRef(null);
+  const recordingChunksRef = useRef([]);
   const transcriptDataRef = useRef([]); // always-current transcript data
   const fieldsRef = useRef([]);         // always-current fields data
   const aiPendingRef = useRef(0);       // count of in-flight AI calls
@@ -3784,11 +3788,31 @@ function OnboardingWorking() {
   const startCall = () => {
     // TODO: Twilio.Device.connect({ params: { To: session.phone } })
     setCallState('connecting');
-    setTimeout(() => setCallState('active'), 1500); // Remove when Twilio is wired
+    setCallStartTime(new Date());
+    // Revoke any previous recording to free memory
+    if (recordingUrl) { try { URL.revokeObjectURL(recordingUrl); } catch { /* ignore */ } setRecordingUrl(null); }
+    setTimeout(() => {
+      setCallState('active');
+      // Start audio recording (best-effort — no mic permission = no recording)
+      navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+        recordingChunksRef.current = [];
+        mr.ondataavailable = e => { if (e.data.size > 0) recordingChunksRef.current.push(e.data); };
+        mr.onstop = () => {
+          const blob = new Blob(recordingChunksRef.current, { type: 'audio/webm' });
+          setRecordingUrl(URL.createObjectURL(blob));
+          stream.getTracks().forEach(t => t.stop());
+        };
+        mr.start();
+        mediaRecorderRef.current = mr;
+      }).catch(() => { /* recording not available */ });
+    }, 1500); // Remove when Twilio is wired
   };
   const endCall = () => {
     // TODO: Twilio.Device.disconnectAll()
     stopMic();
+    try { if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
     setCallState('ended');
   };
   // --- END TWILIO HOOKS ---
@@ -4103,7 +4127,8 @@ function OnboardingWorking() {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     speechBufferRef.current = '';
     aiPendingRef.current = 0;
-    setStep('setup'); setMode('client'); setSelectedTemplateId('default'); setSavedBanner(null); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
+    try { if (recordingUrl) URL.revokeObjectURL(recordingUrl); } catch { /* ignore */ }
+    setStep('setup'); setMode('client'); setSelectedTemplateId('default'); setSavedBanner(null); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0); setCallStartTime(null); setRecordingUrl(null);
     setTranscript([]); setFields([]); setFieldValues({});
     setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
     setLastAdded(null); setConversationSummary(''); setP1Transcript([]); setLineText('');
@@ -4111,6 +4136,20 @@ function OnboardingWorking() {
   };
 
   const typeDef = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
+
+  // Update the saved template in localStorage when user edits fields on the completion screen
+  const saveTemplateUpdate = (updatedFields, templateName) => {
+    try {
+      const existing = getTemplates();
+      // Replace the most recent template (first entry) that matches the current session name
+      const name = templateName || session.name || 'Untitled form';
+      const idx = existing.findIndex(t => t.name === name);
+      const updated = { id: idx >= 0 ? existing[idx].id : Date.now().toString(), name, savedAt: Date.now(), fields: updatedFields };
+      const next = idx >= 0 ? existing.map((t, i) => i === idx ? updated : t) : [updated, ...existing];
+      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(next.slice(0, 20)));
+      localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ fields: updatedFields }));
+    } catch { /* ignore */ }
+  };
 
   const evaluateFormula = (expression, allFields, values) => {
     if (!expression) return <span className="text-amber-400 italic text-xs">No expression set</span>;
@@ -4896,187 +4935,402 @@ function OnboardingWorking() {
 
   // CLIENT ONBOARDING COMPLETE
   if (step === 'p1-complete') {
-    const typeDef = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
-    const SKIP = ['section-header','divider','instructions'];
-    const savedName = session.name || 'Untitled form';
     return (
-      <div className="h-full bg-[#F7F7F5] overflow-y-auto">
-        <div className="w-full max-w-lg mx-auto py-10 px-6">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <CheckCircle2 className="w-8 h-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-1">Form saved</h2>
-            <p className="text-slate-500 text-sm">
-              <span className="font-semibold text-slate-700">{savedName}</span> has been saved to your template library.
-            </p>
-          </div>
-
-          {conversationSummary && (
-            <div className="bg-white border border-slate-200 rounded-2xl px-5 py-4 mb-4">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">AI Summary</p>
-              <p className="text-sm text-slate-600 leading-relaxed">{conversationSummary}</p>
-            </div>
-          )}
-
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-700">Saved intake form</h3>
-              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{fields.filter(f => !SKIP.includes(f.type)).length} fields</span>
-            </div>
-            <div className="space-y-2.5">
-              {fields.map(f => {
-                if (f.type === 'divider') return <hr key={f.key} className="border-slate-100" />;
-                if (f.type === 'section-header') return <div key={f.key} className="pt-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{f.label}</span></div>;
-                if (f.type === 'instructions') return <div key={f.key} className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">{f.content || f.label}</div>;
-                const def = typeDef(f.type);
-                return (
-                  <div key={f.key} className="flex items-center gap-3">
-                    <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 ${def.bg}`}>
-                      <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
-                    </span>
-                    <span className="text-sm text-slate-700">{f.label}</span>
-                    <span className="text-[10px] text-slate-300 ml-auto">{def.label}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="flex justify-center">
-            <button
-              onClick={reset}
-              className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
-            >
-              Start new session
-            </button>
-          </div>
-        </div>
-      </div>
+      <PostCallScreen
+        mode="client"
+        sessionName={session.name || 'Untitled form'}
+        fields={fields}
+        onFieldsChange={f => { setFields(f); saveTemplateUpdate(f, session.name); }}
+        fieldValues={{}}
+        transcript={transcript.length ? transcript : p1Transcript}
+        conversationSummary={conversationSummary}
+        callStartTime={callStartTime}
+        callDuration={callSeconds}
+        recordingUrl={recordingUrl}
+        pricedTotal={0}
+        onReset={reset}
+        onRedo={null}
+      />
     );
   }
 
   // COMPLETE
   if (step === 'complete') {
-    const LAYOUT_TYPES_COMPLETE = ['section-header','divider','instructions'];
-    const renderCompleteValue = (f) => {
-      if (LAYOUT_TYPES_COMPLETE.includes(f.type)) return null;
-      const v = fieldValues[f.key];
-      if (f.type === 'formula') return <span className="font-mono text-amber-800">{evaluateFormula(f.formulaExpression, fields, fieldValues)}</span>;
-      if (v === undefined || v === '') return <span className="text-slate-300 italic">—</span>;
-      if (f.type === 'toggle') return <span className={v ? 'text-green-700 font-semibold' : 'text-slate-500'}>{ v ? 'Yes' : 'No' }</span>;
-      if (f.type === 'multi-check') return Array.isArray(v) && v.length ? v.join(', ') : <span className="text-slate-300 italic">—</span>;
-      if (f.type === 'priced-item') {
-        const qty = parseInt(v) || 0;
-        return <span>{qty} {qty === 1 ? 'portion' : 'portions'}{f.price > 0 ? ` — £${(f.price * qty).toFixed(2)}` : ''}</span>;
-      }
-      if (f.type === 'currency') return `£${v}`;
-      if (f.type === 'percentage') return `${v}%`;
-      if (f.type === 'rating') return `${v} / 5 stars`;
-      if (f.type === 'duration') return (v?.hours !== undefined) ? `${v.hours || 0}h ${v.minutes || 0}min` : String(v);
-      if (f.type === 'email') return <a href={`mailto:${v}`} className="text-sky-600 underline">{v}</a>;
-      if (f.type === 'url') return <a href={v} target="_blank" rel="noopener noreferrer" className="text-violet-600 underline">{v}</a>;
-      if (f.type === 'long-text' || f.type === 'address') return <span className="whitespace-pre-wrap">{String(v)}</span>;
-      return String(v);
-    };
     const pricedTotal = fields
       .filter(f => f.type === 'priced-item' && f.price > 0 && parseInt(fieldValues[f.key]) > 0)
       .reduce((sum, f) => sum + f.price * (parseInt(fieldValues[f.key]) || 0), 0);
-    const fillableFieldsComplete = fields.filter(f => !LAYOUT_TYPES_COMPLETE.includes(f.type) && f.type !== 'formula');
-    const filledCount = fillableFieldsComplete.filter(f => {
-      const v = fieldValues[f.key];
-      return v !== undefined && v !== '' && v !== false && !(Array.isArray(v) && !v.length);
-    }).length;
     return (
-      <div className="h-full bg-[#F7F7F5] overflow-y-auto">
-        <div className="w-full max-w-lg mx-auto py-8 px-8">
-          <div className="text-center mb-8">
-            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Star className="w-8 h-8 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-black text-slate-900 mb-1">Demo complete</h2>
-            <p className="text-slate-500 text-sm">{session.name} — onboarding session finished.</p>
-          </div>
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-bold text-slate-700">Completed intake form</h3>
-              <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">{filledCount}/{fillableFieldsComplete.length} filled</span>
-            </div>
-            <div className="space-y-3">
-              {fields.map(f => {
-                if (f.type === 'divider') return <hr key={f.key} className="border-slate-100" />;
-                if (f.type === 'section-header') return <div key={f.key} className="pt-2 pb-1"><span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{f.label}</span></div>;
-                if (f.type === 'instructions') return <div key={f.key} className="text-xs text-blue-600 bg-blue-50 rounded-lg px-3 py-2">{f.content || f.label}</div>;
-                const def = typeDef(f.type);
-                return (
-                  <div key={f.key} className="flex items-start gap-3">
-                    <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${def.bg}`}>
-                      <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
-                      <div className="text-sm text-slate-800">{renderCompleteValue(f)}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-          {pricedTotal > 0 && (
-            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-4 flex items-center justify-between">
-              <div>
-                <div className="text-xs font-bold text-amber-700 uppercase tracking-wider mb-0.5">Estimated food total</div>
-                <div className="text-xs text-amber-600">Based on priced items selected</div>
-              </div>
-              <div className="text-2xl font-black text-amber-800">£{pricedTotal.toFixed(2)}</div>
-            </div>
-          )}
-          {/* AI Conversation Log */}
-          {(conversationSummary || p1Transcript.length > 0) && (
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-4">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-5 h-5 rounded-full bg-slate-900 flex items-center justify-center flex-shrink-0">
-                  <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-                </div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">AI Conversation Log</span>
-              </div>
-              {conversationSummary && (
-                <p className="text-sm text-slate-600 leading-relaxed mb-3">{conversationSummary}</p>
-              )}
-              {p1Transcript.length > 0 && (
-                <details className="group">
-                  <summary className="text-xs text-slate-400 cursor-pointer hover:text-slate-600 select-none list-none flex items-center gap-1">
-                    <svg className="w-3 h-3 group-open:rotate-90 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7"/></svg>
-                    View full transcript ({p1Transcript.length} lines)
-                  </summary>
-                  <div className="mt-2 space-y-1 max-h-40 overflow-y-auto">
-                    {p1Transcript.map((l, i) => (
-                      <div key={i} className="text-xs text-slate-500">
-                        <span className="font-semibold text-slate-700">{l.speaker}:</span> {l.text}
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-center gap-3">
-            <button
-              onClick={() => { setStep('p2'); setFieldValues({}); setTranscript([]); setCallState('idle'); setCallSeconds(0); }}
-              className="px-5 py-2.5 rounded-xl border border-slate-200 text-sm text-slate-600 hover:bg-slate-100 transition-colors"
-            >Redo Customer Onboarding</button>
-            <button
-              onClick={reset}
-              className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
-            >New session</button>
-          </div>
-        </div>
-      </div>
+      <PostCallScreen
+        mode="customer"
+        sessionName={session.name || 'Customer'}
+        fields={fields}
+        onFieldsChange={f => setFields(f)}
+        fieldValues={fieldValues}
+        transcript={transcript}
+        conversationSummary={conversationSummary}
+        callStartTime={callStartTime}
+        callDuration={callSeconds}
+        recordingUrl={recordingUrl}
+        pricedTotal={pricedTotal}
+        onReset={reset}
+        onRedo={() => { setStep('p2'); setFieldValues({}); setTranscript([]); setCallState('idle'); setCallSeconds(0); }}
+      />
     );
   }
 
   return null;
+}
+
+// ─── Post-call completion screen (shared by Client and Customer Onboarding) ───
+function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues,
+  transcript, conversationSummary, callStartTime, callDuration, recordingUrl,
+  pricedTotal, onReset, onRedo }) {
+
+  const [tab, setTab] = useState('overview');
+  const [addingField, setAddingField] = useState(false);
+  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
+  const [sendType, setSendType] = useState(null);
+  const [generated, setGenerated] = useState('');
+  const [edited, setEdited] = useState('');
+  const [generating, setGenerating] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const td = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
+  const LAYOUT = ['section-header', 'divider', 'instructions'];
+
+  const fmtDate = ts => ts ? ts.toLocaleString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const fmtDur = s => {
+    if (!s || s === 0) return '—';
+    const m = Math.floor(s / 60), sec = s % 60;
+    return m > 0 ? `${m}m ${sec}s` : `${sec}s`;
+  };
+
+  const removeField = key => onFieldsChange(fields.filter(f => f.key !== key));
+
+  const commitNewField = () => {
+    if (!newField.label.trim()) return;
+    const f = {
+      key: `f_edit_${Date.now()}`,
+      label: newField.label.trim(),
+      type: newField.type,
+      options: newField.options ? newField.options.split(',').map(s => s.trim()).filter(Boolean) : [],
+      price: parseFloat(newField.price) || 0,
+      priceUnit: newField.priceUnit,
+      formulaExpression: newField.formulaExpression,
+      content: newField.content,
+      suggested: false,
+    };
+    onFieldsChange([...fields, f]);
+    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
+    setAddingField(false);
+  };
+
+  const generate = async (type) => {
+    setSendType(type);
+    setGenerating(true);
+    setGenerated(''); setEdited('');
+    try {
+      const res = await fetch('/api/generate-message', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, sessionName, transcript, fields, fieldValues }),
+      });
+      const data = await res.json();
+      const text = data.text || data.error || 'Unable to generate.';
+      setGenerated(text); setEdited(text);
+    } catch {
+      const msg = 'Failed to generate. Please try again.';
+      setGenerated(msg); setEdited(msg);
+    }
+    setGenerating(false);
+  };
+
+  const copy = () => {
+    navigator.clipboard.writeText(edited).catch(() => {});
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const renderValue = (f) => {
+    const v = fieldValues[f.key];
+    if (f.type === 'formula') return null;
+    if (v === undefined || v === '') return <span className="text-slate-300 italic text-xs">—</span>;
+    if (f.type === 'toggle') return <span className={v ? 'text-green-700' : 'text-slate-400'}>{v ? 'Yes' : 'No'}</span>;
+    if (f.type === 'multi-check') return Array.isArray(v) && v.length ? v.join(', ') : null;
+    if (f.type === 'priced-item') { const qty = parseInt(v)||0; return `${qty}${f.price>0?` × £${f.price} = £${(f.price*qty).toFixed(2)}`:''}` ; }
+    if (f.type === 'currency') return `£${v}`;
+    if (f.type === 'percentage') return `${v}%`;
+    if (f.type === 'rating') return `${v} / 5 ★`;
+    if (f.type === 'duration') return v?.hours !== undefined ? `${v.hours||0}h ${v.minutes||0}m` : String(v);
+    if (f.type === 'email') return <a href={`mailto:${v}`} className="text-sky-600 underline">{v}</a>;
+    if (f.type === 'url') return <a href={v} target="_blank" rel="noopener noreferrer" className="text-violet-600 underline break-all">{v}</a>;
+    return <span className="break-words">{String(v)}</span>;
+  };
+
+  const tabs = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'transcript', label: `Transcript${transcript.length ? ` (${transcript.length})` : ''}` },
+    { id: 'form', label: 'Form' },
+    { id: 'send', label: 'Send' },
+  ];
+
+  return (
+    <div className="h-full bg-[#F7F7F5] flex flex-col overflow-hidden">
+
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-5 pt-4 pb-0 flex-shrink-0">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <div className="flex items-center gap-1.5 mb-1">
+              <div className="w-4 h-4 bg-green-500 rounded-full flex items-center justify-center">
+                <Check className="w-2.5 h-2.5 text-white" />
+              </div>
+              <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">
+                {mode === 'client' ? 'Form saved' : 'Session complete'}
+              </span>
+            </div>
+            <h2 className="text-lg font-black text-slate-900 leading-tight">{sessionName}</h2>
+            <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
+              <span>{fmtDate(callStartTime)}</span>
+              {callDuration > 0 && <><span>·</span><span>{fmtDur(callDuration)}</span></>}
+            </div>
+          </div>
+          <button onClick={onReset} className="text-xs text-slate-400 hover:text-slate-700 px-2.5 py-1.5 rounded-lg hover:bg-slate-100 transition-colors flex-shrink-0 mt-1">
+            New session
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-0 -mb-px overflow-x-auto">
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === t.id ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}
+            >{t.label}</button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab content */}
+      <div className="flex-1 overflow-y-auto">
+
+        {/* ── OVERVIEW ── */}
+        {tab === 'overview' && (
+          <div className="max-w-lg mx-auto px-5 py-5 space-y-4">
+
+            {/* Call card */}
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-3">Call details</p>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                  <p className="text-[10px] text-slate-400 mb-0.5">Date & Time</p>
+                  <p className="text-sm font-semibold text-slate-800">{fmtDate(callStartTime)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-slate-400 mb-0.5">Duration</p>
+                  <p className="text-sm font-semibold text-slate-800">{fmtDur(callDuration)}</p>
+                </div>
+              </div>
+              {recordingUrl ? (
+                <div>
+                  <p className="text-[10px] text-slate-400 mb-1.5">Recording</p>
+                  <audio controls src={recordingUrl} className="w-full h-9 rounded-lg" style={{accentColor:'#0f172a'}} />
+                </div>
+              ) : (
+                <p className="text-xs text-slate-300 italic">No recording — mic permission not granted.</p>
+              )}
+            </div>
+
+            {/* AI summary */}
+            {conversationSummary && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">AI Summary</p>
+                <p className="text-sm text-slate-600 leading-relaxed">{conversationSummary}</p>
+              </div>
+            )}
+
+            {/* Priced total — customer mode only */}
+            {mode === 'customer' && pricedTotal > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Estimated total</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">Based on priced items filled</p>
+                </div>
+                <p className="text-2xl font-black text-amber-800">£{pricedTotal.toFixed(2)}</p>
+              </div>
+            )}
+
+            {onRedo && (
+              <button onClick={onRedo} className="w-full py-2.5 rounded-xl border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors">
+                Redo Customer Onboarding
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* ── TRANSCRIPT ── */}
+        {tab === 'transcript' && (
+          <div className="max-w-lg mx-auto px-5 py-5">
+            {transcript.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-slate-400 text-sm">No transcript recorded for this session.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {transcript.map((l, i) => {
+                  const isYou = l.speaker === 'You' || l.speaker === 'Agent';
+                  return (
+                    <div key={i} className={`flex flex-col ${isYou ? 'items-start' : 'items-end'}`}>
+                      <span className="text-[10px] text-slate-400 mb-1 px-1">{l.speaker}</span>
+                      <div className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${isYou ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm' : 'bg-slate-900 text-white rounded-tr-sm'}`}>
+                        {l.text}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── FORM ── */}
+        {tab === 'form' && (
+          <div className="max-w-lg mx-auto px-5 py-5">
+            <div className="bg-white rounded-2xl border border-slate-200 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-700">
+                  {mode === 'customer' ? 'Filled intake form' : 'Saved intake form'}
+                </h3>
+                <span className="text-xs text-slate-400">{fields.filter(f => !LAYOUT.includes(f.type)).length} fields</span>
+              </div>
+
+              <div className="space-y-2">
+                {fields.map(f => {
+                  if (f.type === 'divider') return (
+                    <div key={f.key} className="flex items-center gap-2 py-1">
+                      <hr className="flex-1 border-slate-100" />
+                      <button onClick={() => removeField(f.key)} className="text-slate-200 hover:text-red-400 transition-colors"><X className="w-3 h-3" /></button>
+                    </div>
+                  );
+                  if (f.type === 'section-header') return (
+                    <div key={f.key} className="flex items-center justify-between pt-2 pb-0.5">
+                      <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest flex-1">{f.label}</span>
+                      <button onClick={() => removeField(f.key)} className="text-slate-200 hover:text-red-400 transition-colors"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  );
+                  if (f.type === 'instructions') return (
+                    <div key={f.key} className="flex items-start gap-2 bg-blue-50 rounded-xl px-3 py-2">
+                      <Info className="w-3.5 h-3.5 text-blue-400 flex-shrink-0 mt-0.5" />
+                      <span className="text-xs text-blue-700 flex-1">{f.content || f.label}</span>
+                      <button onClick={() => removeField(f.key)} className="text-blue-200 hover:text-red-400"><X className="w-3.5 h-3.5" /></button>
+                    </div>
+                  );
+                  const def = td(f.type);
+                  const val = renderValue(f);
+                  return (
+                    <div key={f.key} className="flex items-start gap-2.5 group py-0.5">
+                      <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${def.bg}`}>
+                        <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-slate-700">{f.label}</p>
+                        {mode === 'customer' && val && <p className="text-xs text-slate-500 mt-0.5">{val}</p>}
+                        {mode === 'client' && <p className="text-[10px] text-slate-300">{def.label}</p>}
+                      </div>
+                      <button onClick={() => removeField(f.key)} className="text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add field */}
+              {addingField ? (
+                <div className="mt-4 pt-4 border-t border-slate-100 space-y-2.5">
+                  <input autoFocus type="text" value={newField.label}
+                    onChange={e => { const v = e.target.value; setNewField(f => ({ ...f, label: v, type: detectFieldType(v) || f.type })); }}
+                    onKeyDown={e => e.key === 'Enter' && commitNewField()}
+                    placeholder="Field label"
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition"
+                  />
+                  <select value={newField.type} onChange={e => setNewField(f => ({ ...f, type: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 bg-white">
+                    {FIELD_TYPE_DEFS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                  </select>
+                  <div className="flex gap-2">
+                    <button onClick={() => { setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' }); }}
+                      className="flex-1 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-50 transition-colors">Cancel</button>
+                    <button onClick={commitNewField} disabled={!newField.label.trim()}
+                      className="flex-1 py-1.5 rounded-lg bg-slate-900 text-white text-sm font-semibold disabled:opacity-40 hover:bg-slate-700 transition-colors">Add</button>
+                  </div>
+                </div>
+              ) : (
+                <button onClick={() => setAddingField(true)}
+                  className="mt-4 w-full py-2 rounded-xl border-2 border-dashed border-slate-200 text-sm text-slate-400 hover:border-slate-300 hover:text-slate-600 transition-colors flex items-center justify-center gap-1.5">
+                  <Plus className="w-3.5 h-3.5" /> Add field
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── SEND ── */}
+        {tab === 'send' && (
+          <div className="max-w-lg mx-auto px-5 py-5 space-y-4">
+            <div className="grid grid-cols-3 gap-2.5">
+              {[
+                { type: 'sms', label: 'SMS', Icon: MessageSquare, desc: 'Short follow-up' },
+                { type: 'email', label: 'Email', Icon: Mail, desc: 'Full follow-up email' },
+                { type: 'invoice', label: 'Quote', Icon: ReceiptText, desc: 'Price breakdown' },
+              ].map(({ type, label, Icon, desc }) => (
+                <button key={type} onClick={() => generate(type)}
+                  className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all ${sendType === type && !generating ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                  <Icon className="w-5 h-5 text-slate-600" />
+                  <span className="text-sm font-semibold text-slate-800">{label}</span>
+                  <span className="text-[10px] text-slate-400 text-center">{desc}</span>
+                </button>
+              ))}
+            </div>
+
+            {generating && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-900 animate-spin flex-shrink-0" />
+                <span className="text-sm text-slate-500">Generating {sendType === 'sms' ? 'SMS' : sendType === 'email' ? 'email' : 'quote'}…</span>
+              </div>
+            )}
+
+            {!generating && generated && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+                    {sendType === 'sms' ? 'SMS Message' : sendType === 'email' ? 'Email Body' : 'Quote / Invoice'}
+                  </p>
+                  <button onClick={copy}
+                    className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${copied ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+                    {copied ? '✓ Copied' : 'Copy'}
+                  </button>
+                </div>
+                <textarea
+                  value={edited}
+                  onChange={e => setEdited(e.target.value)}
+                  rows={sendType === 'sms' ? 4 : 12}
+                  className="w-full text-sm text-slate-700 leading-relaxed resize-none outline-none border border-slate-100 rounded-xl px-3 py-2.5 focus:ring-2 focus:ring-slate-200 transition"
+                />
+                <p className="text-[10px] text-slate-400 mt-2 leading-relaxed">
+                  Edit above if needed, then copy to send via your preferred app or email client.
+                </p>
+              </div>
+            )}
+
+            {!generating && !generated && (
+              <p className="text-sm text-slate-400 text-center py-4">Choose a format above to generate AI-drafted content.</p>
+            )}
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
 }
 
 function OnboardingView() {
