@@ -3673,6 +3673,8 @@ function splitIntoChunks(text) {
 function OnboardingWorking() {
   const [step, setStep] = useState('setup');
   const [mode, setMode] = useState('client'); // 'client' | 'customer'
+  const [selectedTemplateId, setSelectedTemplateId] = useState('default');
+  const [savedBanner, setSavedBanner] = useState(null); // name of last-saved template
   const [session, setSession] = useState({ name: '', phone: '' });
   const [callState, setCallState] = useState('idle');
   const [callSeconds, setCallSeconds] = useState(0);
@@ -3717,8 +3719,13 @@ function OnboardingWorking() {
   useEffect(() => () => { stopMic(); clearInterval(timerRef.current); clearTimeout(bufferTimerRef.current); }, []);
 
   // ── localStorage persistence ─────────────────────────────────────────────
-  const SESSION_KEY = 'smq_session_v1';
-  const TEMPLATE_KEY = 'smq_template_v1';
+  const SESSION_KEY  = 'smq_session_v1';
+  const TEMPLATE_KEY = 'smq_template_v1';  // single latest-template (legacy compat)
+  const TEMPLATES_KEY = 'smq_templates_v1'; // named template library
+
+  const getTemplates = () => {
+    try { return JSON.parse(localStorage.getItem(TEMPLATES_KEY)) || []; } catch { return []; }
+  };
 
   // Default fields used when no Client Onboarding template has been saved yet
   const DEFAULT_CUSTOMER_FIELDS = [
@@ -4024,8 +4031,8 @@ function OnboardingWorking() {
   const removeField = key => setFields(prev => prev.filter(f => f.key !== key));
   const setVal = (key, val) => setFieldValues(prev => ({ ...prev, [key]: val }));
 
-  const goToP2 = async () => {
-    // Cancel any pending buffer flush and grab any remaining fragment
+  // Finish Client Onboarding — runs final analysis, saves as named template, returns to setup
+  const finishClientOnboarding = async () => {
     clearTimeout(bufferTimerRef.current);
     const finalTranscript = speechBufferRef.current
       ? [...transcript, { speaker: speakerRef.current, text: speechBufferRef.current }]
@@ -4034,10 +4041,11 @@ function OnboardingWorking() {
 
     setReAnalyzing(true);
     setP1Transcript(finalTranscript);
+    let savedFields = fields;
     try {
       const result = await analyzeFullConversation(finalTranscript, fields);
       if (result.fields?.length) {
-        const mappedFields = result.fields.map((f, i) => ({
+        savedFields = result.fields.map((f, i) => ({
           key: `f_rev_${i}_${Date.now()}`,
           label: f.label,
           type: f.type || 'text',
@@ -4048,9 +4056,7 @@ function OnboardingWorking() {
           content: f.content || '',
           suggested: f.suggested === true,
         }));
-        setFields(mappedFields);
-        // Save as re-usable template for future Customer Onboarding sessions
-        try { localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ fields: mappedFields })); } catch { /* ignore */ }
+        setFields(savedFields);
       }
       if (result.summary) setConversationSummary(result.summary);
     } catch (e) {
@@ -4059,19 +4065,32 @@ function OnboardingWorking() {
       setTimeout(() => setApiError(null), 5000);
     }
     setReAnalyzing(false);
-    setCallState('idle'); setCallSeconds(0); setTranscript([]); setFieldValues({});
-    setStep('p2');
+
+    // Save as named template in the library
+    const templateName = session.name || 'Untitled form';
+    const newTemplate = { id: Date.now().toString(), name: templateName, savedAt: Date.now(), fields: savedFields };
+    try {
+      const existing = getTemplates();
+      localStorage.setItem(TEMPLATES_KEY, JSON.stringify([newTemplate, ...existing].slice(0, 20)));
+      localStorage.setItem(TEMPLATE_KEY, JSON.stringify({ fields: savedFields })); // legacy compat
+    } catch { /* ignore */ }
+
+    // Show success banner then reset to setup
+    setSavedBanner(templateName);
+    setTimeout(() => {
+      setSavedBanner(null);
+      reset();
+    }, 2200);
   };
 
-  // Start Customer Onboarding directly — loads saved template or default fields
+  // Start Customer Onboarding — load selected template or default fields
   const startCustomerOnboarding = () => {
     if (!session.name.trim()) return;
-    let templateFields = [];
-    try {
-      const saved = JSON.parse(localStorage.getItem(TEMPLATE_KEY));
-      if (saved?.fields?.length) templateFields = saved.fields;
-    } catch { /* ignore */ }
-    const fieldsToUse = templateFields.length ? templateFields : DEFAULT_CUSTOMER_FIELDS;
+    let fieldsToUse = DEFAULT_CUSTOMER_FIELDS;
+    if (selectedTemplateId !== 'default') {
+      const tmpl = getTemplates().find(t => t.id === selectedTemplateId);
+      if (tmpl?.fields?.length) fieldsToUse = tmpl.fields;
+    }
     setFields(fieldsToUse);
     setFieldValues({});
     setTranscript([]);
@@ -4088,7 +4107,7 @@ function OnboardingWorking() {
     try { localStorage.removeItem(SESSION_KEY); } catch { /* ignore */ }
     speechBufferRef.current = '';
     aiPendingRef.current = 0;
-    setStep('setup'); setMode('client'); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
+    setStep('setup'); setMode('client'); setSelectedTemplateId('default'); setSavedBanner(null); setSession({ name: '', phone: '' }); setCallState('idle'); setCallSeconds(0);
     setTranscript([]); setFields([]); setFieldValues({});
     setAddingField(false); setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
     setLastAdded(null); setConversationSummary(''); setP1Transcript([]); setLineText('');
@@ -4442,12 +4461,20 @@ function OnboardingWorking() {
 
   // SETUP
   if (step === 'setup') {
-    const hasTemplate = (() => {
-      try { const t = JSON.parse(localStorage.getItem(TEMPLATE_KEY)); return t?.fields?.length > 0; } catch { return false; }
-    })();
+    const savedTemplates = getTemplates();
+    const fmt = ts => { const d = new Date(ts); return d.toLocaleDateString('en-GB', { day:'numeric', month:'short', year:'numeric' }); };
     return (
       <div className="min-h-full bg-[#F7F7F5] flex items-start justify-center p-6 md:p-8 overflow-y-auto">
-        <div className="w-full max-w-lg pt-4">
+        <div className="w-full max-w-lg pt-4 pb-8">
+
+          {/* Saved banner */}
+          {savedBanner && (
+            <div className="mb-4 flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
+              <CheckCircle2 className="w-4 h-4 text-green-600 flex-shrink-0" />
+              <p className="text-sm text-green-800 font-medium">Form saved — <span className="font-bold">{savedBanner}</span></p>
+            </div>
+          )}
+
           <div className="mb-6">
             <h2 className="text-2xl font-black text-slate-900 mb-1">Start a session</h2>
             <p className="text-slate-500 text-sm">Choose the type of session you'd like to run.</p>
@@ -4473,14 +4500,54 @@ function OnboardingWorking() {
                 <Phone className={`w-4 h-4 ${mode === 'customer' ? 'text-white' : 'text-slate-500'}`} />
               </div>
               <div className={`font-bold text-sm mb-1 ${mode === 'customer' ? 'text-green-900' : 'text-slate-700'}`}>Customer Onboarding</div>
-              <p className="text-[11px] text-slate-400 leading-relaxed">Customer calls to enquire — AI fills your form and generates a quote on the call.</p>
-              {mode === 'customer' && (
-                <p className={`text-[10px] font-semibold mt-2 ${hasTemplate ? 'text-green-700' : 'text-amber-600'}`}>
-                  {hasTemplate ? '✓ Using your saved form template' : '⚡ Using default catering form'}
-                </p>
-              )}
+              <p className="text-[11px] text-slate-400 leading-relaxed">Customer calls to enquire — AI fills your form and generates a quote live.</p>
             </button>
           </div>
+
+          {/* Template picker — only shown when Customer Onboarding is selected */}
+          {mode === 'customer' && (
+            <div className="mb-4">
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2">Select intake form</label>
+              <div className="space-y-2">
+                {/* Default template */}
+                <button
+                  onClick={() => setSelectedTemplateId('default')}
+                  className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${selectedTemplateId === 'default' ? 'border-green-500 bg-green-50' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                >
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedTemplateId === 'default' ? 'bg-green-100' : 'bg-slate-100'}`}>
+                    <FileText className={`w-4 h-4 ${selectedTemplateId === 'default' ? 'text-green-700' : 'text-slate-400'}`} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className={`text-sm font-semibold ${selectedTemplateId === 'default' ? 'text-green-900' : 'text-slate-700'}`}>Default catering template</div>
+                    <div className="text-[11px] text-slate-400">11 standard fields — name, event, guests, venue, dietary…</div>
+                  </div>
+                  {selectedTemplateId === 'default' && <Check className="w-4 h-4 text-green-600 flex-shrink-0" />}
+                </button>
+
+                {/* Saved templates from Client Onboarding */}
+                {savedTemplates.map(t => (
+                  <button
+                    key={t.id}
+                    onClick={() => setSelectedTemplateId(t.id)}
+                    className={`w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${selectedTemplateId === t.id ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}
+                  >
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${selectedTemplateId === t.id ? 'bg-slate-900' : 'bg-slate-100'}`}>
+                      <FileEdit className={`w-4 h-4 ${selectedTemplateId === t.id ? 'text-white' : 'text-slate-400'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-sm font-semibold truncate ${selectedTemplateId === t.id ? 'text-slate-900' : 'text-slate-700'}`}>{t.name}</div>
+                      <div className="text-[11px] text-slate-400">{t.fields.length} fields · saved {fmt(t.savedAt)}</div>
+                    </div>
+                    {selectedTemplateId === t.id && <Check className="w-4 h-4 text-slate-700 flex-shrink-0" />}
+                  </button>
+                ))}
+
+                {savedTemplates.length === 0 && (
+                  <p className="text-[11px] text-slate-400 px-1">No saved forms yet — run Client Onboarding to build and save your own.</p>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Setup form */}
           <div className="bg-white rounded-2xl border border-slate-200 p-6 space-y-4">
@@ -4545,8 +4612,8 @@ function OnboardingWorking() {
       <div className="h-full flex flex-col items-center justify-center bg-[#F7F7F5] gap-6">
         <div className="w-12 h-12 rounded-full border-4 border-slate-200 border-t-slate-900 animate-spin" />
         <div className="text-center">
-          <p className="font-semibold text-slate-800 text-lg">Reviewing conversation…</p>
-          <p className="text-slate-500 text-sm mt-1">AI is reading the full transcript to refine your form</p>
+          <p className="font-semibold text-slate-800 text-lg">Finalising your intake form…</p>
+          <p className="text-slate-500 text-sm mt-1">AI is reviewing the transcript to clean up and save your form</p>
         </div>
       </div>
     );
@@ -4825,11 +4892,11 @@ function OnboardingWorking() {
               <>
                 <button onClick={reset} className="text-sm text-slate-500 hover:text-slate-800 transition-colors">Start over</button>
                 <button
-                  onClick={goToP2}
+                  onClick={finishClientOnboarding}
                   disabled={fields.length === 0}
                   className="flex items-center gap-2 bg-slate-900 text-white px-6 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  Begin Customer Onboarding <ArrowRight className="w-4 h-4" />
+                  <Check className="w-4 h-4" /> Save Intake Form
                 </button>
               </>
             )}
@@ -4954,14 +5021,6 @@ function OnboardingWorking() {
               className="flex items-center gap-2 bg-slate-900 text-white px-8 py-2.5 rounded-xl font-semibold text-sm hover:bg-slate-700 transition-colors shadow-md"
             >New session</button>
           </div>
-          {mode === 'customer' && (
-            <p className="text-center text-xs text-slate-400 mt-4">
-              Want to update your intake form?{' '}
-              <button onClick={() => { reset(); setMode('client'); }} className="font-semibold text-slate-600 hover:text-slate-900 underline underline-offset-2">
-                Run Client Onboarding
-              </button>
-            </p>
-          )}
         </div>
       </div>
     );
