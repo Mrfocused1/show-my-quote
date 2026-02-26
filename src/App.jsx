@@ -4981,6 +4981,72 @@ function OnboardingWorking() {
   return null;
 }
 
+// ─── Invoice PDF HTML builder (no dependencies — uses browser print) ───
+function buildInvoiceHTML(inv, sessionName) {
+  const quoteNum = `Q-${String(Date.now()).slice(-6)}`;
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+  const subtotal = inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+  const depositAmt = inv.depositPct > 0 ? subtotal * inv.depositPct / 100 : 0;
+  const itemRows = inv.lineItems.map(i =>
+    `<tr><td>${i.description}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">£${Number(i.unitPrice).toFixed(2)}</td><td style="text-align:right">£${(i.qty * i.unitPrice).toFixed(2)}</td></tr>`
+  ).join('');
+  const notesBlock = (inv.eventType || inv.eventDate || inv.venue || inv.guestCount || inv.notes) ? `
+    <div class="notes"><div class="nlabel">Event Details &amp; Notes</div>
+      ${inv.eventType ? `<p><strong>Event:</strong> ${inv.eventType}</p>` : ''}
+      ${inv.eventDate ? `<p><strong>Date:</strong> ${inv.eventDate}</p>` : ''}
+      ${inv.venue ? `<p><strong>Venue:</strong> ${inv.venue}</p>` : ''}
+      ${inv.guestCount ? `<p><strong>Guests:</strong> ${inv.guestCount}</p>` : ''}
+      ${inv.notes ? `<p style="margin-top:8px">${inv.notes}</p>` : ''}
+    </div>` : '';
+  return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Quote</title><style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#111;padding:48px 56px;font-size:14px;line-height:1.5}
+.hd{display:flex;justify-content:space-between;align-items:flex-start}
+.hd-left h2{font-size:22px;font-weight:800;letter-spacing:-.3px}
+.hd-left p{color:#666;font-size:12px;margin-top:4px;line-height:1.5}
+.hd-right{text-align:right}.qt{font-size:30px;font-weight:900;letter-spacing:-1px;text-transform:uppercase}
+.hd-right p{font-size:12px;color:#666;margin-top:5px}
+.rule{height:2px;background:#111;margin:28px 0}
+.parties{display:grid;grid-template-columns:1fr 1fr;gap:32px;margin-bottom:36px}
+.plabel{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:7px}
+.party p{font-size:13px;color:#333;line-height:1.6}
+.party strong{color:#111;font-size:14px;display:block;margin-bottom:2px}
+table.items{width:100%;border-collapse:collapse;margin-bottom:24px}
+table.items th{background:#f5f5f5;padding:9px 12px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#777}
+table.items td{padding:11px 12px;font-size:13px;border-bottom:1px solid #f0f0f0;color:#333}
+.tw{display:flex;justify-content:flex-end;margin-bottom:32px}
+table.tot{width:260px;border-collapse:collapse}
+table.tot td{border:none;font-size:13px;padding:4px 12px;color:#555}
+table.tot tr.grand td{font-weight:800;font-size:16px;border-top:2px solid #111;padding-top:10px;color:#111}
+.notes{background:#f9f9f9;border-left:3px solid #ddd;padding:14px 16px;margin-bottom:32px;font-size:12px;color:#555;line-height:1.65}
+.nlabel{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#999;margin-bottom:7px}
+.notes p{margin-top:3px}
+.footer{border-top:1px solid #eee;padding-top:20px;text-align:center;font-size:11px;color:#aaa}
+@media print{body{padding:24px 32px}.np{display:none!important}}
+</style></head><body>
+<div class="hd">
+  <div class="hd-left"><h2>${inv.yourBusiness || 'Your Business'}</h2><p>${[inv.yourEmail, inv.yourPhone].filter(Boolean).join(' &middot; ') || '&nbsp;'}</p></div>
+  <div class="hd-right"><div class="qt">Quote</div><p>Ref: ${quoteNum}</p><p>Date: ${today}</p>${inv.validDays ? `<p>Valid: ${inv.validDays} days</p>` : ''}</div>
+</div>
+<div class="rule"></div>
+<div class="parties">
+  <div class="party"><div class="plabel">Prepared for</div><p><strong>${inv.clientName || 'Client'}</strong>${inv.clientEmail ? `<br>${inv.clientEmail}` : ''}</p></div>
+  <div class="party"><div class="plabel">Prepared by</div><p><strong>${inv.yourBusiness || 'Your Business'}</strong>${inv.yourEmail ? `<br>${inv.yourEmail}` : ''}</p></div>
+</div>
+${inv.lineItems.length ? `<table class="items"><thead><tr><th>Description</th><th style="text-align:center;width:70px">Qty</th><th style="text-align:right;width:110px">Unit Price</th><th style="text-align:right;width:110px">Total</th></tr></thead><tbody>${itemRows}</tbody></table>
+<div class="tw"><table class="tot">
+${inv.lineItems.length > 1 ? `<tr><td>Subtotal</td><td style="text-align:right">£${subtotal.toFixed(2)}</td></tr>` : ''}
+${depositAmt > 0 ? `<tr><td>Deposit (${inv.depositPct}%)</td><td style="text-align:right">£${depositAmt.toFixed(2)}</td></tr>` : ''}
+<tr class="grand"><td>Total</td><td style="text-align:right">£${subtotal.toFixed(2)}</td></tr>
+</table></div>` : ''}
+${notesBlock}
+<div class="footer">This quote is valid for ${inv.validDays || 14} days from the date issued. To accept, please reply by email or phone.</div>
+<div class="np" style="text-align:center;margin-top:40px;padding-bottom:20px">
+  <button onclick="window.print()" style="background:#111;color:#fff;border:none;padding:12px 36px;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">Save as PDF / Print</button>
+</div>
+</body></html>`;
+}
+
 // ─── Post-call completion screen (shared by Client and Customer Onboarding) ───
 function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues,
   transcript, conversationSummary, callStartTime, callDuration, recordingUrl,
@@ -4994,6 +5060,8 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
   const [edited, setEdited] = useState('');
   const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [inv, setInv] = useState(null);
+  const [invCopied, setInvCopied] = useState(false);
 
   const td = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
   const LAYOUT = ['section-header', 'divider', 'instructions'];
@@ -5049,6 +5117,87 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
     navigator.clipboard.writeText(edited).catch(() => {});
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const initInvoice = () => {
+    const get = (...patterns) => {
+      for (const p of patterns) {
+        const f = fields.find(fl => new RegExp(p, 'i').test(fl.label));
+        if (f && fieldValues[f.key] !== undefined && fieldValues[f.key] !== '') return String(fieldValues[f.key]);
+      }
+      return '';
+    };
+    const lineItems = fields
+      .filter(f => f.type === 'priced-item' && f.price > 0)
+      .map(f => ({ id: f.key, description: f.label, qty: parseInt(fieldValues[f.key]) || 0, unitPrice: f.price }))
+      .filter(i => i.qty > 0);
+    setInv({
+      yourBusiness: '', yourEmail: '', yourPhone: '',
+      clientName: get('client name', 'name', 'customer name', 'contact'),
+      clientEmail: get('email', 'client email', 'customer email'),
+      eventType: get('event type', 'type of event', 'occasion', 'event'),
+      eventDate: get('event date', 'date', 'wedding date', 'function date'),
+      venue: get('venue', 'location', 'event location'),
+      guestCount: get('guests', 'guest count', 'number of guests', 'head count', 'covers'),
+      lineItems,
+      notes: get('special requirements', 'notes', 'dietary', 'requirements', 'additional'),
+      validDays: 14, depositPct: 0,
+    });
+  };
+
+  const downloadPDF = () => {
+    if (!inv) return;
+    const html = buildInvoiceHTML(inv, sessionName);
+    const w = window.open('', '_blank', 'width=850,height=1100');
+    if (!w) { alert('Please allow pop-ups to download the PDF.'); return; }
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 800);
+  };
+
+  const emailDraft = () => {
+    if (!inv) return;
+    const total = inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const lines = [
+      `Hi ${inv.clientName || 'there'},`,
+      '',
+      'Thank you for your enquiry. Please find your quote summary below.',
+      '',
+      inv.eventType ? `Event: ${inv.eventType}` : null,
+      inv.eventDate ? `Date: ${inv.eventDate}` : null,
+      inv.venue ? `Venue: ${inv.venue}` : null,
+      inv.guestCount ? `Guests: ${inv.guestCount}` : null,
+      inv.lineItems.length ? '' : null,
+      inv.lineItems.length ? '── Items ──' : null,
+      ...inv.lineItems.map(i => `${i.description}: ${i.qty} x £${Number(i.unitPrice).toFixed(2)} = £${(i.qty * i.unitPrice).toFixed(2)}`),
+      '',
+      `Total: £${total.toFixed(2)}`,
+      inv.depositPct > 0 ? `Deposit required: £${(total * inv.depositPct / 100).toFixed(2)} (${inv.depositPct}%)` : null,
+      '',
+      inv.notes ? `Notes: ${inv.notes}` : null,
+      '',
+      `This quote is valid for ${inv.validDays} days.`,
+      '',
+      'Warm regards,',
+      inv.yourBusiness || '[Your Name]',
+    ].filter(l => l !== null);
+    const subject = `Quote — ${inv.eventType || sessionName}`;
+    window.open(`mailto:${inv.clientEmail || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(lines.join('\n'))}`);
+  };
+
+  const copyInvSMS = () => {
+    if (!inv) return;
+    const total = inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
+    const parts = [
+      `Hi ${inv.clientName || 'there'}, here is a quick summary of your quote from ${inv.yourBusiness || 'us'}:`,
+      inv.eventType && `${inv.eventType}${inv.eventDate ? ` on ${inv.eventDate}` : ''}`,
+      inv.guestCount && `${inv.guestCount} guests`,
+      inv.lineItems.length > 0 && `Total: £${total.toFixed(2)}`,
+      'Full quote sent to your email. Reply to confirm or ask any questions.',
+    ].filter(Boolean);
+    navigator.clipboard.writeText(parts.join(' · ')).catch(() => {});
+    setInvCopied(true);
+    setTimeout(() => setInvCopied(false), 2000);
   };
 
   const renderValue = (f) => {
@@ -5277,14 +5426,17 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
         {/* ── SEND ── */}
         {tab === 'send' && (
           <div className="max-w-lg mx-auto px-5 py-5 space-y-4">
+
+            {/* Type selector */}
             <div className="grid grid-cols-3 gap-2.5">
               {[
                 { type: 'sms', label: 'SMS', Icon: MessageSquare, desc: 'Short follow-up' },
                 { type: 'email', label: 'Email', Icon: Mail, desc: 'Full follow-up email' },
-                { type: 'invoice', label: 'Quote', Icon: ReceiptText, desc: 'Price breakdown' },
+                { type: 'invoice', label: 'Quote', Icon: ReceiptText, desc: 'Editable PDF quote' },
               ].map(({ type, label, Icon, desc }) => (
-                <button key={type} onClick={() => generate(type)}
-                  className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all ${sendType === type && !generating ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
+                <button key={type}
+                  onClick={() => { if (type === 'invoice') { setSendType('invoice'); initInvoice(); } else { generate(type); } }}
+                  className={`flex flex-col items-center gap-1.5 p-4 rounded-2xl border-2 transition-all ${sendType === type ? 'border-slate-900 bg-white shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300'}`}>
                   <Icon className="w-5 h-5 text-slate-600" />
                   <span className="text-sm font-semibold text-slate-800">{label}</span>
                   <span className="text-[10px] text-slate-400 text-center">{desc}</span>
@@ -5292,18 +5444,161 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               ))}
             </div>
 
-            {generating && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-3">
-                <div className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-900 animate-spin flex-shrink-0" />
-                <span className="text-sm text-slate-500">Generating {sendType === 'sms' ? 'SMS' : sendType === 'email' ? 'email' : 'quote'}…</span>
+            {/* ── Invoice editor ── */}
+            {sendType === 'invoice' && inv && (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden">
+                <div className="bg-slate-900 px-5 py-3.5 flex items-center justify-between">
+                  <span className="text-white font-black tracking-tight">QUOTE</span>
+                  <span className="text-slate-400 text-[11px]">Edit all fields then export</span>
+                </div>
+
+                <div className="p-5 space-y-5">
+
+                  {/* Your Business */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Your Business</p>
+                    <div className="space-y-2">
+                      <input value={inv.yourBusiness} onChange={e => setInv(v => ({ ...v, yourBusiness: e.target.value }))}
+                        placeholder="Business name"
+                        className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <div className="grid grid-cols-2 gap-2">
+                        <input value={inv.yourEmail} onChange={e => setInv(v => ({ ...v, yourEmail: e.target.value }))}
+                          placeholder="your@email.com" type="email"
+                          className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                        <input value={inv.yourPhone} onChange={e => setInv(v => ({ ...v, yourPhone: e.target.value }))}
+                          placeholder="Phone"
+                          className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Client */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Client</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={inv.clientName} onChange={e => setInv(v => ({ ...v, clientName: e.target.value }))}
+                        placeholder="Client name"
+                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <input value={inv.clientEmail} onChange={e => setInv(v => ({ ...v, clientEmail: e.target.value }))}
+                        placeholder="Client email" type="email"
+                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                    </div>
+                  </div>
+
+                  {/* Event */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Event</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input value={inv.eventType} onChange={e => setInv(v => ({ ...v, eventType: e.target.value }))}
+                        placeholder="Event type"
+                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <input value={inv.eventDate} onChange={e => setInv(v => ({ ...v, eventDate: e.target.value }))}
+                        placeholder="Event date"
+                        className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <input value={inv.venue} onChange={e => setInv(v => ({ ...v, venue: e.target.value }))}
+                        placeholder="Venue / location"
+                        className="col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                    </div>
+                  </div>
+
+                  {/* Line items */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Items</p>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="grid grid-cols-[1fr_52px_76px_76px_24px] bg-slate-50 px-3 py-1.5 gap-1 text-[9px] font-bold text-slate-400 uppercase tracking-wider">
+                        <span>Description</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Total</span><span/>
+                      </div>
+                      {inv.lineItems.map((item, idx) => (
+                        <div key={item.id || idx} className="grid grid-cols-[1fr_52px_76px_76px_24px] border-t border-slate-100 px-3 py-1.5 gap-1 items-center">
+                          <input value={item.description}
+                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, description: e.target.value } : r) }))}
+                            className="text-sm outline-none text-slate-700 bg-transparent min-w-0" />
+                          <input type="number" min="0" value={item.qty}
+                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, qty: Number(e.target.value) } : r) }))}
+                            className="text-sm outline-none text-slate-700 bg-transparent text-center w-full" />
+                          <input type="number" min="0" step="0.01" value={item.unitPrice}
+                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, unitPrice: Number(e.target.value) } : r) }))}
+                            className="text-sm outline-none text-slate-700 bg-transparent text-right w-full" />
+                          <span className="text-sm text-slate-500 text-right">£{(item.qty * item.unitPrice).toFixed(2)}</span>
+                          <button onClick={() => setInv(v => ({ ...v, lineItems: v.lineItems.filter((_, i) => i !== idx) }))}
+                            className="text-slate-300 hover:text-red-400 flex items-center justify-end transition-colors">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                      <div className="border-t border-slate-100 px-3 py-2">
+                        <button onClick={() => setInv(v => ({ ...v, lineItems: [...v.lineItems, { id: Date.now(), description: '', qty: 1, unitPrice: 0 }] }))}
+                          className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors">
+                          <Plus className="w-3 h-3" /> Add item
+                        </button>
+                      </div>
+                    </div>
+                    {inv.lineItems.length > 0 && (
+                      <div className="flex justify-end mt-2 pr-1">
+                        <div className="text-right">
+                          <p className="text-[10px] text-slate-400 uppercase tracking-wider">Total</p>
+                          <p className="text-xl font-black text-slate-900">£{inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toFixed(2)}</p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Notes & terms */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Notes</p>
+                    <textarea value={inv.notes} onChange={e => setInv(v => ({ ...v, notes: e.target.value }))}
+                      placeholder="Special requirements, dietary needs, deposit terms..."
+                      rows={2}
+                      className="w-full px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition resize-none" />
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <label className="text-xs text-slate-500">Valid for</label>
+                      <input type="number" min="1" value={inv.validDays} onChange={e => setInv(v => ({ ...v, validDays: Number(e.target.value) }))}
+                        className="w-14 px-2 py-1 rounded-lg border border-slate-200 text-sm text-center outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <span className="text-xs text-slate-500">days</span>
+                      <span className="text-slate-200 mx-2">|</span>
+                      <label className="text-xs text-slate-500">Deposit</label>
+                      <input type="number" min="0" max="100" value={inv.depositPct} onChange={e => setInv(v => ({ ...v, depositPct: Number(e.target.value) }))}
+                        className="w-14 px-2 py-1 rounded-lg border border-slate-200 text-sm text-center outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                      <span className="text-xs text-slate-500">%</span>
+                    </div>
+                  </div>
+
+                </div>
+
+                {/* Export actions */}
+                <div className="px-5 pb-5 grid grid-cols-3 gap-2">
+                  <button onClick={downloadPDF}
+                    className="flex flex-col items-center gap-1.5 py-3.5 rounded-xl bg-slate-900 text-white hover:bg-slate-700 transition-colors">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-xs font-semibold">Download PDF</span>
+                  </button>
+                  <button onClick={emailDraft}
+                    className="flex flex-col items-center gap-1.5 py-3.5 rounded-xl border-2 border-slate-200 text-slate-700 hover:border-slate-900 transition-colors">
+                    <Mail className="w-4 h-4" />
+                    <span className="text-xs font-semibold">Email Draft</span>
+                  </button>
+                  <button onClick={copyInvSMS}
+                    className={`flex flex-col items-center gap-1.5 py-3.5 rounded-xl border-2 transition-colors ${invCopied ? 'border-green-400 text-green-700 bg-green-50' : 'border-slate-200 text-slate-700 hover:border-slate-900'}`}>
+                    <MessageSquare className="w-4 h-4" />
+                    <span className="text-xs font-semibold">{invCopied ? 'Copied!' : 'Copy SMS'}</span>
+                  </button>
+                </div>
               </div>
             )}
 
-            {!generating && generated && (
+            {/* ── SMS / Email generate flow ── */}
+            {sendType !== 'invoice' && generating && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 flex items-center gap-3">
+                <div className="w-5 h-5 rounded-full border-2 border-slate-200 border-t-slate-900 animate-spin flex-shrink-0" />
+                <span className="text-sm text-slate-500">Generating {sendType === 'sms' ? 'SMS' : 'email'}...</span>
+              </div>
+            )}
+
+            {sendType !== 'invoice' && !generating && generated && (
               <div className="bg-white rounded-2xl border border-slate-200 p-5">
                 <div className="flex items-center justify-between mb-3">
                   <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    {sendType === 'sms' ? 'SMS Message' : sendType === 'email' ? 'Email Body' : 'Quote / Invoice'}
+                    {sendType === 'sms' ? 'SMS Message' : 'Email Body'}
                   </p>
                   <button onClick={copy}
                     className={`text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors ${copied ? 'bg-green-100 text-green-700' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
@@ -5322,7 +5617,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
               </div>
             )}
 
-            {!generating && !generated && (
+            {!sendType && (
               <p className="text-sm text-slate-400 text-center py-4">Choose a format above to generate AI-drafted content.</p>
             )}
           </div>
