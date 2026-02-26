@@ -3682,7 +3682,7 @@ function OnboardingWorking() {
   const [fields, setFields] = useState([]);
   const [fieldValues, setFieldValues] = useState({});
   const [addingField, setAddingField] = useState(false);
-  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
+  const [newField, setNewField] = useState({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '', sliderMin: 0, sliderMax: 100 });
   const [lastAdded, setLastAdded] = useState(null);
   const [editingPriceKey, setEditingPriceKey] = useState(null);
   const [reAnalyzing, setReAnalyzing] = useState(false);
@@ -3902,6 +3902,8 @@ function OnboardingWorking() {
                 priceUnit: f.priceUnit || 'per_head',
                 formulaExpression: f.type === 'formula' ? (f.formulaExpression || '') : '',
                 content: ['section-header','instructions'].includes(f.type) ? (f.content || '') : '',
+                sliderMin: f.type === 'slider' ? (f.sliderMin ?? 0) : undefined,
+                sliderMax: f.type === 'slider' ? (f.sliderMax ?? 100) : undefined,
                 suggested: f.suggested === true,
               });
               rollingLabels.push(cleanLabel); // update so next chunk sees it
@@ -4046,9 +4048,11 @@ function OnboardingWorking() {
       priceUnit: newField.priceUnit,
       formulaExpression: newField.type === 'formula' ? newField.formulaExpression.trim() : '',
       content: ['section-header','instructions'].includes(newField.type) ? newField.content.trim() : '',
+      sliderMin: newField.type === 'slider' ? (newField.sliderMin ?? 0) : undefined,
+      sliderMax: newField.type === 'slider' ? (newField.sliderMax ?? 100) : undefined,
       suggested: false,
     }]);
-    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '' });
+    setNewField({ label: '', type: 'text', options: '', price: '', priceUnit: 'per_head', formulaExpression: '', content: '', sliderMin: 0, sliderMax: 100 });
     setAddingField(false);
   };
 
@@ -4089,6 +4093,13 @@ function OnboardingWorking() {
       setTimeout(() => setApiError(null), 5000);
     }
     setReAnalyzing(false);
+
+    // Auto-confirm any formula suggestions the user didn't explicitly dismiss
+    const confirmedFields = savedFields.map(f => f.suggested ? { ...f, suggested: false } : f);
+    if (confirmedFields.some((f, i) => f !== savedFields[i])) {
+      savedFields = confirmedFields;
+      setFields(confirmedFields);
+    }
 
     // Save as named template in the library
     const templateName = session.name || 'Untitled form';
@@ -5062,6 +5073,8 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
   const [copied, setCopied] = useState(false);
   const [inv, setInv] = useState(null);
   const [invCopied, setInvCopied] = useState(false);
+  const [editingKey, setEditingKey] = useState(null);
+  const [editField, setEditField] = useState(null);
 
   const td = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
   const LAYOUT = ['section-header', 'divider', 'instructions'];
@@ -5399,19 +5412,95 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                   );
                   const def = td(f.type);
                   const val = renderValue(f);
+                  const isEditing = editingKey === f.key && editField;
                   return (
-                    <div key={f.key} className="flex items-start gap-2.5 group py-0.5">
-                      <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${def.bg}`}>
-                        <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
-                      </span>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-slate-700">{f.label}</p>
-                        {mode === 'customer' && val && <p className="text-xs text-slate-500 mt-0.5">{val}</p>}
-                        {mode === 'client' && <p className="text-[10px] text-slate-300">{def.label}</p>}
-                      </div>
-                      <button onClick={() => removeField(f.key)} className="text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
-                        <X className="w-3.5 h-3.5" />
-                      </button>
+                    <div key={f.key}>
+                      {isEditing ? (
+                        <div className="bg-slate-50 rounded-xl p-3 space-y-2 border border-slate-200 my-0.5">
+                          <input value={editField.label} onChange={e => setEditField(v => ({ ...v, label: e.target.value }))}
+                            placeholder="Field label"
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                          <select value={editField.type} onChange={e => setEditField(v => ({ ...v, type: e.target.value }))}
+                            className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900">
+                            {FIELD_TYPE_DEFS.map(d => <option key={d.id} value={d.id}>{d.label}</option>)}
+                          </select>
+                          {['select', 'multi-check'].includes(editField.type) && (
+                            <input value={editField.optionsStr || ''} onChange={e => setEditField(v => ({ ...v, optionsStr: e.target.value }))}
+                              placeholder="Option 1, Option 2, Option 3"
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                          )}
+                          {editField.type === 'priced-item' && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <input type="number" value={editField.price || ''} onChange={e => setEditField(v => ({ ...v, price: parseFloat(e.target.value) || 0 }))}
+                                placeholder="Price £"
+                                className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                              <select value={editField.priceUnit || 'per_head'} onChange={e => setEditField(v => ({ ...v, priceUnit: e.target.value }))}
+                                className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900">
+                                <option value="per_head">per head</option>
+                                <option value="flat">flat fee</option>
+                              </select>
+                            </div>
+                          )}
+                          {editField.type === 'slider' && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div>
+                                <label className="text-[9px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Min</label>
+                                <input type="number" value={editField.sliderMin ?? 0} onChange={e => setEditField(v => ({ ...v, sliderMin: Number(e.target.value) }))}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                              </div>
+                              <div>
+                                <label className="text-[9px] text-slate-400 uppercase tracking-wider font-bold block mb-1">Max</label>
+                                <input type="number" value={editField.sliderMax ?? 100} onChange={e => setEditField(v => ({ ...v, sliderMax: Number(e.target.value) }))}
+                                  className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                              </div>
+                            </div>
+                          )}
+                          {editField.type === 'formula' && (
+                            <input value={editField.formulaExpression || ''} onChange={e => setEditField(v => ({ ...v, formulaExpression: e.target.value }))}
+                              placeholder="{Field A} * {Field B}"
+                              className="w-full px-3 py-2 rounded-lg border border-amber-200 bg-amber-50 text-sm font-mono outline-none focus:ring-2 focus:ring-amber-400 transition" />
+                          )}
+                          {['section-header', 'instructions'].includes(editField.type) && (
+                            <input value={editField.content || ''} onChange={e => setEditField(v => ({ ...v, content: e.target.value }))}
+                              placeholder="Content text"
+                              className="w-full px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
+                          )}
+                          <div className="flex gap-2 pt-0.5">
+                            <button onClick={() => setEditingKey(null)}
+                              className="flex-1 py-1.5 rounded-lg border border-slate-200 text-sm text-slate-500 hover:bg-slate-100 transition-colors">Cancel</button>
+                            <button
+                              disabled={!editField.label?.trim()}
+                              onClick={() => {
+                                const opts = editField.optionsStr
+                                  ? editField.optionsStr.split(',').map(s => s.trim()).filter(Boolean)
+                                  : (editField.options || []);
+                                const updated = { ...editField, label: editField.label.trim() || f.label, options: opts };
+                                delete updated.optionsStr;
+                                onFieldsChange(fields.map(fi => fi.key === editingKey ? updated : fi));
+                                setEditingKey(null);
+                              }}
+                              className="flex-1 py-1.5 rounded-lg bg-slate-900 text-white text-sm font-semibold disabled:opacity-40 hover:bg-slate-700 transition-colors">Save</button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-start gap-2.5 group py-0.5">
+                          <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 mt-0.5 ${def.bg}`}>
+                            <def.Icon className={`w-3.5 h-3.5 ${def.text}`} />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-slate-700">{f.label}</p>
+                            {mode === 'customer' && val && <p className="text-xs text-slate-500 mt-0.5">{val}</p>}
+                            {mode === 'client' && <p className="text-[10px] text-slate-300">{def.label}</p>}
+                          </div>
+                          <button onClick={() => { setEditingKey(f.key); setEditField({ ...f, optionsStr: f.options?.join(', ') || '' }); }}
+                            className="text-slate-200 hover:text-slate-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5 mr-0.5">
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+                          <button onClick={() => removeField(f.key)} className="text-slate-200 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 mt-0.5">
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}

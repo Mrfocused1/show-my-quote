@@ -36,6 +36,8 @@ export default async function handler(req, res) {
   "priceUnit": "per_head"|"flat" (only for priced-item),
   "formulaExpression": "{Field A} * {Field B}" (only for formula),
   "suggested": true (only for formula),
+  "sliderMin": number (only for slider),
+  "sliderMax": number (only for slider),
   "content": "string" (only for section-header/instructions)
 }
 
@@ -52,6 +54,7 @@ Rules:
   - Full addresses → "address" not "text"
   - budget/spend → "currency" not "text" or "number"
   - yes/no questions → "toggle" not "text"
+  - ANY field mentioning a NUMERIC RANGE (e.g. "3 to 6 months deposit", "6 month employment history", "1-3 year tenancy") → "slider" with sliderMin/sliderMax, NOT toggle or text
 - Add clearly mentioned fields that were missed
 - Remove false positives from small talk
 - Preserve the order fields were first mentioned`,

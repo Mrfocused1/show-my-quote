@@ -40,6 +40,12 @@ KEY PATTERNS TO RECOGNISE:
    - "deposit is 20 percent of the total" → { label: "Deposit", type: "formula", formulaExpression: "{Total} * 0.2", suggested: true }
    - "setup fee is 50 flat plus 5 per head" → { label: "Setup Fee", type: "formula", formulaExpression: "50 + ({Guest Count} * 5)", suggested: true }
    Always set suggested=true for formula fields. Use {Label} references matching known field labels exactly.
+7. Slider detection — if someone mentions a NUMERIC RANGE with two boundary values, use type="slider" with sliderMin and sliderMax. NEVER use toggle for these. Examples:
+   - "deposit of three to six months" / "3 to 6 months" → { label: "Deposit (months)", type: "slider", sliderMin: 3, sliderMax: 6 }
+   - "one to five years employment history" / "6 month employment history" → { label: "Employment History (months)", type: "slider", sliderMin: 6, sliderMax: 24 }
+   - "at least 3 months deposit" → { label: "Deposit (months)", type: "slider", sliderMin: 3, sliderMax: 12 }
+   - "1 to 3 year tenancy" → { label: "Tenancy Length (years)", type: "slider", sliderMin: 1, sliderMax: 3 }
+   - A question about COMFORTABILITY WITH a range → still slider, not toggle.
 
 Common fields — extract these even if only briefly mentioned:
 - "name" / "what's your name" → Client Name (text)
@@ -74,6 +80,8 @@ Return:
       "price": 45,
       "priceUnit": "per_head" | "flat",
       "formulaExpression": "{Field A} * {Field B}",
+      "sliderMin": 0,
+      "sliderMax": 100,
       "suggested": true,
       "content": "text content"
     }
@@ -95,14 +103,15 @@ Type rules:
 - "percentage" for rates, discounts, percentages, VAT, tax rates, service charges
 - "rating" for star ratings, scores out of N
 - "duration" for event duration, how long it lasts (hours/minutes)
-- "toggle" for yes/no questions (allergies present, speeches, disabled access)
+- "slider" for any NUMERIC RANGE question — deposit months, employment years, tenancy length, price range. Set sliderMin and sliderMax to the numeric boundaries. NEVER use toggle when a range is mentioned.
+- "toggle" for binary yes/no questions with NO numeric range (e.g. do you have pets, are you employed, do you have criminal record)
 - "select" for single-choice from fixed options (service style, package tier, meal course count)
 - "multi-check" for multiple-choice selections (dietary requirements, food preferences)
 - "priced-item" for specific food dishes, drinks, or menu items with a price
 - "formula" for calculated values derived from other fields — ALWAYS set suggested=true
 - "text" for everything else (names, free-text)
 
-Only include "options" for select/multi-check. Only include "price"/"priceUnit" for priced-item. Only include "formulaExpression" and "suggested" for formula. Only include "content" for section-header/instructions.
+Only include "options" for select/multi-check. Only include "price"/"priceUnit" for priced-item. Only include "formulaExpression" and "suggested" for formula. Only include "sliderMin"/"sliderMax" for slider. Only include "content" for section-header/instructions.
 
 Only return { "suggest": false } when the line is PURELY small talk with absolutely no intake fields.`,
           },
@@ -139,6 +148,8 @@ Only return { "suggest": false } when the line is PURELY small talk with absolut
         formulaExpression: f.type === 'formula' ? (f.formulaExpression || '') : undefined,
         suggested: f.type === 'formula' ? (f.suggested !== false) : undefined,
         content: ['section-header','instructions'].includes(f.type) ? (f.content || '') : undefined,
+        sliderMin: f.type === 'slider' ? (typeof f.sliderMin === 'number' ? f.sliderMin : 0) : undefined,
+        sliderMax: f.type === 'slider' ? (typeof f.sliderMax === 'number' ? f.sliderMax : 100) : undefined,
       }));
     }
 
