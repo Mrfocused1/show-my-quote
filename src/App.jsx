@@ -5025,7 +5025,7 @@ table.tot tr.grand td{font-weight:800;font-size:16px;border-top:2px solid #111;p
 @media print{body{padding:24px 32px}.np{display:none!important}}
 </style></head><body>
 <div class="hd">
-  <div class="hd-left"><h2>${inv.yourBusiness || 'Your Business'}</h2><p>${[inv.yourEmail, inv.yourPhone].filter(Boolean).join(' &middot; ') || '&nbsp;'}</p></div>
+  <div class="hd-left">${inv.logoDataUrl ? `<img src="${inv.logoDataUrl}" style="max-height:60px;max-width:180px;object-fit:contain;margin-bottom:8px;display:block;" />` : ''}<h2>${inv.yourBusiness || 'Your Business'}</h2><p>${[inv.yourEmail, inv.yourPhone].filter(Boolean).join(' &middot; ') || '&nbsp;'}</p></div>
   <div class="hd-right"><div class="qt">Quote</div><p>Ref: ${quoteNum}</p><p>Date: ${today}</p>${inv.validDays ? `<p>Valid: ${inv.validDays} days</p>` : ''}</div>
 </div>
 <div class="rule"></div>
@@ -5120,10 +5120,25 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
   };
 
   const initInvoice = () => {
+    // Match by field type (most reliable)
+    const byType = (type) => {
+      const f = fields.find(fl => fl.type === type);
+      if (!f) return '';
+      const v = fieldValues[f.key];
+      if (v === undefined || v === '' || v === null) return '';
+      if (Array.isArray(v)) return v.join(', ');
+      return String(v);
+    };
+    // Match by label pattern
     const get = (...patterns) => {
       for (const p of patterns) {
         const f = fields.find(fl => new RegExp(p, 'i').test(fl.label));
-        if (f && fieldValues[f.key] !== undefined && fieldValues[f.key] !== '') return String(fieldValues[f.key]);
+        if (!f) continue;
+        const v = fieldValues[f.key];
+        if (v === undefined || v === '' || v === null) continue;
+        if (Array.isArray(v)) return v.join(', ');
+        if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+        return String(v);
       }
       return '';
     };
@@ -5131,18 +5146,27 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
       .filter(f => f.type === 'priced-item' && f.price > 0)
       .map(f => ({ id: f.key, description: f.label, qty: parseInt(fieldValues[f.key]) || 0, unitPrice: f.price }))
       .filter(i => i.qty > 0);
-    setInv({
-      yourBusiness: '', yourEmail: '', yourPhone: '',
-      clientName: get('client name', 'name', 'customer name', 'contact'),
-      clientEmail: get('email', 'client email', 'customer email'),
-      eventType: get('event type', 'type of event', 'occasion', 'event'),
-      eventDate: get('event date', 'date', 'wedding date', 'function date'),
-      venue: get('venue', 'location', 'event location'),
-      guestCount: get('guests', 'guest count', 'number of guests', 'head count', 'covers'),
+    setInv(prev => ({
+      // Preserve your-side details and logo across re-opens
+      yourBusiness: prev?.yourBusiness || '',
+      yourEmail:    prev?.yourEmail    || '',
+      yourPhone:    prev?.yourPhone    || '',
+      logoDataUrl:  prev?.logoDataUrl  || '',
+      // Client — checked by type first, then label
+      clientName:  get('client name', 'full name', 'your name', 'name', 'customer name', 'contact name', 'bride', 'groom', 'booker'),
+      clientEmail: byType('email') || get('email', 'client email', 'email address'),
+      clientPhone: byType('phone') || get('phone', 'mobile', 'contact number', 'telephone'),
+      // Event
+      eventType:  get('event type', 'type of event', 'type', 'occasion', 'function', 'event'),
+      eventDate:  byType('date') || byType('datetime') || get('event date', 'date', 'wedding date', 'function date', 'booking date'),
+      venue:      get('venue', 'location', 'event location', 'venue name', 'address'),
+      guestCount: get('guests', 'guest count', 'number of guests', 'head count', 'covers', 'pax', 'attendees'),
+      // Items & notes
       lineItems,
-      notes: get('special requirements', 'notes', 'dietary', 'requirements', 'additional'),
-      validDays: 14, depositPct: 0,
-    });
+      notes: get('special requirements', 'dietary requirements', 'notes', 'requirements', 'additional information', 'allergies', 'special needs', 'other'),
+      validDays:  prev?.validDays  ?? 14,
+      depositPct: prev?.depositPct ?? 0,
+    }));
   };
 
   const downloadPDF = () => {
@@ -5454,6 +5478,32 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
 
                 <div className="p-5 space-y-5">
 
+                  {/* Logo */}
+                  <div>
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Logo</p>
+                    {inv.logoDataUrl ? (
+                      <div className="flex items-center gap-3">
+                        <img src={inv.logoDataUrl} className="h-10 max-w-[140px] object-contain rounded border border-slate-200 bg-white p-1" alt="Logo" />
+                        <button onClick={() => setInv(v => ({ ...v, logoDataUrl: '' }))}
+                          className="text-xs text-slate-400 hover:text-red-500 transition-colors">Remove</button>
+                      </div>
+                    ) : (
+                      <label className="cursor-pointer inline-flex items-center gap-2 px-3 py-2 rounded-lg border-2 border-dashed border-slate-200 hover:border-slate-400 text-slate-500 hover:text-slate-700 transition-colors">
+                        <Plus className="w-3.5 h-3.5" />
+                        <span className="text-sm">Upload logo</span>
+                        <input type="file" accept="image/*" className="hidden"
+                          onChange={e => {
+                            const file = e.target.files?.[0];
+                            if (!file) return;
+                            const reader = new FileReader();
+                            reader.onload = ev => setInv(v => ({ ...v, logoDataUrl: ev.target.result }));
+                            reader.readAsDataURL(file);
+                            e.target.value = '';
+                          }} />
+                      </label>
+                    )}
+                  </div>
+
                   {/* Your Business */}
                   <div>
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Your Business</p>
@@ -5509,17 +5559,23 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                         <span>Description</span><span className="text-center">Qty</span><span className="text-right">Unit</span><span className="text-right">Total</span><span/>
                       </div>
                       {inv.lineItems.map((item, idx) => (
-                        <div key={item.id || idx} className="grid grid-cols-[1fr_52px_76px_76px_24px] border-t border-slate-100 px-3 py-1.5 gap-1 items-center">
-                          <input value={item.description}
-                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, description: e.target.value } : r) }))}
-                            className="text-sm outline-none text-slate-700 bg-transparent min-w-0" />
-                          <input type="number" min="0" value={item.qty}
-                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, qty: Number(e.target.value) } : r) }))}
-                            className="text-sm outline-none text-slate-700 bg-transparent text-center w-full" />
-                          <input type="number" min="0" step="0.01" value={item.unitPrice}
-                            onChange={e => setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, unitPrice: Number(e.target.value) } : r) }))}
-                            className="text-sm outline-none text-slate-700 bg-transparent text-right w-full" />
-                          <span className="text-sm text-slate-500 text-right">£{(item.qty * item.unitPrice).toFixed(2)}</span>
+                        <div key={item.id || idx} className="grid grid-cols-[1fr_52px_80px_72px_24px] border-t border-slate-100 px-2 py-2 gap-1.5 items-center">
+                          <input
+                            value={item.description}
+                            onChange={e => { const val = e.target.value; setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, description: val } : r) })); }}
+                            placeholder="Description"
+                            className="text-sm text-slate-800 w-full px-2 py-1 rounded border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-400 transition min-w-0" />
+                          <input
+                            type="number" min="0"
+                            value={item.qty}
+                            onChange={e => { const val = Number(e.target.value); setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, qty: val } : r) })); }}
+                            className="text-sm text-slate-800 w-full px-1 py-1 rounded border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-400 text-center transition" />
+                          <input
+                            type="number" min="0" step="0.01"
+                            value={item.unitPrice}
+                            onChange={e => { const val = Number(e.target.value); setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, unitPrice: val } : r) })); }}
+                            className="text-sm text-slate-800 w-full px-1 py-1 rounded border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-400 text-right transition" />
+                          <span className="text-sm text-slate-500 text-right tabular-nums">£{(item.qty * item.unitPrice).toFixed(2)}</span>
                           <button onClick={() => setInv(v => ({ ...v, lineItems: v.lineItems.filter((_, i) => i !== idx) }))}
                             className="text-slate-300 hover:text-red-400 flex items-center justify-end transition-colors">
                             <X className="w-3.5 h-3.5" />
