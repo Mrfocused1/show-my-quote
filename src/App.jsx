@@ -5075,6 +5075,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
   const [invCopied, setInvCopied] = useState(false);
   const [editingKey, setEditingKey] = useState(null);
   const [editField, setEditField] = useState(null);
+  const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   const td = id => FIELD_TYPE_DEFS.find(d => d.id === id) || FIELD_TYPE_DEFS[0];
   const LAYOUT = ['section-header', 'divider', 'instructions'];
@@ -5299,6 +5300,10 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
             className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab !== 'send' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
             Dashboard
           </button>
+          <button onClick={() => setTranscriptOpen(v => !v)}
+            className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${transcriptOpen && tab !== 'send' ? 'border-blue-500 text-blue-600' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
+            Transcript{transcript.length > 0 ? ` (${transcript.length})` : ''}
+          </button>
           <button onClick={() => setTab('send')}
             className={`px-4 py-2.5 text-xs font-semibold whitespace-nowrap border-b-2 transition-colors ${tab === 'send' ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-700'}`}>
             Send
@@ -5307,7 +5312,10 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
       </div>
 
       {/* Tab content */}
-      <div className={`flex-1 overflow-hidden ${tab !== 'send' ? 'lg:grid lg:grid-cols-[260px_1fr_280px] lg:divide-x lg:divide-slate-100' : ''}`}>
+      <div
+        className="flex-1 overflow-hidden lg:divide-x lg:divide-slate-100"
+        style={tab !== 'send' ? { display: 'grid', gridTemplateColumns: transcriptOpen ? '300px 360px 1fr' : '300px 1fr' } : undefined}
+      >
 
         {/* ── OVERVIEW ── */}
         <div className={`${tab === 'overview' ? '' : 'hidden'} ${tab !== 'send' ? 'lg:block lg:overflow-y-auto' : ''}`}>
@@ -5364,7 +5372,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
         </div>
 
         {/* ── TRANSCRIPT ── */}
-        <div className={`${tab === 'transcript' ? '' : 'hidden'} ${tab !== 'send' ? 'lg:block lg:overflow-y-auto' : ''}`}>
+        <div className={`${tab === 'transcript' ? '' : 'hidden'} ${tab !== 'send' && transcriptOpen ? 'lg:block lg:overflow-y-auto' : 'lg:hidden'}`}>
           <div className="max-w-lg mx-auto px-5 py-5 lg:max-w-none lg:mx-0">
             {transcript.length === 0 ? (
               <div className="text-center py-12">
