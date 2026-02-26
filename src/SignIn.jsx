@@ -26,7 +26,6 @@ export default function SignIn({ onHome, onEnterApp }) {
             { label: 'Home'           },
             { label: 'Features'       },
             { label: 'Getting started'},
-            { label: 'Vendor types'   },
             { label: 'Contact'        },
           ].map(({ label }) => (
             <button

@@ -29,7 +29,6 @@ export default function BookDemo({ onHome, onEnterApp }) {
           {[
             { label: 'Features',        id: 'features'     },
             { label: 'Getting started', id: 'how-it-works' },
-            { label: 'Vendor types',    id: 'vendor-types' },
             { label: 'Contact',         id: 'contact'      },
           ].map(({ label, id }) => (
             <button key={id} onClick={onHome}
