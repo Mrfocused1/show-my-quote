@@ -23,10 +23,11 @@ export default function SignIn({ onHome, onEnterApp }) {
 
         <div className="hidden md:flex items-center bg-white/70 backdrop-blur-md border border-white/60 rounded-full px-2 py-1.5 shadow-sm gap-0.5">
           {[
-            { label: 'Features',        id: 'features'     },
-            { label: 'Getting started', id: 'how-it-works' },
-            { label: 'Vendor types',    id: 'vendor-types' },
-            { label: 'Contact',         id: 'contact'      },
+            { label: 'Home'           },
+            { label: 'Features'       },
+            { label: 'Getting started'},
+            { label: 'Vendor types'   },
+            { label: 'Contact'        },
           ].map(({ label }) => (
             <button
               key={label}
@@ -39,10 +40,6 @@ export default function SignIn({ onHome, onEnterApp }) {
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={onHome}
-            className="hidden md:inline-flex px-4 py-2 text-sm font-medium text-slate-600 hover:text-slate-900 transition-colors">
-            Home
-          </button>
           <button onClick={onHome}
             className="px-4 md:px-5 py-2 md:py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-full hover:bg-slate-700 transition-colors shadow-md">
             Book a Demo
