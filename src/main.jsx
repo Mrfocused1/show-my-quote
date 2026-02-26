@@ -9,14 +9,22 @@ import PrivacyPage from './PrivacyPage.jsx'
 
 function Root() {
   const [page, setPage] = useState('home') // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy'
+  const [pendingSection, setPendingSection] = useState(null)
 
-  if (page === 'app')       return <App onHome={() => setPage('home')} />
-  if (page === 'book-demo') return <BookDemo  onHome={() => setPage('home')} onEnterApp={() => setPage('app')} />
-  if (page === 'sign-in')   return <SignIn    onHome={() => setPage('home')} onEnterApp={() => setPage('app')} />
-  if (page === 'terms')     return <TermsPage onHome={() => setPage('home')} />
-  if (page === 'privacy')   return <PrivacyPage onHome={() => setPage('home')} />
+  const goHome = (sectionId) => {
+    setPendingSection(sectionId || null)
+    setPage('home')
+  }
+
+  if (page === 'app')       return <App onHome={() => goHome()} />
+  if (page === 'book-demo') return <BookDemo  onHome={goHome} onEnterApp={() => setPage('app')} />
+  if (page === 'sign-in')   return <SignIn    onHome={goHome} onEnterApp={() => setPage('app')} />
+  if (page === 'terms')     return <TermsPage onHome={() => goHome()} />
+  if (page === 'privacy')   return <PrivacyPage onHome={() => goHome()} />
   return (
     <Homepage
+      scrollTo={pendingSection}
+      onScrollHandled={() => setPendingSection(null)}
       onBookDemo={() => setPage('book-demo')}
       onEnterApp={() => setPage('sign-in')}
       onTerms={() => setPage('terms')}

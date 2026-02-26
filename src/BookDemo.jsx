@@ -31,7 +31,7 @@ export default function BookDemo({ onHome, onEnterApp }) {
             { label: 'Getting started', id: 'how-it-works' },
             { label: 'Contact',         id: 'contact'      },
           ].map(({ label, id }) => (
-            <button key={id} onClick={onHome}
+            <button key={id} onClick={() => onHome(id)}
               className="px-4 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 rounded-full transition-colors">
               {label}
             </button>

@@ -1852,7 +1852,14 @@ function Footer({ onBookDemo, onEnterApp, onTerms, onPrivacy }) {
 
 // ─── Homepage ─────────────────────────────────────────────────────────────────
 
-export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy }) {
+export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy, scrollTo, onScrollHandled }) {
+  useEffect(() => {
+    if (!scrollTo) return;
+    const el = document.getElementById(scrollTo);
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
+    onScrollHandled?.();
+  }, [scrollTo]);
+
   return (
     <div className="min-h-screen"
          style={{ background: 'linear-gradient(145deg, #edf0f5 0%, #dce3ed 55%, #cdd5e2 100%)' }}>

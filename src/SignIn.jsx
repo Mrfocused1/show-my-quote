@@ -23,14 +23,14 @@ export default function SignIn({ onHome, onEnterApp }) {
 
         <div className="hidden md:flex items-center bg-white/70 backdrop-blur-md border border-white/60 rounded-full px-2 py-1.5 shadow-sm gap-0.5">
           {[
-            { label: 'Home'           },
-            { label: 'Features'       },
-            { label: 'Getting started'},
-            { label: 'Contact'        },
-          ].map(({ label }) => (
+            { label: 'Home',           id: null           },
+            { label: 'Features',       id: 'features'     },
+            { label: 'Getting started',id: 'how-it-works' },
+            { label: 'Contact',        id: 'contact'      },
+          ].map(({ label, id }) => (
             <button
               key={label}
-              onClick={onHome}
+              onClick={() => onHome(id)}
               className="px-4 py-1.5 text-sm text-slate-600 hover:text-slate-900 hover:bg-slate-100/70 rounded-full transition-colors"
             >
               {label}
