@@ -521,6 +521,9 @@ export default function GetMyQuoteApp({ onHome }) {
           setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
           startRingtone();
           showNotification('📞 Incoming Call', call.parameters?.From || 'Unknown number', () => {});
+          // Auto-dismiss if caller hangs up before answer
+          call.on('cancel', () => { stopRingtone(); setIncomingCall(null); });
+          call.on('disconnect', () => { stopRingtone(); setIncomingCall(null); });
         });
       } catch (e) { console.warn('Twilio Device init:', e.message); }
     })();
