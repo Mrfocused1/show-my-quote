@@ -709,8 +709,7 @@ function DataEntriesAnim() {
             key={item}
             style={{
               opacity:    visible ? 1 : 0,
-              transform:  visible ? 'translateY(0)' : 'translateY(4px)',
-              transition: 'opacity 0.2s ease, transform 0.2s ease',
+              transition: 'opacity 0.2s ease',
             }}
             className="flex items-center bg-slate-700 rounded px-2.5 py-1 border border-slate-600"
           >
@@ -810,8 +809,7 @@ function LogicAnim() {
 
   const fadeIn = (n) => ({
     opacity:    stage >= n ? 1 : 0,
-    transform:  stage >= n ? 'translateY(0)' : 'translateY(4px)',
-    transition: 'opacity 0.25s ease, transform 0.25s ease',
+    transition: 'opacity 0.25s ease',
   });
 
   return (
@@ -905,8 +903,7 @@ function PublishAnim() {
         className="flex items-center justify-center bg-green-900/30 rounded px-2.5 py-1.5 border border-green-700/50"
         style={{
           opacity:    phase >= 6 ? 1 : 0,
-          transform:  phase >= 6 ? 'translateY(0)' : 'translateY(4px)',
-          transition: 'opacity 0.3s ease, transform 0.3s ease',
+          transition: 'opacity 0.3s ease',
         }}
       >
         <span className="text-xs font-bold text-green-400">Quote sent ✓</span>

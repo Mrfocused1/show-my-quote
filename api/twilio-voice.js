@@ -33,12 +33,19 @@ export default async function handler(req, res) {
       languageCode: 'en-US',
       partialResults: 'false',
     });
+    // answerOnBridge: true — keeps A-leg and B-leg separated until human confirms.
+    // This prevents carrier call-screening audio (e.g. iPhone "Silence Unknown Callers"
+    // prompt) from flowing into the outbound_track and getting transcribed.
+    // The <Number url> webhook plays a "press 1 to connect" prompt on the B-leg only.
+    // Transcription and bridge only receive real conversation audio after confirmation.
+    const confirmUrl = `${appUrl}/api/twilio-call-confirm`;
     const dial = twiml.dial({
       callerId: twilioNumber,
-      record: 'record-from-ringing',
+      answerOnBridge: true,
+      record: 'record-from-answer',
       recordingStatusCallback: '/api/twilio-recording',
     });
-    dial.number(To);
+    dial.number({ url: confirmUrl }).addText(To);
   } else {
     // Inbound call to the Twilio number — ring the browser client
     const dial = twiml.dial({ callerId: req.body?.From || twilioNumber });
