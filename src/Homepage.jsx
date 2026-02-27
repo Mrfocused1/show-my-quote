@@ -1336,6 +1336,261 @@ const SHEET_DATA = {
   },
 };
 
+// ─── Workflow Demo Data ───────────────────────────────────────────────────────
+
+const WORKFLOW_DATA = {
+  'Wedding photography': {
+    fields: [
+      { key: 'date',     label: 'Wedding date',  placeholder: 'Listening…' },
+      { key: 'venue',    label: 'Venue',         placeholder: 'Listening…' },
+      { key: 'coverage', label: 'Coverage',      placeholder: 'Listening…' },
+      { key: 'team',     label: 'Team',          placeholder: 'Listening…' },
+      { key: 'addons',   label: 'Add-ons',       placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "We're getting married June 21st at Aynhoe Park in Oxfordshire.", fills: [{ key: 'date', value: 'Sat 21 Jun 2025' }, { key: 'venue', value: 'Aynhoe Park' }] },
+      { speaker: 'You',    text: "Beautiful venue! Are you thinking full-day coverage?",            fills: [] },
+      { speaker: 'Client', text: "Yes — full day. We'd love a second shooter too.",                 fills: [{ key: 'coverage', value: 'Full day · 10 hrs' }, { key: 'team', value: '2 photographers' }] },
+      { speaker: 'Client', text: "Oh, and the cinematic wedding film if possible.",                 fills: [{ key: 'addons', value: 'Cinematic film' }] },
+    ],
+    quote: { total: '£4,975', label: 'Premium + second shooter + film', sentIn: '0:52' },
+  },
+  'Wedding venues': {
+    fields: [
+      { key: 'date',     label: 'Event date',    placeholder: 'Listening…' },
+      { key: 'guests',   label: 'Guest count',   placeholder: 'Listening…' },
+      { key: 'package',  label: 'Package',       placeholder: 'Listening…' },
+      { key: 'ceremony', label: 'Ceremony room', placeholder: 'Listening…' },
+      { key: 'bar',      label: 'Bar package',   placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "We're looking at 14th September — around 150 guests.",           fills: [{ key: 'date', value: 'Sat 14 Sep' }, { key: 'guests', value: '150 guests' }] },
+      { speaker: 'You',    text: "Would you like exclusive use of the whole venue?",                fills: [] },
+      { speaker: 'Client', text: "Yes — exclusive use, and we need the civil ceremony space.",     fills: [{ key: 'package', value: 'Exclusive use' }, { key: 'ceremony', value: 'Civil ceremony' }] },
+      { speaker: 'Client', text: "Can we also add the full-day bar package?",                      fills: [{ key: 'bar', value: 'Full day bar' }] },
+    ],
+    quote: { total: '£20,950', label: 'Exclusive use · 150 guests · civil ceremony', sentIn: '1:08' },
+  },
+  'Floral & styling': {
+    fields: [
+      { key: 'bridesmaids', label: 'Bridal party',     placeholder: 'Listening…' },
+      { key: 'arch',        label: 'Ceremony arch',    placeholder: 'Listening…' },
+      { key: 'tables',      label: 'Reception tables', placeholder: 'Listening…' },
+      { key: 'church',      label: 'Church flowers',   placeholder: 'Listening…' },
+      { key: 'delivery',    label: 'Delivery to',      placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "I have 4 bridesmaids — 8 in the wedding party total.",           fills: [{ key: 'bridesmaids', value: '4 bridesmaids · 8 party' }] },
+      { speaker: 'You',    text: "Are you thinking a full floral arch for the ceremony?",           fills: [] },
+      { speaker: 'Client', text: "Yes, full arch — and 20 tables at the reception.",               fills: [{ key: 'arch', value: 'Full floral arch' }, { key: 'tables', value: '20 tables' }] },
+      { speaker: 'Client', text: "Church pew ends too — it's at The Old Rectory, Suffolk.",        fills: [{ key: 'church', value: 'Church + pew ends ×16' }, { key: 'delivery', value: 'The Old Rectory, Suffolk' }] },
+    ],
+    quote: { total: '£4,900', label: 'Full arch + 20 tables + church + delivery', sentIn: '1:14' },
+  },
+  'Wedding planning': {
+    fields: [
+      { key: 'tier',      label: 'Service tier',  placeholder: 'Listening…' },
+      { key: 'guests',    label: 'Guest count',   placeholder: 'Listening…' },
+      { key: 'venue',     label: 'Venue',         placeholder: 'Listening…' },
+      { key: 'suppliers', label: 'Suppliers',     placeholder: 'Listening…' },
+      { key: 'dayof',     label: 'Day-of team',   placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "We need full planning from start to day-of — it's a big one.",   fills: [{ key: 'tier', value: 'Full planning service' }] },
+      { speaker: 'You',    text: "How many guests are you expecting?",                              fills: [] },
+      { speaker: 'Client', text: "Around 180 guests at Bamburgh Castle in Northumberland.",         fills: [{ key: 'guests', value: '180 guests' }, { key: 'venue', value: 'Bamburgh Castle' }] },
+      { speaker: 'Client', text: "We have 12 suppliers that will all need coordinating.",           fills: [{ key: 'suppliers', value: '12 suppliers' }, { key: 'dayof', value: '2 coordinators' }] },
+    ],
+    quote: { total: '£7,550', label: 'Full planning · 12 suppliers · 2 coordinators', sentIn: '0:56' },
+  },
+  'Entertainment & music': {
+    fields: [
+      { key: 'act',       label: 'Live act',      placeholder: 'Listening…' },
+      { key: 'sets',      label: 'Set times',     placeholder: 'Listening…' },
+      { key: 'dj',        label: 'DJ coverage',   placeholder: 'Listening…' },
+      { key: 'equipment', label: 'Equipment',     placeholder: 'Listening…' },
+      { key: 'travel',    label: 'Travel',        placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "We'd love a 3-piece live band — two 45-minute sets.",             fills: [{ key: 'act', value: '3-piece live band' }, { key: 'sets', value: '2 × 45 min sets' }] },
+      { speaker: 'You',    text: "And do you need DJ cover for the rest of the evening?",            fills: [] },
+      { speaker: 'Client', text: "Yes — DJ from first dance to midnight, full PA and lighting.",     fills: [{ key: 'dj', value: 'DJ · 6 hrs' }, { key: 'equipment', value: 'Full PA + lighting rig' }] },
+      { speaker: 'Client', text: "We're at Elmore Court in Gloucestershire — about 145 miles.",     fills: [{ key: 'travel', value: '145 miles · £290' }] },
+    ],
+    quote: { total: '£5,440', label: '3-piece band + DJ + full PA · 6 hrs', sentIn: '0:44' },
+  },
+  'Wedding catering': {
+    fields: [
+      { key: 'guests',  label: 'Guest count',   placeholder: 'Listening…' },
+      { key: 'menu',    label: 'Menu style',    placeholder: 'Listening…' },
+      { key: 'dietary', label: 'Dietary needs', placeholder: 'Listening…' },
+      { key: 'evening', label: 'Evening food',  placeholder: 'Listening…' },
+      { key: 'bar',     label: 'Bar package',   placeholder: 'Listening…' },
+    ],
+    steps: [
+      { speaker: 'Client', text: "It's 120 guests — we'd love a plated 3-course dinner.",          fills: [{ key: 'guests', value: '120 guests' }, { key: 'menu', value: 'Plated 3-course' }] },
+      { speaker: 'You',    text: "Any dietary requirements we should know about?",                  fills: [] },
+      { speaker: 'Client', text: "4 gluten free, 6 vegan, and one nut allergy.",                   fills: [{ key: 'dietary', value: 'GF ×4 · Vegan ×6 · Nut ×1' }] },
+      { speaker: 'Client', text: "Can we add canapés for drinks and a bar package too?",           fills: [{ key: 'evening', value: 'Canapé station' }, { key: 'bar', value: 'Full bar package' }] },
+    ],
+    quote: { total: '£22,192', label: 'Plated 3-course · 120 guests · bar + canapés', sentIn: '0:47' },
+  },
+};
+
+// ─── Workflow Demo Component ───────────────────────────────────────────────────
+
+function WorkflowDemo({ nicheKey }) {
+  const seq = WORKFLOW_DATA[nicheKey];
+  const [lines, setLines]           = useState([]);
+  const [formData, setFormData]     = useState({});
+  const [recentKey, setRecentKey]   = useState(null);
+  const [quoteVisible, setQuoteVisible] = useState(false);
+  const [runKey, setRunKey]         = useState(0);
+
+  useEffect(() => {
+    const timers = [];
+    setLines([]);
+    setFormData({});
+    setRecentKey(null);
+    setQuoteVisible(false);
+
+    let t = 800;
+    seq.steps.forEach((step, i) => {
+      timers.push(setTimeout(() => {
+        setLines(prev => [...prev, { id: i, speaker: step.speaker, text: step.text }]);
+      }, t));
+      t += 400;
+
+      step.fills.forEach(({ key, value }) => {
+        const ft = t;
+        timers.push(setTimeout(() => {
+          setFormData(prev => ({ ...prev, [key]: value }));
+          setRecentKey(key);
+        }, ft));
+        timers.push(setTimeout(() => {
+          setRecentKey(k => (k === key ? null : k));
+        }, ft + 1400));
+        t += 400;
+      });
+      t += 1400;
+    });
+
+    timers.push(setTimeout(() => setQuoteVisible(true), t + 500));
+    timers.push(setTimeout(() => setRunKey(k => k + 1), t + 4500));
+    return () => timers.forEach(clearTimeout);
+  }, [runKey, nicheKey]);
+
+  return (
+    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col" style={{ height: '320px' }}>
+
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900 flex-shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+            <span className="text-[9px] font-bold text-red-400 uppercase tracking-wider">Recording</span>
+          </div>
+          <div className="bg-white/10 rounded px-2 py-0.5">
+            <span className="text-[9px] font-bold text-green-400">● LIVE</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[8px] text-slate-400 bg-white/10 px-2 py-0.5 rounded">Mute</span>
+          <span className="text-[8px] text-white bg-red-500 px-2 py-0.5 rounded">End</span>
+        </div>
+      </div>
+
+      {/* Two-pane */}
+      <div className="flex flex-1 overflow-hidden">
+
+        {/* Left: form */}
+        <div className="border-r border-slate-100 p-3 overflow-hidden flex-shrink-0" style={{ width: '52%' }}>
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-wider">Client Details</span>
+            <span className="text-[7px] bg-green-50 text-green-700 border border-green-100 px-1 py-0.5 rounded-full font-semibold">Auto-filling</span>
+          </div>
+          <div className="space-y-1.5">
+            {seq.fields.map(f => {
+              const highlighted = recentKey === f.key;
+              const filled      = !!formData[f.key];
+              return (
+                <div key={f.key}>
+                  <label className="text-[7px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-0.5">
+                    {f.label}
+                    {highlighted && <span className="text-[6px] text-green-500 normal-case tracking-normal animate-pulse">● filling</span>}
+                    {filled && !highlighted && <span className="text-[7px] text-green-500">✓</span>}
+                  </label>
+                  <input
+                    readOnly
+                    value={formData[f.key] || ''}
+                    placeholder={f.placeholder}
+                    className={`w-full px-1.5 py-0.5 rounded border text-[8px] outline-none transition-all duration-300 ${
+                      highlighted
+                        ? 'border-green-400 bg-green-50 text-green-900'
+                        : filled
+                        ? 'border-slate-200 bg-white text-slate-800'
+                        : 'border-slate-200 bg-slate-50 text-slate-300'
+                    }`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Right: transcript */}
+        <div className="flex flex-col bg-slate-50 flex-1 overflow-hidden">
+          <div className="px-3 py-2 border-b border-slate-100 flex-shrink-0">
+            <span className="text-[7px] font-bold text-slate-400 uppercase tracking-wider">Live Transcript</span>
+          </div>
+          <div className="flex-1 overflow-hidden p-2.5 space-y-2.5">
+            {lines.length === 0 ? (
+              <div className="flex items-center justify-center h-full gap-1">
+                {[0, 150, 300].map(d => (
+                  <span key={d} className="w-1 h-1 bg-slate-300 rounded-full animate-bounce" style={{ animationDelay: `${d}ms` }} />
+                ))}
+              </div>
+            ) : (
+              lines.map(line => (
+                <div key={line.id} className={`flex gap-1.5 ${line.speaker === 'You' ? '' : 'flex-row-reverse'}`}>
+                  <div className={`w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center text-[7px] font-bold ${
+                    line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-sky-400 text-white'
+                  }`}>
+                    {line.speaker[0]}
+                  </div>
+                  <div className={`max-w-[85%] px-2 py-1.5 rounded-xl text-[8px] leading-relaxed ${
+                    line.speaker === 'You'
+                      ? 'bg-white border border-slate-200 text-slate-800 rounded-tl-sm'
+                      : 'bg-sky-400 text-white rounded-tr-sm'
+                  }`}>
+                    {line.text}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Quote bar */}
+      {quoteVisible && (
+        <div className="flex-shrink-0 border-t border-slate-200 bg-[#F7F7F5] px-4 py-2.5 flex items-center justify-between">
+          <div>
+            <p className="flex items-center gap-1 text-[8px] font-bold text-green-700">
+              <CheckCircle2 className="w-3 h-3" /> Quote generated
+            </p>
+            <p className="text-[7px] text-slate-400 mt-0.5 leading-snug">{seq.quote.label}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-lg font-black text-slate-900">{seq.quote.total}</p>
+            <p className="text-[7px] text-slate-400">Sent in {seq.quote.sentIn}</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Use Case Sheet ───────────────────────────────────────────────────────────
 
 function UseCaseSheet({ title, onClose, onBookDemo }) {
@@ -1381,67 +1636,10 @@ function UseCaseSheet({ title, onClose, onBookDemo }) {
             ))}
           </div>
 
-          {/* How it works */}
+          {/* Animated workflow demo */}
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">How it works</p>
-            <div className="space-y-5">
-              {data.steps.map(({ step, title: stepTitle, desc }) => (
-                <div key={step} className="flex gap-4">
-                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-slate-900 text-white text-sm font-bold flex items-center justify-center">{step}</div>
-                  <div className="pt-1">
-                    <p className="font-bold text-slate-900 mb-1">{stepTitle}</p>
-                    <p className="text-sm text-slate-500 leading-relaxed">{desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Sample quote */}
-          <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">Sample quote preview</p>
-            <div className="bg-[#F7F7F5] rounded-2xl border border-slate-200 overflow-hidden">
-              <div className="bg-white px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-sm font-bold text-slate-900">{data.quote.client}</p>
-                  <p className="text-xs text-slate-400 mt-0.5">{data.quote.subtitle}</p>
-                </div>
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                  <span className="text-[10px] bg-[#F0F0EE] text-green-700 border border-green-100 px-2 py-0.5 rounded-full font-semibold">Auto-generated</span>
-                  {data.quote.flags && (
-                    <div className="flex flex-wrap gap-1 justify-end">
-                      {data.quote.flags.map(flag => (
-                        <span key={flag} className="text-[9px] bg-amber-50 text-amber-700 border border-amber-100 px-1.5 py-0.5 rounded-full font-semibold">{flag}</span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-              <div className="px-6 py-5 space-y-2">
-                {data.quote.lines.map(({ label, price }) => (
-                  <div key={label} className="flex items-start justify-between gap-4 text-sm">
-                    <span className="text-slate-600 leading-snug">{label}</span>
-                    <span className="font-semibold text-slate-900 flex-shrink-0">{price}</span>
-                  </div>
-                ))}
-                <div className="border-t border-slate-200 pt-3 mt-2 flex items-center justify-between">
-                  <div>
-                    {data.quote.note && <p className="text-xs text-green-600 font-semibold">{data.quote.note}</p>}
-                    <p className="text-xs text-slate-400 mt-0.5">{data.quote.meta}</p>
-                  </div>
-                  <div className="text-right">
-                    {data.quote.strikethrough && <p className="text-xs text-slate-400 line-through">{data.quote.strikethrough}</p>}
-                    <p className="text-xl font-black text-slate-900">{data.quote.total}</p>
-                  </div>
-                </div>
-              </div>
-              <div className="bg-white border-t border-slate-100 px-6 py-3 flex items-center justify-between">
-                <p className="text-xs text-slate-400">Quote sent via email & PDF · Valid 14 days</p>
-                <div className="flex items-center gap-1 text-xs font-semibold text-green-600">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Sent in {data.quote.sentIn}
-                </div>
-              </div>
-            </div>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-5">Live workflow demo</p>
+            <WorkflowDemo nicheKey={title} />
           </div>
 
           {/* Features grid */}
