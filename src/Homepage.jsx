@@ -359,31 +359,42 @@ function LiveCallDemo() {
 
 function HeroAudioButton() {
   const [playing, setPlaying] = useState(false);
-  const audioRef = useRef(null);
+  const timersRef = useRef([]);
+  const audiosRef = useRef([]);
 
-  const toggle = () => {
-    if (!audioRef.current) return;
-    if (playing) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      setPlaying(false);
-    } else {
-      audioRef.current.play().catch(() => {});
-      setPlaying(true);
-    }
+  const stop = () => {
+    timersRef.current.forEach(clearTimeout);
+    timersRef.current = [];
+    audiosRef.current.forEach(a => { try { a.pause(); a.currentTime = 0; } catch (_) {} });
+    audiosRef.current = [];
+    setPlaying(false);
   };
 
+  const play = () => {
+    setPlaying(true);
+    DEMO_SEQUENCE.forEach(({ delay }, i) => {
+      timersRef.current.push(setTimeout(() => {
+        const audio = new Audio(`/demo-audio/line-${i}.mp3`);
+        audiosRef.current.push(audio);
+        audio.play().catch(() => {});
+      }, delay));
+    });
+    // Auto-stop after the loop ends
+    timersRef.current.push(setTimeout(stop, LOOP_TOTAL - 2000));
+  };
+
+  const toggle = () => (playing ? stop() : play());
+
+  useEffect(() => stop, []);
+
   return (
-    <>
-      <audio ref={audioRef} src="/hero-narration.mp3" onEnded={() => setPlaying(false)} />
-      <button
-        onClick={toggle}
-        className="flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full border border-slate-200 shadow-md hover:shadow-lg transition-all text-xs font-semibold text-slate-700 hover:text-slate-900"
-      >
-        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${playing ? 'bg-green-500' : 'bg-green-500 animate-pulse'}`} />
-        {playing ? 'Playing…' : 'Hear it in action'}
-      </button>
-    </>
+    <button
+      onClick={toggle}
+      className="flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full border border-slate-200 shadow-md hover:shadow-lg transition-all text-xs font-semibold text-slate-700 hover:text-slate-900"
+    >
+      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${playing ? 'bg-green-500' : 'bg-green-500 animate-pulse'}`} />
+      {playing ? 'Stop' : 'Hear it in action'}
+    </button>
   );
 }
 

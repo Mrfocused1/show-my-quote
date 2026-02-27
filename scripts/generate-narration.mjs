@@ -1,5 +1,6 @@
 // Run once: node scripts/generate-narration.mjs
-// Generates public/hero-narration.mp3 using OpenAI TTS
+// Generates public/demo-audio/line-{0-11}.mp3 — one file per conversation line
+// "You" → echo voice, "Client" (Emma) → shimmer voice
 
 import fs from 'fs';
 import path from 'path';
@@ -7,44 +8,55 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Load .env manually
-const envPath = path.join(__dirname, '../.env');
-const env = fs.readFileSync(envPath, 'utf8');
+const env = fs.readFileSync(path.join(__dirname, '../.env'), 'utf8');
 const keyMatch = env.match(/VITE_OPENAI_API_KEY=(.+)/);
 if (!keyMatch) { console.error('No VITE_OPENAI_API_KEY in .env'); process.exit(1); }
 const API_KEY = keyMatch[1].trim();
 
-const TEXT = `You pick up the phone. In the background, the AI starts listening.
-As your client talks, their details fill in automatically — date, venue, what they need.
-When they mention a second shooter, it's added. When they say film, it's priced.
-The call ends. The quote is done. Send it before they've even left the conversation.
-That's Show My Quote.`;
+// Must match DEMO_SEQUENCE in Homepage.jsx exactly
+const LINES = [
+  { speaker: 'You',    text: "Thanks for calling! How can I help you today?" },
+  { speaker: 'Client', text: "Hi, I'm Emma Clarke — we're getting married next summer and looking for a photographer." },
+  { speaker: 'Client', text: "We've already got our venue — Aynhoe Park in Oxfordshire." },
+  { speaker: 'You',    text: "Lovely! What date have you set for the wedding?" },
+  { speaker: 'Client', text: "Saturday the 21st of June — ceremony at 2pm." },
+  { speaker: 'You',    text: "Are you thinking full-day coverage, from bridal prep through to the evening?" },
+  { speaker: 'Client', text: "Yes — full day, prep to first dance. And around 120 guests." },
+  { speaker: 'You',    text: "Would you like a second shooter, or solo coverage?" },
+  { speaker: 'Client', text: "A second shooter, please — and the Premium package." },
+  { speaker: 'Client', text: "We'd also love a wedding film and an engagement shoot beforehand." },
+  { speaker: 'You',    text: "Wonderful. And what's your rough budget for photography?" },
+  { speaker: 'Client', text: "We're thinking around three and a half thousand pounds." },
+];
 
-async function generate() {
-  console.log('Calling OpenAI TTS…');
+const VOICE = { You: 'echo', Client: 'shimmer' };
+
+async function generateLine(text, voice) {
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'tts-1',
-      input: TEXT,
-      voice: 'nova',
-      speed: 0.92,
-    }),
+    headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'tts-1', input: text, voice, speed: 1.0 }),
   });
+  if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
+  return res.arrayBuffer();
+}
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`OpenAI error ${res.status}: ${err}`);
-  }
+async function generate() {
+  const outDir = path.join(__dirname, '../public/demo-audio');
+  if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
-  const buffer = await res.arrayBuffer();
-  const outPath = path.join(__dirname, '../public/hero-narration.mp3');
-  fs.writeFileSync(outPath, Buffer.from(buffer));
-  console.log(`✓ Saved to public/hero-narration.mp3 (${Math.round(buffer.byteLength / 1024)}kb)`);
+  console.log(`Generating ${LINES.length} lines in parallel…`);
+  const results = await Promise.all(
+    LINES.map(({ speaker, text }, i) =>
+      generateLine(text, VOICE[speaker]).then(buf => ({ i, speaker, buf }))
+    )
+  );
+
+  results.forEach(({ i, speaker, buf }) => {
+    fs.writeFileSync(path.join(outDir, `line-${i}.mp3`), Buffer.from(buf));
+    console.log(`  ✓ line-${i}.mp3  [${speaker}]  ${Math.round(buf.byteLength / 1024)}kb`);
+  });
+  console.log('Done — public/demo-audio/ ready.');
 }
 
 generate().catch(err => { console.error(err.message); process.exit(1); });
