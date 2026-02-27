@@ -1032,9 +1032,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 onClick={() => goToMode('build')}
                 className="text-left bg-white rounded-2xl border border-slate-200 p-7 hover:border-slate-400 hover:shadow-md transition-all group"
               >
-                <div className="w-12 h-12 bg-slate-900 rounded-xl flex items-center justify-center mb-5 group-hover:bg-slate-700 transition-colors">
-                  <Wand2 className="w-6 h-6 text-white" />
-                </div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Option 1</div>
                 <h2 className="text-xl font-black text-slate-900 mb-3">Build a Form</h2>
                 <p className="text-slate-500 text-sm leading-relaxed mb-5">
@@ -1058,9 +1055,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 onClick={() => goToMode('fill')}
                 className="text-left bg-white rounded-2xl border border-slate-200 p-7 hover:border-slate-400 hover:shadow-md transition-all group"
               >
-                <div className="w-12 h-12 bg-green-600 rounded-xl flex items-center justify-center mb-5 group-hover:bg-green-700 transition-colors">
-                  <ClipboardList className="w-6 h-6 text-white" />
-                </div>
                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Option 2</div>
                 <h2 className="text-xl font-black text-slate-900 mb-3">Fill a Form</h2>
                 <p className="text-slate-500 text-sm leading-relaxed mb-5">
