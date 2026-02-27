@@ -45,7 +45,10 @@ export default async function handler(req, res) {
       record: 'record-from-answer',
       recordingStatusCallback: '/api/twilio-recording',
     });
-    dial.number({ url: confirmUrl }).addText(To);
+    // Two-arg form: dial.number(attributes, phoneNumber) — required by Twilio SDK
+    // to set both the url attribute AND the phone number text content correctly.
+    dial.number({ url: confirmUrl }, To);
+    console.log('[twilio-voice] TwiML:', twiml.toString());
   } else {
     // Inbound call to the Twilio number — ring the browser client
     const dial = twiml.dial({ callerId: req.body?.From || twilioNumber });
