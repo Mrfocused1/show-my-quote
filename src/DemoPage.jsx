@@ -516,6 +516,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
           await device.register();
           const call = await device.connect({ params: { To: phoneNumber } });
           twilioCallRef.current = call;
+          // Start mic once the call is answered (not before — avoids mic conflict)
+          call.on('accept', () => startMic());
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
         }
@@ -523,8 +525,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
       }
     }
-    // Auto-start transcription
-    startMic();
+    // Start mic immediately if no phone number (mic-only mode)
+    if (!phoneNumber) startMic();
 
     // Record audio (best-effort)
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
