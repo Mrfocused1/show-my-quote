@@ -17,7 +17,7 @@ function Root() {
   }
 
   if (page === 'app')       return <App onHome={() => goHome()} />
-  if (page === 'book-demo') return <BookDemo  onHome={goHome} onEnterApp={() => setPage('app')} />
+  if (page === 'book-demo') return <BookDemo  onHome={goHome} onEnterApp={() => setPage('sign-in')} />
   if (page === 'sign-in')   return <SignIn    onHome={goHome} onEnterApp={() => setPage('app')} />
   if (page === 'terms')     return <TermsPage onHome={() => goHome()} />
   if (page === 'privacy')   return <PrivacyPage onHome={() => goHome()} />
