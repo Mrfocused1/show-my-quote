@@ -355,6 +355,38 @@ function LiveCallDemo() {
   );
 }
 
+// ─── Hero Audio Button ────────────────────────────────────────────────────────
+
+function HeroAudioButton() {
+  const [playing, setPlaying] = useState(false);
+  const audioRef = useRef(null);
+
+  const toggle = () => {
+    if (!audioRef.current) return;
+    if (playing) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      setPlaying(false);
+    } else {
+      audioRef.current.play().catch(() => {});
+      setPlaying(true);
+    }
+  };
+
+  return (
+    <>
+      <audio ref={audioRef} src="/hero-narration.mp3" onEnded={() => setPlaying(false)} />
+      <button
+        onClick={toggle}
+        className="flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full border border-slate-200 shadow-md hover:shadow-lg transition-all text-xs font-semibold text-slate-700 hover:text-slate-900"
+      >
+        <span className={`w-2 h-2 rounded-full flex-shrink-0 ${playing ? 'bg-green-500' : 'bg-green-500 animate-pulse'}`} />
+        {playing ? 'Playing…' : 'Hear it in action'}
+      </button>
+    </>
+  );
+}
+
 // ─── App Mockup Shell ─────────────────────────────────────────────────────────
 
 function AppMockup() {
@@ -1350,8 +1382,8 @@ const WORKFLOW_DATA = {
     steps: [
       { speaker: 'Client', text: "We're getting married June 21st at Aynhoe Park in Oxfordshire.", fills: [{ key: 'date', value: 'Sat 21 Jun 2025' }, { key: 'venue', value: 'Aynhoe Park' }] },
       { speaker: 'You',    text: "Beautiful venue! Are you thinking full-day coverage?",            fills: [] },
-      { speaker: 'Client', text: "Yes — full day. We'd love a second shooter too.",                 fills: [{ key: 'coverage', value: 'Full day · 10 hrs' }, { key: 'team', value: '2 photographers' }] },
-      { speaker: 'Client', text: "Oh, and the cinematic wedding film if possible.",                 fills: [{ key: 'addons', value: 'Cinematic film' }] },
+      { speaker: 'Client', text: "Yes — full day. We'd love a second shooter too.",                 fills: [{ key: 'coverage', value: 'Full day · 10 hrs', price: '£2,500' }, { key: 'team', value: '2 photographers', price: '+£875' }] },
+      { speaker: 'Client', text: "Oh, and the cinematic wedding film if possible.",                 fills: [{ key: 'addons', value: 'Cinematic film', price: '+£800' }] },
     ],
     quote: { total: '£4,975', label: 'Premium + second shooter + film', sentIn: '0:52' },
   },
@@ -1366,8 +1398,8 @@ const WORKFLOW_DATA = {
     steps: [
       { speaker: 'Client', text: "We're looking at 14th September — around 150 guests.",           fills: [{ key: 'date', value: 'Sat 14 Sep' }, { key: 'guests', value: '150 guests' }] },
       { speaker: 'You',    text: "Would you like exclusive use of the whole venue?",                fills: [] },
-      { speaker: 'Client', text: "Yes — exclusive use, and we need the civil ceremony space.",     fills: [{ key: 'package', value: 'Exclusive use' }, { key: 'ceremony', value: 'Civil ceremony' }] },
-      { speaker: 'Client', text: "Can we also add the full-day bar package?",                      fills: [{ key: 'bar', value: 'Full day bar' }] },
+      { speaker: 'Client', text: "Yes — exclusive use, and we need the civil ceremony space.",     fills: [{ key: 'package', value: 'Exclusive use', price: '£8,500' }, { key: 'ceremony', value: 'Civil ceremony', price: '+£850' }] },
+      { speaker: 'Client', text: "Can we also add the full-day bar package?",                      fills: [{ key: 'bar', value: 'Full day bar', price: '+£3,000' }] },
     ],
     quote: { total: '£20,950', label: 'Exclusive use · 150 guests · civil ceremony', sentIn: '1:08' },
   },
@@ -1380,10 +1412,10 @@ const WORKFLOW_DATA = {
       { key: 'delivery',    label: 'Delivery to',      placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "I have 4 bridesmaids — 8 in the wedding party total.",           fills: [{ key: 'bridesmaids', value: '4 bridesmaids · 8 party' }] },
+      { speaker: 'Client', text: "I have 4 bridesmaids — 8 in the wedding party total.",           fills: [{ key: 'bridesmaids', value: '4 bridesmaids · 8 party', price: '£720' }] },
       { speaker: 'You',    text: "Are you thinking a full floral arch for the ceremony?",           fills: [] },
-      { speaker: 'Client', text: "Yes, full arch — and 20 tables at the reception.",               fills: [{ key: 'arch', value: 'Full floral arch' }, { key: 'tables', value: '20 tables' }] },
-      { speaker: 'Client', text: "Church pew ends too — it's at The Old Rectory, Suffolk.",        fills: [{ key: 'church', value: 'Church + pew ends ×16' }, { key: 'delivery', value: 'The Old Rectory, Suffolk' }] },
+      { speaker: 'Client', text: "Yes, full arch — and 20 tables at the reception.",               fills: [{ key: 'arch', value: 'Full floral arch', price: '+£1,200' }, { key: 'tables', value: '20 tables', price: '+£1,800' }] },
+      { speaker: 'Client', text: "Church pew ends too — it's at The Old Rectory, Suffolk.",        fills: [{ key: 'church', value: 'Church + pew ends ×16', price: '+£480' }, { key: 'delivery', value: 'The Old Rectory, Suffolk', price: '+£350' }] },
     ],
     quote: { total: '£4,900', label: 'Full arch + 20 tables + church + delivery', sentIn: '1:14' },
   },
@@ -1396,10 +1428,10 @@ const WORKFLOW_DATA = {
       { key: 'dayof',     label: 'Day-of team',   placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We need full planning from start to day-of — it's a big one.",   fills: [{ key: 'tier', value: 'Full planning service' }] },
+      { speaker: 'Client', text: "We need full planning from start to day-of — it's a big one.",   fills: [{ key: 'tier', value: 'Full planning service', price: '£4,800' }] },
       { speaker: 'You',    text: "How many guests are you expecting?",                              fills: [] },
       { speaker: 'Client', text: "Around 180 guests at Bamburgh Castle in Northumberland.",         fills: [{ key: 'guests', value: '180 guests' }, { key: 'venue', value: 'Bamburgh Castle' }] },
-      { speaker: 'Client', text: "We have 12 suppliers that will all need coordinating.",           fills: [{ key: 'suppliers', value: '12 suppliers' }, { key: 'dayof', value: '2 coordinators' }] },
+      { speaker: 'Client', text: "We have 12 suppliers that will all need coordinating.",           fills: [{ key: 'suppliers', value: '12 suppliers', price: '+£1,200' }, { key: 'dayof', value: '2 coordinators', price: '+£800' }] },
     ],
     quote: { total: '£7,550', label: 'Full planning · 12 suppliers · 2 coordinators', sentIn: '0:56' },
   },
@@ -1412,10 +1444,10 @@ const WORKFLOW_DATA = {
       { key: 'travel',    label: 'Travel',        placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We'd love a 3-piece live band — two 45-minute sets.",             fills: [{ key: 'act', value: '3-piece live band' }, { key: 'sets', value: '2 × 45 min sets' }] },
+      { speaker: 'Client', text: "We'd love a 3-piece live band — two 45-minute sets.",             fills: [{ key: 'act', value: '3-piece live band', price: '£2,400' }, { key: 'sets', value: '2 × 45 min sets' }] },
       { speaker: 'You',    text: "And do you need DJ cover for the rest of the evening?",            fills: [] },
-      { speaker: 'Client', text: "Yes — DJ from first dance to midnight, full PA and lighting.",     fills: [{ key: 'dj', value: 'DJ · 6 hrs' }, { key: 'equipment', value: 'Full PA + lighting rig' }] },
-      { speaker: 'Client', text: "We're at Elmore Court in Gloucestershire — about 145 miles.",     fills: [{ key: 'travel', value: '145 miles · £290' }] },
+      { speaker: 'Client', text: "Yes — DJ from first dance to midnight, full PA and lighting.",     fills: [{ key: 'dj', value: 'DJ · 6 hrs', price: '+£1,200' }, { key: 'equipment', value: 'Full PA + lighting rig', price: '+£800' }] },
+      { speaker: 'Client', text: "We're at Elmore Court in Gloucestershire — about 145 miles.",     fills: [{ key: 'travel', value: '145 miles', price: '+£290' }] },
     ],
     quote: { total: '£5,440', label: '3-piece band + DJ + full PA · 6 hrs', sentIn: '0:44' },
   },
@@ -1428,10 +1460,10 @@ const WORKFLOW_DATA = {
       { key: 'bar',     label: 'Bar package',   placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "It's 120 guests — we'd love a plated 3-course dinner.",          fills: [{ key: 'guests', value: '120 guests' }, { key: 'menu', value: 'Plated 3-course' }] },
+      { speaker: 'Client', text: "It's 120 guests — we'd love a plated 3-course dinner.",          fills: [{ key: 'guests', value: '120 guests' }, { key: 'menu', value: 'Plated 3-course', price: '£10,200' }] },
       { speaker: 'You',    text: "Any dietary requirements we should know about?",                  fills: [] },
-      { speaker: 'Client', text: "4 gluten free, 6 vegan, and one nut allergy.",                   fills: [{ key: 'dietary', value: 'GF ×4 · Vegan ×6 · Nut ×1' }] },
-      { speaker: 'Client', text: "Can we add canapés for drinks and a bar package too?",           fills: [{ key: 'evening', value: 'Canapé station' }, { key: 'bar', value: 'Full bar package' }] },
+      { speaker: 'Client', text: "4 gluten free, 6 vegan, and one nut allergy.",                   fills: [{ key: 'dietary', value: 'GF ×4 · Vegan ×6 · Nut ×1', price: '+£480' }] },
+      { speaker: 'Client', text: "Can we add canapés for drinks and a bar package too?",           fills: [{ key: 'evening', value: 'Canapé station', price: '+£1,440' }, { key: 'bar', value: 'Full bar package', price: '+£3,000' }] },
     ],
     quote: { total: '£22,192', label: 'Plated 3-course · 120 guests · bar + canapés', sentIn: '0:47' },
   },
@@ -1441,18 +1473,22 @@ const WORKFLOW_DATA = {
 
 function WorkflowDemo({ nicheKey }) {
   const seq = WORKFLOW_DATA[nicheKey];
-  const [lines, setLines]           = useState([]);
-  const [formData, setFormData]     = useState({});
-  const [recentKey, setRecentKey]   = useState(null);
+  const [lines, setLines]               = useState([]);
+  const [formData, setFormData]         = useState({});
+  const [formPrices, setFormPrices]     = useState({});
+  const [recentKey, setRecentKey]       = useState(null);
   const [quoteVisible, setQuoteVisible] = useState(false);
-  const [runKey, setRunKey]         = useState(0);
+  const [sendStep, setSendStep]         = useState(0);
+  const [runKey, setRunKey]             = useState(0);
 
   useEffect(() => {
     const timers = [];
     setLines([]);
     setFormData({});
+    setFormPrices({});
     setRecentKey(null);
     setQuoteVisible(false);
+    setSendStep(0);
 
     let t = 800;
     seq.steps.forEach((step, i) => {
@@ -1461,10 +1497,11 @@ function WorkflowDemo({ nicheKey }) {
       }, t));
       t += 400;
 
-      step.fills.forEach(({ key, value }) => {
+      step.fills.forEach(({ key, value, price }) => {
         const ft = t;
         timers.push(setTimeout(() => {
           setFormData(prev => ({ ...prev, [key]: value }));
+          if (price) setFormPrices(prev => ({ ...prev, [key]: price }));
           setRecentKey(key);
         }, ft));
         timers.push(setTimeout(() => {
@@ -1476,12 +1513,15 @@ function WorkflowDemo({ nicheKey }) {
     });
 
     timers.push(setTimeout(() => setQuoteVisible(true), t + 500));
-    timers.push(setTimeout(() => setRunKey(k => k + 1), t + 4500));
+    timers.push(setTimeout(() => setSendStep(1), t + 1400));
+    timers.push(setTimeout(() => setSendStep(2), t + 1900));
+    timers.push(setTimeout(() => setSendStep(3), t + 2400));
+    timers.push(setTimeout(() => setRunKey(k => k + 1), t + 6000));
     return () => timers.forEach(clearTimeout);
   }, [runKey, nicheKey]);
 
   return (
-    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col" style={{ height: '320px' }}>
+    <div className="rounded-2xl overflow-hidden border border-slate-200 bg-white flex flex-col" style={{ height: '380px' }}>
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 bg-slate-900 flex-shrink-0">
@@ -1504,15 +1544,16 @@ function WorkflowDemo({ nicheKey }) {
       <div className="flex flex-1 overflow-hidden">
 
         {/* Left: form */}
-        <div className="border-r border-slate-100 p-3 overflow-hidden flex-shrink-0" style={{ width: '52%' }}>
+        <div className="border-r border-slate-100 p-3 flex flex-col flex-shrink-0 overflow-hidden" style={{ width: '52%' }}>
           <div className="flex items-center gap-1.5 mb-2">
             <span className="text-[7px] font-bold text-slate-500 uppercase tracking-wider">Client Details</span>
             <span className="text-[7px] bg-green-50 text-green-700 border border-green-100 px-1 py-0.5 rounded-full font-semibold">Auto-filling</span>
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1.5 flex-1">
             {seq.fields.map(f => {
               const highlighted = recentKey === f.key;
               const filled      = !!formData[f.key];
+              const price       = formPrices[f.key];
               return (
                 <div key={f.key}>
                   <label className="text-[7px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-0.5">
@@ -1520,22 +1561,25 @@ function WorkflowDemo({ nicheKey }) {
                     {highlighted && <span className="text-[6px] text-green-500 normal-case tracking-normal animate-pulse">● filling</span>}
                     {filled && !highlighted && <span className="text-[7px] text-green-500">✓</span>}
                   </label>
-                  <input
-                    readOnly
-                    value={formData[f.key] || ''}
-                    placeholder={f.placeholder}
-                    className={`w-full px-1.5 py-0.5 rounded border text-[8px] outline-none transition-all duration-300 ${
-                      highlighted
-                        ? 'border-green-400 bg-green-50 text-green-900'
-                        : filled
-                        ? 'border-slate-200 bg-white text-slate-800'
-                        : 'border-slate-200 bg-slate-50 text-slate-300'
-                    }`}
-                  />
+                  {filled ? (
+                    <div className={`w-full px-1.5 py-0.5 rounded border text-[8px] flex items-center justify-between transition-all duration-300 ${
+                      highlighted ? 'border-green-400 bg-green-50' : 'border-slate-200 bg-white'
+                    }`}>
+                      <span className={highlighted ? 'text-green-900' : 'text-slate-800'}>{formData[f.key]}</span>
+                      {price && <span className={`font-semibold flex-shrink-0 ml-1 ${highlighted ? 'text-green-700' : 'text-slate-500'}`}>{price}</span>}
+                    </div>
+                  ) : (
+                    <div className="w-full px-1.5 py-0.5 rounded border border-slate-200 bg-slate-50 text-[8px] text-slate-300">
+                      {f.placeholder}
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
+          <p className="text-[6px] text-slate-400 mt-2 leading-tight border-t border-slate-100 pt-1.5">
+            Prices auto-calculate from your own rate card — you set these up once when you onboard.
+          </p>
         </div>
 
         {/* Right: transcript */}
@@ -1572,19 +1616,38 @@ function WorkflowDemo({ nicheKey }) {
         </div>
       </div>
 
-      {/* Quote bar */}
+      {/* Quote + send bar */}
       {quoteVisible && (
-        <div className="flex-shrink-0 border-t border-slate-200 bg-[#F7F7F5] px-4 py-2.5 flex items-center justify-between">
-          <div>
-            <p className="flex items-center gap-1 text-[8px] font-bold text-green-700">
-              <CheckCircle2 className="w-3 h-3" /> Quote generated
-            </p>
-            <p className="text-[7px] text-slate-400 mt-0.5 leading-snug">{seq.quote.label}</p>
+        <div className="flex-shrink-0 border-t border-slate-200 bg-[#F7F7F5] px-4 pt-2.5 pb-2">
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="flex items-center gap-1 text-[8px] font-bold text-green-700">
+                <CheckCircle2 className="w-3 h-3" /> Quote generated
+              </p>
+              <p className="text-[7px] text-slate-400 mt-0.5 leading-snug">{seq.quote.label}</p>
+            </div>
+            <div className="text-right">
+              <p className="text-base font-black text-slate-900">{seq.quote.total}</p>
+              <p className="text-[7px] text-slate-400">Sent in {seq.quote.sentIn}</p>
+            </div>
           </div>
-          <div className="text-right">
-            <p className="text-lg font-black text-slate-900">{seq.quote.total}</p>
-            <p className="text-[7px] text-slate-400">Sent in {seq.quote.sentIn}</p>
-          </div>
+          {sendStep > 0 && (
+            <div className="flex items-center gap-1.5 mt-2 pt-2 border-t border-slate-200">
+              <span className="flex items-center gap-1 text-[7px] font-semibold text-slate-700 bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">
+                <CheckCircle2 className="w-2.5 h-2.5 text-green-500" /> Email sent
+              </span>
+              {sendStep > 1 && (
+                <span className="flex items-center gap-1 text-[7px] font-semibold text-slate-700 bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-2.5 h-2.5 text-green-500" /> SMS sent
+                </span>
+              )}
+              {sendStep > 2 && (
+                <span className="flex items-center gap-1 text-[7px] font-semibold text-slate-700 bg-white border border-slate-200 px-1.5 py-0.5 rounded-full">
+                  <CheckCircle2 className="w-2.5 h-2.5 text-green-500" /> PDF invoice
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -2130,6 +2193,9 @@ export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy, s
         {/* Right — app mockup */}
         <div className="w-full mt-8 md:mt-0 md:flex-1 relative h-[400px] md:h-auto" style={{ minWidth: 0 }}>
           <AppMockup />
+          <div className="absolute bottom-16 left-4 z-10">
+            <HeroAudioButton />
+          </div>
         </div>
 
         {/* Fade into next section */}
