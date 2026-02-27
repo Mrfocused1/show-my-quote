@@ -8,8 +8,8 @@ import TermsPage from './TermsPage.jsx'
 import PrivacyPage from './PrivacyPage.jsx'
 import DemoPage from './DemoPage.jsx'
 
-// If the URL contains #demo, open the public demo page directly
-const initialPage = window.location.hash === '#demo' ? 'demo' : 'home'
+// If the URL path is /demo, open the public demo page directly
+const initialPage = window.location.pathname === '/demo' ? 'demo' : 'home'
 
 function Root() {
   const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo'
