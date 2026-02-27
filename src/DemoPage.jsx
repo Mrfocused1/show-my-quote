@@ -288,6 +288,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
   useEffect(() => () => {
     clearInterval(timerRef.current);
     clearTimeout(bufTimerRef.current);
+    clearTimeout(youWatchdogRef.current);
     stopMic();
   }, []);
 
@@ -295,6 +296,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
   useEffect(() => {
     if (!sessionCode || !hasPusher || !isViewer) return;
     const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+    pusher.connection.bind('error', err => {
+      console.error('[Pusher viewer] connection error:', err);
+    });
     const ch = pusher.subscribe(`demo-${sessionCode}`);
     ch.bind('state-update', snap => {
       if (snap.phase !== undefined) { setPhase(snap.phase); phaseRef.current = snap.phase; }
@@ -360,8 +364,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
             const buf = speechBufRef.current;
             if (buf) { speechBufRef.current = ''; onLineRef.current('Client', buf, true); }
           }, 5000);
-          aiPendingRef.current -= 1;
-          if (aiPendingRef.current === 0) setAIT(false);
+          // Don't decrement here — finally block handles it to avoid double-decrement
           return;
         }
         clearTimeout(bufTimerRef.current);
