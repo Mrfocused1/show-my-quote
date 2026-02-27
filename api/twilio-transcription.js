@@ -51,15 +51,9 @@ export default async function handler(req, res) {
     //   outboundTrackLabel = 'Client'  (phone person — audio from child call via <Dial>)
     // The Track field will contain the label value ('You' or 'Client'),
     // or the raw track name ('inbound_track' / 'outbound_track') if no label was set.
-    let speaker;
-    if (Track === 'You' || Track === 'inbound_track') {
-      speaker = 'You';
-    } else if (Track === 'Client' || Track === 'outbound_track') {
-      speaker = 'Client';
-    } else {
-      // Unknown track — default to Client (phone person is more valuable to capture)
-      speaker = 'Client';
-    }
+    // We transcribe outbound_track only (phone person's voice via <Dial>).
+    // outboundTrackLabel is 'Client', so Track will be 'Client' or fall back to 'outbound_track'.
+    const speaker = (Track === 'You' || Track === 'inbound_track') ? 'You' : 'Client';
 
     console.log('Publishing transcript:', speaker, '→', transcriptText.slice(0, 60));
     await pusher.trigger(channel, 'transcript', {
