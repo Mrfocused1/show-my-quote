@@ -46,15 +46,6 @@ export default function SignIn({ onHome, onEnterApp }) {
         </div>
       </nav>
 
-      {/* Back link */}
-      <div className="px-10 pt-8">
-        <button onClick={onHome}
-          className="flex items-center space-x-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors group">
-          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to home</span>
-        </button>
-      </div>
-
       {/* Form */}
       <div className="flex items-center justify-center px-10 py-16">
         <div className="w-full max-w-sm">
