@@ -13,25 +13,36 @@ export default async function handler(req, res) {
 
   const {
     TranscriptionEvent,
-    TranscriptionText,
+    TranscriptionData,
     Track,
     Final,
     CallSid,
   } = req.body || {};
 
-  console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| Text:', TranscriptionText);
+  // TranscriptionData is a JSON string: {"transcript":"...", "confidence":0.99}
+  let transcriptText = '';
+  try {
+    if (TranscriptionData) {
+      const parsed = JSON.parse(TranscriptionData);
+      transcriptText = parsed.transcript?.trim() || '';
+    }
+  } catch { /* ignore malformed JSON */ }
+
+  console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| Text:', transcriptText);
 
   // Only process final transcription content
   if (
     TranscriptionEvent === 'transcription-content' &&
     Final === 'true' &&
-    TranscriptionText?.trim() &&
+    transcriptText &&
     CallSid
   ) {
-    const speaker = Track === 'Client' ? 'Client' : 'You';
+    // inbound_track = called party (Client), outbound_track = browser presenter (You)
+    // Custom labels (Client/You) may also appear if Twilio honours inboundTrackLabel
+    const speaker = (Track === 'inbound_track' || Track === 'Client') ? 'Client' : 'You';
     await pusher.trigger(`call-${CallSid}`, 'transcript', {
       speaker,
-      text: TranscriptionText.trim(),
+      text: transcriptText,
     });
   }
 
