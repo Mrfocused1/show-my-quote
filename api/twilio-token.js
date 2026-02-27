@@ -25,7 +25,7 @@ export default async function handler(req, res) {
 
   token.addGrant(new VoiceGrant({
     outgoingApplicationSid: twimlAppSid,
-    incomingAllow: false,
+    incomingAllow: true,
   }));
 
   res.json({ token: token.toJwt() });

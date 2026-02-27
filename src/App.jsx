@@ -455,16 +455,52 @@ export default function GetMyQuoteApp({ onHome }) {
   const [activeRecord, setActiveRecord] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
+  const [smsBadge, setSmsBadge] = useState(0);
+  const twilioDeviceRef = useRef(null);
 
   const navigateTo = (view, record = null) => {
     setCurrentView(view);
     setActiveRecord(record);
     setSidebarOpen(false);
+    if (view === 'sms-inbox') setSmsBadge(0);
   };
+
+  // Register Twilio Device for inbound calls
+  useEffect(() => {
+    let device;
+    (async () => {
+      try {
+        const res = await fetch('/api/twilio-token');
+        if (!res.ok) return;
+        const { token } = await res.json();
+        const { Device } = await import('@twilio/voice-sdk');
+        device = new Device(token, { logLevel: 1 });
+        twilioDeviceRef.current = device;
+        await device.register();
+        device.on('incoming', call => setIncomingCall({ call, from: call.parameters?.From || 'Unknown' }));
+      } catch (e) { console.warn('Twilio Device init:', e.message); }
+    })();
+    return () => { try { device?.destroy(); } catch {} };
+  }, []);
+
+  // Global Pusher listener for SMS badge
+  useEffect(() => {
+    const key = import.meta.env.VITE_PUSHER_KEY;
+    const cluster = import.meta.env.VITE_PUSHER_CLUSTER;
+    if (!key) return;
+    let pusher, ch;
+    import('pusher-js').then(({ default: Pusher }) => {
+      pusher = new Pusher(key, { cluster });
+      ch = pusher.subscribe('sms-inbox');
+      ch.bind('message', () => setSmsBadge(b => b + 1));
+    });
+    return () => { try { pusher?.unsubscribe('sms-inbox'); } catch {} };
+  }, []);
 
   return (
     <div className="flex h-screen bg-white text-slate-800 font-sans antialiased overflow-hidden">
-      <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} smsBadge={smsBadge} />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
         <header className="h-14 border-b border-slate-200 flex items-center px-3 md:px-6 justify-between bg-white/80 backdrop-blur-sm z-10">
@@ -511,6 +547,33 @@ export default function GetMyQuoteApp({ onHome }) {
       </div>
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} />}
+
+      {/* Incoming call modal */}
+      {incomingCall && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 w-80 text-center">
+            <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 animate-pulse">
+              <Phone className="w-8 h-8 text-green-600" />
+            </div>
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Incoming call</p>
+            <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
+            <div className="flex gap-3 justify-center">
+              <button
+                onClick={() => { incomingCall.call.reject(); setIncomingCall(null); }}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <PhoneOff className="w-4 h-4" /> Decline
+              </button>
+              <button
+                onClick={() => { incomingCall.call.accept(); setIncomingCall(null); }}
+                className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
+              >
+                <Phone className="w-4 h-4" /> Answer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -5882,7 +5945,7 @@ function SmsInboxView() {
 }
 
 // --- SIDEBAR ---
-function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose }) {
+function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0 }) {
   const navGroups = [
     {
       title: 'Workspace',
@@ -5891,7 +5954,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose }) {
         { id: 'inquiries', icon: Inbox, label: 'Inquiries' },
         { id: 'quotes', icon: FileText, label: 'Quotes' },
         { id: 'calls', icon: Phone, label: 'Call Log', badge: '2' },
-        { id: 'sms-inbox', icon: MessageSquare, label: 'Messages' },
+        { id: 'sms-inbox', icon: MessageSquare, label: 'Messages', badge: smsBadge > 0 ? String(smsBadge) : null },
       ]
     },
     {

@@ -7,15 +7,20 @@ export default async function handler(req, res) {
   const To = req.body?.To || req.query?.To;
   const twiml = new twilio.twiml.VoiceResponse();
 
-  if (To) {
+  const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
+
+  if (To && To !== twilioNumber) {
+    // Outbound call from browser SDK — dial the destination number
     const dial = twiml.dial({
-      callerId: process.env.TWILIO_PHONE_NUMBER,
+      callerId: twilioNumber,
       record: 'record-from-ringing',
       recordingStatusCallback: '/api/twilio-recording',
     });
     dial.number(To);
   } else {
-    twiml.say('No number provided.');
+    // Inbound call to the Twilio number — ring the browser client
+    const dial = twiml.dial({ callerId: req.body?.From || twilioNumber });
+    dial.client('demo-presenter');
   }
 
   res.send(twiml.toString());
