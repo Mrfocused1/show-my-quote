@@ -467,11 +467,17 @@ export default function DemoPage({ onHome, onBookDemo }) {
         setInterim(interim);
       };
       r.onerror = e => {
+        console.warn('Speech recognition error:', e.error);
         if (e.error === 'not-allowed' || e.error === 'permission-denied') {
           setErr('Microphone access denied — check browser permissions');
-          setTimeout(() => setErr(null), 5000);
           intentStopRef.current = true;
+        } else if (e.error === 'audio-capture') {
+          // Mic busy (e.g. WebRTC in use) — retry after short delay
+          setTimeout(() => { if (!intentStopRef.current) { try { r.start(); } catch {} } }, 800);
+        } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+          setErr(`Transcription error: ${e.error} — try Type mode`);
         }
+        setTimeout(() => setErr(null), 5000);
       };
       r.onend = () => {
         setInterim('');
@@ -516,8 +522,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
           await device.register();
           const call = await device.connect({ params: { To: phoneNumber } });
           twilioCallRef.current = call;
-          // Start mic once the call is answered (not before — avoids mic conflict)
+          // Start mic when answered, with a timeout fallback
           call.on('accept', () => startMic());
+          setTimeout(() => startMic(), 3000); // fallback if accept doesn't fire
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
         }
