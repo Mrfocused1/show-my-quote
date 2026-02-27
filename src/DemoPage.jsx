@@ -527,17 +527,27 @@ export default function DemoPage({ onHome, onBookDemo }) {
           twilioCallRef.current = call;
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
-          // Subscribe to Real-Time Transcription via Pusher when call connects
-          call.on('accept', (acceptedCall) => {
+          // Start transcription + subscribe to Pusher when call is accepted
+          call.on('accept', async (acceptedCall) => {
             const callSid = acceptedCall?.parameters?.CallSid || call.parameters?.CallSid;
-            if (callSid && PUSHER_KEY && PUSHER_CLUSTER) {
+            if (!callSid) return;
+            // Start transcription via REST API (safer than TwiML — won't block Dial)
+            try {
+              await fetch('/api/start-transcription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callSid }),
+              });
+            } catch (e) { console.warn('Could not start transcription:', e.message); }
+            // Subscribe to Pusher for live transcript events
+            if (PUSHER_KEY && PUSHER_CLUSTER) {
               const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
               const ch = p.subscribe(`call-${callSid}`);
               ch.bind('transcript', ({ speaker, text }) => {
                 if (onLineRef.current) onLineRef.current(speaker, text);
               });
               transcriptPusherRef.current = { pusher: p, callSid };
-              console.log('Subscribed to transcription channel: call-' + callSid);
+              console.log('Transcription started for call-' + callSid);
             }
           });
         }
