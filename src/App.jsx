@@ -500,6 +500,7 @@ export default function GetMyQuoteApp({ onHome }) {
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} />}
           {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} />}
+          {currentView === 'sms-inbox'     && <SmsInboxView />}
           {currentView === 'menus'         && <MenusView />}
           {currentView === 'pricing-rules'    && <PricingRulesView />}
           {currentView === 'price-list'       && <PriceListView />}
@@ -5815,6 +5816,71 @@ function OnboardingView() {
   );
 }
 
+// --- SMS INBOX VIEW ---
+function SmsInboxView() {
+  const [messages, setMessages] = useState([]);
+  const [unread, setUnread] = useState(0);
+
+  // Load recent messages on mount
+  useEffect(() => {
+    fetch('/api/sms-inbox').then(r => r.json()).then(d => {
+      if (d.messages) setMessages(d.messages);
+    }).catch(() => {});
+  }, []);
+
+  // Listen for live incoming SMS via Pusher
+  useEffect(() => {
+    const key     = import.meta.env.VITE_PUSHER_KEY;
+    const cluster = import.meta.env.VITE_PUSHER_CLUSTER;
+    if (!key) return;
+    let pusher, channel;
+    import('pusher-js').then(({ default: Pusher }) => {
+      pusher  = new Pusher(key, { cluster });
+      channel = pusher.subscribe('sms-inbox');
+      channel.bind('message', msg => {
+        setMessages(prev => [msg, ...prev]);
+        setUnread(u => u + 1);
+      });
+    });
+    return () => { try { pusher?.unsubscribe('sms-inbox'); } catch {} };
+  }, []);
+
+  return (
+    <div className="p-6 max-w-2xl mx-auto">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-slate-800 flex items-center gap-2">
+          <MessageSquare className="w-5 h-5 text-green-600" />
+          SMS Inbox
+          {unread > 0 && (
+            <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">{unread} new</span>
+          )}
+        </h2>
+        <span className="text-xs text-slate-400">Messages to your Twilio number — live</span>
+      </div>
+
+      {messages.length === 0 ? (
+        <div className="text-center py-16 text-slate-400">
+          <MessageSquare className="w-10 h-10 mx-auto mb-3 opacity-30" />
+          <p className="text-sm">No messages yet.</p>
+          <p className="text-xs mt-1">New SMS will appear here instantly.</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {messages.map((m, i) => (
+            <div key={i} className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-sm font-medium text-slate-700">{m.from || 'Unknown'}</span>
+                <span className="text-xs text-slate-400">{m.date ? new Date(m.date).toLocaleString() : ''}</span>
+              </div>
+              <p className="text-sm text-slate-800 whitespace-pre-wrap">{m.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- SIDEBAR ---
 function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose }) {
   const navGroups = [
@@ -5825,6 +5891,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose }) {
         { id: 'inquiries', icon: Inbox, label: 'Inquiries' },
         { id: 'quotes', icon: FileText, label: 'Quotes' },
         { id: 'calls', icon: Phone, label: 'Call Log', badge: '2' },
+        { id: 'sms-inbox', icon: MessageSquare, label: 'Messages' },
       ]
     },
     {
