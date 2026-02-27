@@ -355,49 +355,6 @@ function LiveCallDemo() {
   );
 }
 
-// ─── Hero Audio Button ────────────────────────────────────────────────────────
-
-function HeroAudioButton() {
-  const [playing, setPlaying] = useState(false);
-  const timersRef = useRef([]);
-  const audiosRef = useRef([]);
-
-  const stop = () => {
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-    audiosRef.current.forEach(a => { try { a.pause(); a.currentTime = 0; } catch (_) {} });
-    audiosRef.current = [];
-    setPlaying(false);
-  };
-
-  const play = () => {
-    setPlaying(true);
-    DEMO_SEQUENCE.forEach(({ delay }, i) => {
-      timersRef.current.push(setTimeout(() => {
-        const audio = new Audio(`/demo-audio/line-${i}.mp3`);
-        audiosRef.current.push(audio);
-        audio.play().catch(() => {});
-      }, delay));
-    });
-    // Auto-stop after the loop ends
-    timersRef.current.push(setTimeout(stop, LOOP_TOTAL - 2000));
-  };
-
-  const toggle = () => (playing ? stop() : play());
-
-  useEffect(() => stop, []);
-
-  return (
-    <button
-      onClick={toggle}
-      className="flex items-center gap-2 px-3 py-1.5 bg-white/90 backdrop-blur-sm rounded-full border border-slate-200 shadow-md hover:shadow-lg transition-all text-xs font-semibold text-slate-700 hover:text-slate-900"
-    >
-      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${playing ? 'bg-green-500' : 'bg-green-500 animate-pulse'}`} />
-      {playing ? 'Stop' : 'Hear it in action'}
-    </button>
-  );
-}
-
 // ─── App Mockup Shell ─────────────────────────────────────────────────────────
 
 function AppMockup() {
@@ -2204,9 +2161,6 @@ export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy, s
         {/* Right — app mockup */}
         <div className="w-full mt-8 md:mt-0 md:flex-1 relative h-[400px] md:h-auto" style={{ minWidth: 0 }}>
           <AppMockup />
-          <div className="absolute bottom-16 left-4 z-10">
-            <HeroAudioButton />
-          </div>
         </div>
 
         {/* Fade into next section */}
