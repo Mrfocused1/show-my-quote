@@ -29,13 +29,24 @@ const LINES = [
   { speaker: 'Client', text: "We're thinking around three and a half thousand pounds." },
 ];
 
-const VOICE = { You: 'echo', Client: 'shimmer' };
+const VOICE = { You: 'ash', Client: 'coral' };
 
-async function generateLine(text, voice) {
+const INSTRUCTIONS = {
+  You:    'You are a friendly, warm wedding photographer taking an enquiry call. Speak naturally and conversationally — like a real person on the phone, not a presenter. Relaxed, professional, genuine.',
+  Client: 'You are an excited bride-to-be calling to enquire about wedding photography. Speak naturally and enthusiastically — like a real person on the phone. Warm, happy, conversational.',
+};
+
+async function generateLine(text, voice, speaker) {
   const res = await fetch('https://api.openai.com/v1/audio/speech', {
     method: 'POST',
     headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: 'tts-1', input: text, voice, speed: 1.0 }),
+    body: JSON.stringify({
+      model: 'gpt-4o-mini-tts',
+      input: text,
+      voice,
+      instructions: INSTRUCTIONS[speaker],
+      speed: 1.0,
+    }),
   });
   if (!res.ok) throw new Error(`OpenAI ${res.status}: ${await res.text()}`);
   return res.arrayBuffer();
@@ -48,7 +59,7 @@ async function generate() {
   console.log(`Generating ${LINES.length} lines in parallel…`);
   const results = await Promise.all(
     LINES.map(({ speaker, text }, i) =>
-      generateLine(text, VOICE[speaker]).then(buf => ({ i, speaker, buf }))
+      generateLine(text, VOICE[speaker], speaker).then(buf => ({ i, speaker, buf }))
     )
   );
 
