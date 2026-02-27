@@ -204,6 +204,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
   // ── Call controls ──
   const [micActive,   setMic]     = useState(false);
+  const [txPusherActive, setTxPA] = useState(false); // true when Twilio transcription is live
   const [interimText, setInterim] = useState('');
   const [aiThinking,  setAIT]     = useState(false);
   const [apiError,    setErr]     = useState(null);
@@ -554,6 +555,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 if (onLineRef.current) onLineRef.current(speaker, text);
               });
               transcriptPusherRef.current = { pusher: p, callSid };
+              setTxPA(true);
               console.log('Subscribed to call-' + callSid);
             }
           });
@@ -606,6 +608,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
       const { pusher, callSid } = transcriptPusherRef.current;
       try { pusher.unsubscribe(`call-${callSid}`); pusher.disconnect(); } catch {}
       transcriptPusherRef.current = null;
+      setTxPA(false);
     }
     // Stop local MediaRecorder (mic-only mode)
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
@@ -860,14 +863,38 @@ export default function DemoPage({ onHome, onBookDemo }) {
       <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
         {/* Transcript */}
         <div className="w-[42%] flex flex-col border-r border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex-shrink-0">
+          <div className="px-4 py-3 border-b border-slate-100 flex-shrink-0 flex items-center justify-between">
             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Transcript</p>
+            {micActive && (
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-600">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                Listening
+              </span>
+            )}
+            {!micActive && txPusherActive && (
+              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-blue-500">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                Both sides
+              </span>
+            )}
           </div>
           <div ref={txDivRef} className="flex-1 overflow-y-auto p-4 space-y-3">
             {transcript.length === 0 && (
-              <p className="text-center text-slate-300 text-sm py-8">
-                {micActive ? 'Listening…' : 'Transcript will appear here'}
-              </p>
+              <div className="text-center py-8 space-y-2">
+                {micActive ? (
+                  <>
+                    <div className="flex justify-center gap-1 mb-3">
+                      {[0,1,2,3].map(i => (
+                        <span key={i} className="w-1 h-4 bg-green-400 rounded-full animate-pulse"
+                          style={{ animationDelay: `${i * 0.15}s` }} />
+                      ))}
+                    </div>
+                    <p className="text-slate-400 text-sm">Listening for speech…</p>
+                  </>
+                ) : (
+                  <p className="text-slate-300 text-sm">Transcript will appear here</p>
+                )}
+              </div>
             )}
             {transcript.map((line, i) => (
               <div
@@ -1488,7 +1515,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
             {analysis?.summary && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles className="w-4 h-4 text-green-500" />
                   <h3 className="text-sm font-bold text-slate-700">AI Call Summary</h3>
                 </div>
                 <p className="text-sm text-slate-700 leading-relaxed">{analysis.summary}</p>
