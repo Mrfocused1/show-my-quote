@@ -10,8 +10,21 @@ export default async function handler(req, res) {
   const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (To && To !== twilioNumber) {
-    // Outbound call from browser SDK — dial the destination number
-    // (transcription is started via REST API after call connects)
+    // Outbound call from browser SDK — start real-time transcription via TwiML,
+    // then dial the destination number
+    const appUrl = process.env.APP_URL || 'https://showmyquote.com';
+    const Session = req.body?.Session || req.query?.Session || '';
+    const cbUrl = `${appUrl}/api/twilio-transcription${Session ? '?session=' + encodeURIComponent(Session) : ''}`;
+
+    const start = twiml.start();
+    start.transcription({
+      statusCallbackUrl: cbUrl,
+      track: 'both_tracks',
+      inboundTrackLabel: 'Client',
+      outboundTrackLabel: 'You',
+      languageCode: 'en-US',
+      partialResults: 'false',
+    });
     const dial = twiml.dial({
       callerId: twilioNumber,
       record: 'record-from-ringing',

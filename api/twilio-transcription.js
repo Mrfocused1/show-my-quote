@@ -31,23 +31,27 @@ export default async function handler(req, res) {
   console.log('Transcription webhook body keys:', Object.keys(req.body || {}));
   console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| CallSid:', CallSid, '| Text:', transcriptText);
 
+  // Determine channel: prefer session-based tx channel, fall back to CallSid
+  const session = req.query?.session;
+  const channel = session ? `tx-${session}` : (CallSid ? `call-${CallSid}` : null);
+
   // Only process final transcription content
   if (
     TranscriptionEvent === 'transcription-content' &&
     Final === 'true' &&
     transcriptText &&
-    CallSid
+    channel
   ) {
-    // For browser-to-PSTN calls via <Dial>:
-    //   inbound_track  = browser (caller/presenter) → labelled 'You'
-    //   outbound_track = PSTN callee (customer)     → labelled 'Client'
-    // Custom labels will appear if Twilio honours inboundTrackLabel/outboundTrackLabel
-    const speaker = (Track === 'outbound_track' || Track === 'Client') ? 'Client' : 'You';
-    await pusher.trigger(`call-${CallSid}`, 'transcript', {
+    // With our TwiML labels: inboundTrackLabel='Client', outboundTrackLabel='You'
+    // Track field will be 'Client' or 'You'; fall back for default labels
+    const speaker = (Track === 'Client' || Track === 'inbound_track') ? 'Client' : 'You';
+    await pusher.trigger(channel, 'transcript', {
       speaker,
       text: transcriptText,
     });
   }
+
+  if (!channel) { res.status(200).end(); return; }
 
   res.status(200).end();
 }

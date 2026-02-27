@@ -525,39 +525,25 @@ export default function DemoPage({ onHome, onBookDemo }) {
           const device = new Device(token, { logLevel: 1 });
           twilioDeviceRef.current = device;
           await device.register();
-          const call = await device.connect({ params: { To: phoneNumber } });
+          const call = await device.connect({ params: { To: phoneNumber, Session: scRef.current || '' } });
           twilioCallRef.current = call;
+
+          // Subscribe to tx channel for Twilio Real-Time Transcription events
+          if (PUSHER_KEY && PUSHER_CLUSTER && scRef.current) {
+            const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+            const ch = p.subscribe(`tx-${scRef.current}`);
+            ch.bind('transcript', ({ speaker, text }) => {
+              if (onLineRef.current) onLineRef.current(speaker, text);
+            });
+            transcriptPusherRef.current = { pusher: p, channel: `tx-${scRef.current}` };
+            setTxPA(true);
+          }
+
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
-          // Start transcription + subscribe to Pusher when call is accepted
-          call.on('accept', async (acceptedCall) => {
-            const callSid = acceptedCall?.parameters?.CallSid || call.parameters?.CallSid;
-            if (!callSid) return;
-            twilioCallSidRef.current = callSid;
-
-            // Auto-start mic for presenter's voice
-            // (works on desktop; on mobile Web Speech API may not share mic with WebRTC)
+          // Auto-start mic when call is accepted
+          call.on('accept', () => {
             setTimeout(() => { if (caRef.current) startMic(); }, 800);
-
-            // Start server-side transcription for both sides
-            try {
-              await fetch('/api/start-transcription', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ callSid }),
-              });
-            } catch (e) { console.warn('Could not start transcription:', e.message); }
-            // Subscribe to Pusher for live transcript events from Twilio
-            if (PUSHER_KEY && PUSHER_CLUSTER) {
-              const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
-              const ch = p.subscribe(`call-${callSid}`);
-              ch.bind('transcript', ({ speaker, text }) => {
-                if (onLineRef.current) onLineRef.current(speaker, text);
-              });
-              transcriptPusherRef.current = { pusher: p, callSid };
-              setTxPA(true);
-              console.log('Subscribed to call-' + callSid);
-            }
           });
         }
       } catch (e) {
@@ -605,8 +591,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     twilioCallSidRef.current = null;
     // Unsubscribe from Real-Time Transcription channel
     if (transcriptPusherRef.current) {
-      const { pusher, callSid } = transcriptPusherRef.current;
-      try { pusher.unsubscribe(`call-${callSid}`); pusher.disconnect(); } catch {}
+      const { pusher, channel } = transcriptPusherRef.current;
+      try { pusher.unsubscribe(channel); pusher.disconnect(); } catch {}
       transcriptPusherRef.current = null;
       setTxPA(false);
     }
