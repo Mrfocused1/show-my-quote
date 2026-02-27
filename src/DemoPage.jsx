@@ -298,6 +298,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
       if (snap.callActive   !== undefined) setCA(snap.callActive);
       if (snap.analysis     !== undefined) setAnalysis(snap.analysis);
       if (snap.hasRecording)               setHasRec(true);
+      if (snap.dialNumber   !== undefined) setDialNum(snap.dialNumber);
       if (snap.niche !== undefined) {
         const n = typeof snap.niche === 'string' ? NICHES.find(x => x.id === snap.niche) : snap.niche;
         setNiche(n || null);
@@ -1222,8 +1223,16 @@ export default function DemoPage({ onHome, onBookDemo }) {
   // ── Dialpad phase ─────────────────────────────────────────────────────────
   if (phase === 'dial') {
     const KEYS = ['1','2','3','4','5','6','7','8','9','*','0','#'];
-    const pressKey = (k) => setDialNum(prev => prev.length < 15 ? prev + k : prev);
-    const del      = ()  => setDialNum(prev => prev.slice(0, -1));
+    const pressKey = (k) => {
+      const next = dialNumber.length < 15 ? dialNumber + k : dialNumber;
+      setDialNum(next);
+      broadcast({ dialNumber: next });
+    };
+    const del = () => {
+      const next = dialNumber.slice(0, -1);
+      setDialNum(next);
+      broadcast({ dialNumber: next });
+    };
 
     return (
       <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
