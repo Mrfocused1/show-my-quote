@@ -292,7 +292,7 @@ function LiveCallDemo() {
                     readOnly
                     value={formData[f.key] || ''}
                     placeholder={f.placeholder}
-                    className={`w-full px-1.5 py-1 rounded border text-[8px] outline-none transition-all duration-300 ${
+                    className={`w-full px-1.5 py-0.5 rounded border text-[7px] outline-none transition-all duration-300 ${
                       highlighted
                         ? 'border-green-400 bg-[#F0F0EE] text-green-900 shadow-sm shadow-green-100'
                         : filled
@@ -365,8 +365,6 @@ function AppMockup() {
       {/* Sidebar — matches real app: bg-[#F7F7F5], light nav items */}
       <div className="bg-[#F7F7F5] border-r border-slate-200 flex flex-col items-center pt-2.5 pb-3 flex-shrink-0"
            style={{ width: '40px' }}>
-        {/* Logo mark */}
-        <img src="/logo.svg" alt="SMQ" className="w-6 h-6 object-contain mb-3" />
         {SIDE_NAV.map(({ Icon, active }, i) => (
           <div key={i}
             className={`w-7 h-7 rounded-md flex items-center justify-center mb-0.5 transition-colors ${
