@@ -251,8 +251,10 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const txDivRef        = useRef(null);
   const onLineRef       = useRef(null);
   const heartbeatRef    = useRef(null);
-  const twilioDeviceRef = useRef(null);
-  const twilioCallRef   = useRef(null);
+  const twilioDeviceRef   = useRef(null);
+  const twilioCallRef     = useRef(null);
+  const whisperIntervalRef = useRef(null);
+  const whisperHeaderRef   = useRef(null); // first MediaRecorder chunk (WebM header)
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -522,9 +524,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
           await device.register();
           const call = await device.connect({ params: { To: phoneNumber } });
           twilioCallRef.current = call;
-          // Start mic when answered, with a timeout fallback
-          call.on('accept', () => startMic());
-          setTimeout(() => startMic(), 3000); // fallback if accept doesn't fire
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
         }
@@ -532,22 +531,52 @@ export default function DemoPage({ onHome, onBookDemo }) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
       }
     }
-    // Start mic immediately if no phone number (mic-only mode)
+
+    // Mic-only mode: use Web Speech API (no WebRTC conflict)
     if (!phoneNumber) startMic();
 
-    // Record audio (best-effort)
+    // Record audio + Whisper chunked transcription for phone calls
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
       const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       recChunksRef.current = [];
-      mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
+      whisperHeaderRef.current = null;
+      const pendingChunks = [];
+
+      mr.ondataavailable = e => {
+        if (e.data.size === 0) return;
+        recChunksRef.current.push(e.data);
+        if (!whisperHeaderRef.current) {
+          whisperHeaderRef.current = e.data; // first chunk = WebM header
+        } else {
+          pendingChunks.push(e.data);
+        }
+      };
+
       mr.onstop = () => {
         const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
         setRec(URL.createObjectURL(blob));
         broadcast({ hasRecording: true });
         stream.getTracks().forEach(t => t.stop());
       };
-      mr.start();
+
+      // For phone calls: use Whisper every 8s instead of Web Speech API
+      if (phoneNumber) {
+        mr.start(8000);
+        whisperIntervalRef.current = setInterval(async () => {
+          if (!pendingChunks.length || !whisperHeaderRef.current) return;
+          const chunks = pendingChunks.splice(0);
+          try {
+            const blob = new Blob([whisperHeaderRef.current, ...chunks], { type: 'audio/webm' });
+            const { transcribeAudio } = await import('./openaiHelper.js');
+            const text = await transcribeAudio(blob);
+            if (text?.trim()) onLineRef.current(lsRef.current, text.trim());
+          } catch (e) { console.warn('Whisper chunk error:', e.message); }
+        }, 8000);
+      } else {
+        mr.start();
+      }
+
       mediaRecRef.current = mr;
     }).catch(() => {});
   };
@@ -556,6 +585,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     stopMic();
     clearTimeout(bufTimerRef.current);
     clearInterval(heartbeatRef.current);
+    clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
     // Disconnect Twilio
     try { twilioCallRef.current?.disconnect(); } catch {}
     try { twilioDeviceRef.current?.destroy(); } catch {}
