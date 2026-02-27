@@ -253,6 +253,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const heartbeatRef    = useRef(null);
   const twilioDeviceRef   = useRef(null);
   const twilioCallRef     = useRef(null);
+  const twilioCallSidRef  = useRef(null);  // stored CallSid for fetching server-side recording
   const whisperIntervalRef  = useRef(null);
   const whisperHeaderRef    = useRef(null);
   const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
@@ -531,6 +532,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
           call.on('accept', async (acceptedCall) => {
             const callSid = acceptedCall?.parameters?.CallSid || call.parameters?.CallSid;
             if (!callSid) return;
+            twilioCallSidRef.current = callSid;
             // Start transcription via REST API (safer than TwiML — won't block Dial)
             try {
               await fetch('/api/start-transcription', {
@@ -556,27 +558,30 @@ export default function DemoPage({ onHome, onBookDemo }) {
       }
     }
 
-    // Mic-only mode: use Web Speech API (no WebRTC conflict)
-    if (!phoneNumber) startMic();
+    // Mic-only mode: use Web Speech API + local MediaRecorder (no WebRTC conflict)
+    if (!phoneNumber) {
+      startMic();
+      // Local recording only for mic-only mode (no Twilio call to record server-side)
+      navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
+        const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+        recChunksRef.current = [];
 
-    // Record audio for playback (Twilio Real-Time Transcription handles live captions for phone calls)
-    navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
-      const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
-      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-      recChunksRef.current = [];
+        mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
 
-      mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
+        mr.onstop = () => {
+          const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
+          setRec(URL.createObjectURL(blob));
+          broadcast({ hasRecording: true });
+          stream.getTracks().forEach(t => t.stop());
+        };
 
-      mr.onstop = () => {
-        const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
-        setRec(URL.createObjectURL(blob));
-        broadcast({ hasRecording: true });
-        stream.getTracks().forEach(t => t.stop());
-      };
-
-      mr.start();
-      mediaRecRef.current = mr;
-    }).catch(() => {});
+        mr.start();
+        mediaRecRef.current = mr;
+      }).catch(() => {});
+    }
+    // For Twilio calls: server-side recording is already enabled via record:'record-from-ringing'
+    // in twilio-voice.js — we'll fetch it after the call ends
   };
 
   const endCall = async () => {
@@ -584,21 +589,47 @@ export default function DemoPage({ onHome, onBookDemo }) {
     clearTimeout(bufTimerRef.current);
     clearInterval(heartbeatRef.current);
     clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
+    // Capture callSid before clearing refs (needed to fetch server-side recording)
+    const endedCallSid = twilioCallSidRef.current;
     // Disconnect Twilio
     try { twilioCallRef.current?.disconnect(); } catch {}
     try { twilioDeviceRef.current?.destroy(); } catch {}
     twilioCallRef.current = null; twilioDeviceRef.current = null;
+    twilioCallSidRef.current = null;
     // Unsubscribe from Real-Time Transcription channel
     if (transcriptPusherRef.current) {
       const { pusher, callSid } = transcriptPusherRef.current;
       try { pusher.unsubscribe(`call-${callSid}`); pusher.disconnect(); } catch {}
       transcriptPusherRef.current = null;
     }
+    // Stop local MediaRecorder (mic-only mode)
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
+
+    // Fetch Twilio server-side recording (if this was a Twilio call)
+    if (endedCallSid) {
+      // Poll for the recording — Twilio may take a few seconds to finalise it
+      const pollRecording = async (attempts = 0) => {
+        if (attempts > 15) return; // give up after ~30s
+        try {
+          const r = await fetch(`/api/twilio-recording?callSid=${endedCallSid}`);
+          if (r.ok) {
+            const data = await r.json();
+            if (data.ready && data.recordingSid) {
+              const streamUrl = `/api/twilio-recording?recordingSid=${data.recordingSid}&stream=true`;
+              setRec(streamUrl);
+              broadcast({ hasRecording: true });
+              return;
+            }
+          }
+        } catch (e) { console.warn('Recording poll error:', e.message); }
+        setTimeout(() => pollRecording(attempts + 1), 2000);
+      };
+      pollRecording();
+    }
 
     // Run full AI analysis — only if there's actual transcript content
     if (!txRef.current.length) return;
@@ -700,7 +731,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setMF([]); setML(''); setMT('text'); setAM(false);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
-    caRef.current = false;
+    caRef.current = false; twilioCallSidRef.current = null;
   };
 
   // ── Share URL ─────────────────────────────────────────────────────────────
@@ -1563,7 +1594,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 <div className="flex items-center gap-2 mb-3">
                   <Play className="w-4 h-4 text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700">Call recording</h3>
-                  <span className="text-[10px] text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">Local · Twilio cloud coming soon</span>
                 </div>
                 <audio controls src={recordingUrl} className="w-full" />
               </div>

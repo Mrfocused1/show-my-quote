@@ -14,13 +14,13 @@ export default async function handler(req, res) {
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls/${callSid}/Transcriptions.json`;
 
   const body = new URLSearchParams({
-    Track:                'both_tracks',
-    LanguageCode:         'en-US',
-    StatusCallbackUrl:    `${appUrl}/api/twilio-transcription`,
-    StatusCallbackMethod: 'POST',
-    InboundTrackLabel:    'Client',
-    OutboundTrackLabel:   'You',
-    PartialResults:       'false',
+    track:                'both_tracks',
+    languageCode:         'en-US',
+    statusCallbackUrl:    `${appUrl}/api/twilio-transcription`,
+    statusCallbackMethod: 'POST',
+    inboundTrackLabel:    'You',
+    outboundTrackLabel:   'Client',
+    partialResults:       'false',
   });
 
   const response = await fetch(url, {

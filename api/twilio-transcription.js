@@ -28,7 +28,8 @@ export default async function handler(req, res) {
     }
   } catch { /* ignore malformed JSON */ }
 
-  console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| Text:', transcriptText);
+  console.log('Transcription webhook body keys:', Object.keys(req.body || {}));
+  console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| CallSid:', CallSid, '| Text:', transcriptText);
 
   // Only process final transcription content
   if (
@@ -37,9 +38,11 @@ export default async function handler(req, res) {
     transcriptText &&
     CallSid
   ) {
-    // inbound_track = called party (Client), outbound_track = browser presenter (You)
-    // Custom labels (Client/You) may also appear if Twilio honours inboundTrackLabel
-    const speaker = (Track === 'inbound_track' || Track === 'Client') ? 'Client' : 'You';
+    // For browser-to-PSTN calls via <Dial>:
+    //   inbound_track  = browser (caller/presenter) → labelled 'You'
+    //   outbound_track = PSTN callee (customer)     → labelled 'Client'
+    // Custom labels will appear if Twilio honours inboundTrackLabel/outboundTrackLabel
+    const speaker = (Track === 'outbound_track' || Track === 'Client') ? 'Client' : 'You';
     await pusher.trigger(`call-${CallSid}`, 'transcript', {
       speaker,
       text: transcriptText,
