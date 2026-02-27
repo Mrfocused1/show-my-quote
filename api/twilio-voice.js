@@ -23,12 +23,12 @@ export default async function handler(req, res) {
     //   inbound_track  = audio Twilio RECEIVES from the browser (WebRTC) = the business owner ("You")
     //   outbound_track = audio Twilio SENDS to the browser, which includes child-call audio
     //                    from <Dial> (the PSTN phone person) = the "Client"
-    // Only transcribe outbound_track (phone person's voice coming back via <Dial>).
-    // The browser user's voice is captured separately by Web Speech API in the frontend.
-    // Twilio cannot reliably transcribe WebRTC/Opus audio on the inbound_track.
+    // Transcribe both tracks. Frontend watchdog falls back to Web Speech API for inbound
+    // if Twilio fails to produce results within 12s (e.g. WebRTC/Opus codec issue).
     start.transcription({
       statusCallbackUrl: cbUrl,
-      track: 'outbound_track',
+      track: 'both_tracks',
+      inboundTrackLabel: 'You',
       outboundTrackLabel: 'Client',
       languageCode: 'en-US',
       partialResults: 'false',

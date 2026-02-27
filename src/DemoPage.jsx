@@ -258,6 +258,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const whisperIntervalRef  = useRef(null);
   const whisperHeaderRef    = useRef(null);
   const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
+  const lastYouTxRef    = useRef(false);   // true once Twilio inbound_track produces a 'You' line
+  const youWatchdogRef  = useRef(null);    // timer to fall back to Web Speech API if inbound_track silent
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -337,6 +339,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
   // ── AI transcript handler ─────────────────────────────────────────────────
   const onTranscriptLine = useCallback(async (speaker, text, skipAdd = false) => {
+    // Track when Twilio inbound_track produces 'You' results (cancels Web Speech API watchdog)
+    if (speaker === 'You') lastYouTxRef.current = true;
     if (!skipAdd) {
       const line = { speaker, text };
       setTx(prev => [...prev, line]);
@@ -459,14 +463,15 @@ export default function DemoPage({ onHome, onBookDemo }) {
       recognitionRef.current = r;
       r.continuous = true;
       r.interimResults = true;
-      r.lang = 'en-GB';
+      r.lang = 'en-US';
       r.onresult = e => {
         let interim = '';
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const t = e.results[i][0].transcript;
           if (e.results[i].isFinal) {
             setInterim('');
-            onLineRef.current(lsRef.current, t.trim());
+            // Web Speech API always captures the local mic = presenter = 'You'
+            onLineRef.current('You', t.trim());
           } else { interim += t; }
         }
         setInterim(interim);
@@ -541,9 +546,17 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
-          // Auto-start mic when call is accepted
+          // Twilio 'both_tracks' handles inbound (You) + outbound (Client) via Pusher.
+          // Give it 12s to produce a 'You' result; fall back to Web Speech API if silent.
           call.on('accept', () => {
-            setTimeout(() => { if (caRef.current) startMic(); }, 800);
+            lastYouTxRef.current = false;
+            const wd = setTimeout(() => {
+              if (caRef.current && !lastYouTxRef.current) {
+                console.log('[watchdog] No inbound_track results — falling back to Web Speech API');
+                startMic();
+              }
+            }, 12000);
+            youWatchdogRef.current = wd;
           });
         }
       } catch (e) {
@@ -580,6 +593,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const endCall = async () => {
     stopMic();
     clearTimeout(bufTimerRef.current);
+    clearTimeout(youWatchdogRef.current); youWatchdogRef.current = null;
+    lastYouTxRef.current = false;
     clearInterval(heartbeatRef.current);
     clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
     // Capture callSid before clearing refs (needed to fetch server-side recording)
@@ -1184,6 +1199,15 @@ export default function DemoPage({ onHome, onBookDemo }) {
                   </button>
                 );
               })}
+            </div>
+
+            <div className="mt-8 text-center">
+              <button
+                onClick={() => selectNiche({ id: 'blank', label: null, seedFields: [], smsTemplate: '', promptHint: '' })}
+                className="text-sm text-slate-400 hover:text-slate-700 underline underline-offset-4 transition-colors"
+              >
+                Skip — start with a blank form
+              </button>
             </div>
           </div>
         </div>
