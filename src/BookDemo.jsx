@@ -50,15 +50,6 @@ export default function BookDemo({ onHome, onEnterApp }) {
         </div>
       </nav>
 
-      {/* Back link */}
-      <div className="px-4 md:px-10 pt-6 md:pt-8">
-        <button onClick={onHome}
-          className="flex items-center space-x-1.5 text-sm text-slate-500 hover:text-slate-800 transition-colors group">
-          <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-          <span>Back to home</span>
-        </button>
-      </div>
-
       {/* Content */}
       <div className="max-w-5xl mx-auto px-4 md:px-10 py-8 md:py-12 grid grid-cols-1 md:grid-cols-2 gap-8 md:gap-16 items-start">
 
