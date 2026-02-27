@@ -222,6 +222,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
   // ── Share ──
   const [copied, setCopied] = useState(false);
 
+  // ── Dialpad ──
+  const [dialNumber, setDialNum] = useState('');
+
   // ── Post-call analysis ──
   const [analysis,  setAnalysis]  = useState(null);
   const [analysing, setAnalysing] = useState(false);
@@ -248,6 +251,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const txDivRef        = useRef(null);
   const onLineRef       = useRef(null);
   const heartbeatRef    = useRef(null);
+  const twilioDeviceRef = useRef(null);
+  const twilioCallRef   = useRef(null);
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -489,12 +494,32 @@ export default function DemoPage({ onHome, onBookDemo }) {
   };
 
   // ── Call lifecycle ────────────────────────────────────────────────────────
-  const startCall = () => {
-    // TODO: Twilio.Device.connect({ params: { To: session.phone } })
+  const startCall = async (phoneNumber = '') => {
+    // Transition to call phase
+    const cp = 'call'; setPhase(cp); phaseRef.current = cp;
+    broadcast({ phase: cp });
     setCA(true); caRef.current = true;
     setCS(0);
     // Heartbeat — keeps viewer in sync every 2.5s
     heartbeatRef.current = setInterval(() => broadcast({}), 2500);
+
+    // Connect via Twilio if a number was provided
+    if (phoneNumber) {
+      try {
+        const tokenRes = await fetch('/api/twilio-token');
+        if (tokenRes.ok) {
+          const { token } = await tokenRes.json();
+          const { Device } = await import('@twilio/voice-sdk');
+          const device = new Device(token, { logLevel: 1 });
+          twilioDeviceRef.current = device;
+          await device.register();
+          const call = await device.connect({ params: { To: phoneNumber } });
+          twilioCallRef.current = call;
+        }
+      } catch (e) {
+        console.warn('Twilio unavailable, mic-only mode:', e.message);
+      }
+    }
     // Record audio (best-effort)
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
@@ -513,10 +538,13 @@ export default function DemoPage({ onHome, onBookDemo }) {
   };
 
   const endCall = async () => {
-    // TODO: Twilio.Device.disconnectAll()
     stopMic();
     clearTimeout(bufTimerRef.current);
     clearInterval(heartbeatRef.current);
+    // Disconnect Twilio
+    try { twilioCallRef.current?.disconnect(); } catch {}
+    try { twilioDeviceRef.current?.destroy(); } catch {}
+    twilioCallRef.current = null; twilioDeviceRef.current = null;
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
     const nextPhase = 'done';
@@ -572,7 +600,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields(seed); fieldsRef.current = seed;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    const nextPhase = 'call'; setPhase(nextPhase); phaseRef.current = nextPhase;
+    setDialNum('');
+    const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [] });
   };
 
@@ -583,7 +612,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields(tpl); fieldsRef.current = tpl;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    const nextPhase = 'call'; setPhase(nextPhase); phaseRef.current = nextPhase;
+    setDialNum('');
+    const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [] });
   };
 
@@ -592,7 +622,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields(manualFields); fieldsRef.current = manualFields;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    const nextPhase = 'call'; setPhase(nextPhase); phaseRef.current = nextPhase;
+    setDialNum('');
+    const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, fields: manualFields, fieldValues: {}, transcript: [] });
   };
 
@@ -1182,6 +1213,77 @@ export default function DemoPage({ onHome, onBookDemo }) {
               </button>
             </div>
           </div>
+        </div>
+      </PageShell>
+    );
+  }
+
+  // ── Dialpad phase ─────────────────────────────────────────────────────────
+  if (phase === 'dial' && !isViewer) {
+    const KEYS = ['1','2','3','4','5','6','7','8','9','*','0','#'];
+    const pressKey = (k) => setDialNum(prev => prev.length < 15 ? prev + k : prev);
+    const del      = ()  => setDialNum(prev => prev.slice(0, -1));
+
+    return (
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
+        <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F7F5] px-4 py-10 gap-4">
+
+          {/* Context card */}
+          <div className="bg-white rounded-2xl border border-slate-200 px-5 py-3 flex items-center gap-2 shadow-sm">
+            {niche?.Icon && <niche.Icon className="w-4 h-4 text-green-600" />}
+            <span className="text-sm font-semibold text-slate-700">
+              {mode === 'build' ? `Build form · ${niche?.label || 'Custom'}` : `Fill form · ${niche?.label || 'Custom'}`}
+            </span>
+          </div>
+
+          {/* Dialpad card */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-7 w-full max-w-[300px] shadow-sm">
+            <h2 className="text-center text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Dial</h2>
+
+            {/* Number display */}
+            <div className="flex items-center justify-center gap-2 min-h-[52px] mb-5">
+              <span className="text-3xl font-light tracking-widest text-slate-900 text-center break-all">
+                {dialNumber || <span className="text-slate-300 text-lg font-normal">+44 xxx xxx xxxx</span>}
+              </span>
+              {dialNumber && (
+                <button onClick={del} className="text-slate-400 hover:text-slate-700 text-xl transition-colors flex-shrink-0">⌫</button>
+              )}
+            </div>
+
+            {/* Keypad */}
+            <div className="grid grid-cols-3 gap-2.5 mb-5">
+              {KEYS.map(k => (
+                <button
+                  key={k}
+                  onClick={() => pressKey(k)}
+                  className="h-14 rounded-xl bg-slate-50 hover:bg-slate-100 active:bg-slate-200 text-xl font-semibold text-slate-800 transition-colors select-none"
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+
+            {/* Call button */}
+            <button
+              onClick={() => dialNumber && startCall(dialNumber)}
+              disabled={!dialNumber}
+              className="w-full h-14 rounded-xl bg-green-500 hover:bg-green-600 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-white font-bold text-base transition-colors"
+            >
+              <Phone className="w-5 h-5" /> Call
+            </button>
+
+            {/* Skip / mic-only */}
+            <button
+              onClick={() => startCall('')}
+              className="w-full mt-3 text-xs text-slate-400 hover:text-slate-600 transition-colors py-1"
+            >
+              Skip — use mic only (no outbound call)
+            </button>
+          </div>
+
+          <p className="text-xs text-slate-400 text-center max-w-xs">
+            Outbound calls routed via Twilio. Add <span className="font-mono">TWILIO_*</span> env vars in Vercel to enable.
+          </p>
         </div>
       </PageShell>
     );
