@@ -551,7 +551,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
 
-    // Run full AI analysis
+    // Run full AI analysis — only if there's actual transcript content
+    if (!txRef.current.length) return;
     setAnalysing(true);
     try {
       const r = await fetch('/api/demo-analyze', {
