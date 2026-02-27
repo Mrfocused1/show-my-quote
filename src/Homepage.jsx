@@ -1919,9 +1919,9 @@ export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy, s
               className="px-6 py-3.5 bg-slate-900 text-white text-sm font-semibold rounded-full hover:bg-slate-700 transition-colors shadow-lg text-center w-full sm:w-auto">
               Book a 15-minute demo
             </button>
-            <button onClick={onEnterApp}
+            <button onClick={() => document.getElementById('contact').scrollIntoView({ behavior: 'smooth' })}
               className="px-6 py-3.5 bg-white text-slate-800 text-sm font-semibold rounded-full border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm text-center w-full sm:w-auto">
-              See how it works
+              Contact us
             </button>
           </div>
 
