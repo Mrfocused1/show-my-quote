@@ -4,7 +4,7 @@ import {
   Phone, PhoneCall, PhoneOff, Mic, MicOff, Radio, Check, CheckCircle2,
   Copy, Plus, Trash2, X, ArrowRight, ChevronRight, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
-  Flower2, Calendar, Music, Wand2, ClipboardList, Play,
+  Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
 } from 'lucide-react';
 import { suggestField, fillFields } from './openaiHelper.js';
 
@@ -222,6 +222,11 @@ export default function DemoPage({ onHome, onBookDemo }) {
   // ── Share ──
   const [copied, setCopied] = useState(false);
 
+  // ── Post-call analysis ──
+  const [analysis,  setAnalysis]  = useState(null);
+  const [analysing, setAnalysing] = useState(false);
+  const [hasRec,    setHasRec]    = useState(false);
+
   // ── Refs ──
   const phaseRef        = useRef(phase);
   const modeRef         = useRef(null);
@@ -242,6 +247,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const recChunksRef    = useRef([]);
   const txDivRef        = useRef(null);
   const onLineRef       = useRef(null);
+  const heartbeatRef    = useRef(null);
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -284,7 +290,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
       if (snap.fields !== undefined)      setFields(snap.fields);
       if (snap.fieldValues !== undefined) setFVals(snap.fieldValues);
       if (snap.transcript !== undefined)  setTx(snap.transcript);
-      if (snap.callActive !== undefined)  setCA(snap.callActive);
+      if (snap.callActive   !== undefined) setCA(snap.callActive);
+      if (snap.analysis     !== undefined) setAnalysis(snap.analysis);
+      if (snap.hasRecording)               setHasRec(true);
       if (snap.niche !== undefined) {
         const n = typeof snap.niche === 'string' ? NICHES.find(x => x.id === snap.niche) : snap.niche;
         setNiche(n || null);
@@ -363,14 +371,29 @@ export default function DemoPage({ onHome, onBookDemo }) {
         }
 
         if (allNew.length) {
-          setFields(prev => {
-            const next = [...prev, ...allNew];
-            fieldsRef.current = next;
-            broadcast({ fields: next, transcript: txRef.current });
-            return next;
-          });
+          const nextFields = [...fieldsRef.current, ...allNew];
+          fieldsRef.current = nextFields;
+          setFields(nextFields);
           setLA(allNew.map(f => f.label).join(', '));
           setTimeout(() => setLA(null), 3000);
+        }
+
+        // Always try to fill values for all current fields (build mode)
+        if (fieldsRef.current.length > 0) {
+          const fillRes = await fillFields(line, fieldsRef.current, txRef.current.slice(-6));
+          if (fillRes.fills?.length) {
+            setFVals(prev => {
+              const next = { ...prev };
+              fillRes.fills.forEach(({ key, value }) => { next[key] = value; });
+              fvRef.current = next;
+              return next;
+            });
+            const lastKey = fillRes.fills[fillRes.fills.length - 1]?.key;
+            if (lastKey) { setLF(lastKey); setTimeout(() => setLF(k => k === lastKey ? null : k), 1800); }
+            broadcast({ fields: fieldsRef.current, fieldValues: fvRef.current, transcript: txRef.current });
+          } else {
+            broadcast({ fields: fieldsRef.current, transcript: txRef.current });
+          }
         } else {
           broadcast({ transcript: txRef.current });
         }
@@ -470,6 +493,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
     // TODO: Twilio.Device.connect({ params: { To: session.phone } })
     setCA(true); caRef.current = true;
     setCS(0);
+    // Heartbeat — keeps viewer in sync every 2.5s
+    heartbeatRef.current = setInterval(() => broadcast({}), 2500);
     // Record audio (best-effort)
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
@@ -479,6 +504,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
       mr.onstop = () => {
         const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
         setRec(URL.createObjectURL(blob));
+        broadcast({ hasRecording: true });
         stream.getTracks().forEach(t => t.stop());
       };
       mr.start();
@@ -486,15 +512,37 @@ export default function DemoPage({ onHome, onBookDemo }) {
     }).catch(() => {});
   };
 
-  const endCall = () => {
+  const endCall = async () => {
     // TODO: Twilio.Device.disconnectAll()
     stopMic();
     clearTimeout(bufTimerRef.current);
+    clearInterval(heartbeatRef.current);
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
+
+    // Run full AI analysis
+    setAnalysing(true);
+    try {
+      const r = await fetch('/api/demo-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          transcript:  txRef.current,
+          fields:      fieldsRef.current,
+          fieldValues: fvRef.current,
+          niche:       nicheRef.current?.label || null,
+        }),
+      });
+      if (r.ok) {
+        const data = await r.json();
+        setAnalysis(data);
+        broadcast({ analysis: data });
+      }
+    } catch (e) { console.error('Demo analysis error:', e); }
+    finally { setAnalysing(false); }
   };
 
   // ── Phase transitions ─────────────────────────────────────────────────────
@@ -1190,76 +1238,93 @@ export default function DemoPage({ onHome, onBookDemo }) {
   }
 
   if (phase === 'done') {
-    const filledCount = Object.keys(fieldValues).length;
-    const nicheData   = niche || NICHES.find(n => n.id === 'custom');
-    const smsText = nicheData?.smsTemplate
-      .replace('{name}', 'the client')
-      .replace('{date}', fieldValues['date'] || 'their event')
-      .replace('{venue}', fieldValues['venue'] || 'the venue')
-      .replace('{guests}', fieldValues['guests'] || 'the guests') || '';
+    const filledCount = fields.filter(f => fieldValues[f.key] !== undefined && fieldValues[f.key] !== '').length;
 
     return (
       <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-2xl mx-auto">
+
+            {/* Header */}
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">
-                {mode === 'build' ? 'Form built' : 'Demo complete'}
+                {mode === 'build' ? 'Form built from the call' : 'Form filled from the call'}
               </h2>
               <p className="text-slate-500 text-sm">
                 {mode === 'build'
-                  ? `${fields.length} fields extracted from the conversation — in real time, no typing.`
+                  ? `${fields.length} fields extracted · ${filledCount} values captured — zero typing.`
                   : `${filledCount} of ${fields.length} fields filled — entirely from the call.`}
               </p>
             </div>
 
-            {/* Form results */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-bold text-slate-700">
-                  {mode === 'build' ? 'Extracted fields' : 'Completed form'}
-                </h3>
-                {mode === 'fill' && (
+            {/* AI Analysing spinner */}
+            {analysing && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 flex items-center gap-3">
+                <Loader2 className="w-5 h-5 text-green-500 animate-spin flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-bold text-slate-700">AI is analysing your call…</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Generating summary, SMS, follow-up email and invoice</div>
+                </div>
+              </div>
+            )}
+
+            {/* AI Summary */}
+            {analysis?.summary && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-green-500" />
+                  <h3 className="text-sm font-bold text-slate-700">AI Call Summary</h3>
+                </div>
+                <p className="text-sm text-slate-700 leading-relaxed">{analysis.summary}</p>
+              </div>
+            )}
+
+            {/* Captured form data */}
+            {fields.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold text-slate-700">Captured data</h3>
                   <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
                     {filledCount}/{fields.length} filled
                   </span>
-                )}
-              </div>
-              <div className="space-y-2.5">
-                {fields.map(f => (
-                  <div key={f.key} className="flex items-start gap-3">
-                    <Check className="w-4 h-4 text-green-500 flex-shrink-0 mt-0.5" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
-                      {mode === 'fill' && (
+                </div>
+                <div className="space-y-3">
+                  {fields.map(f => (
+                    <div key={f.key} className="flex items-start gap-3">
+                      <div className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center ${
+                        fieldValues[f.key] ? 'bg-green-500' : 'bg-slate-200'
+                      }`}>
+                        {fieldValues[f.key] && <Check className="w-2.5 h-2.5 text-white" />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
                         <div className="text-sm text-slate-800 mt-0.5">
                           {fieldValues[f.key] !== undefined && fieldValues[f.key] !== ''
                             ? String(fieldValues[f.key])
                             : <span className="text-slate-300 italic">Not captured</span>}
                         </div>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* SMS template (build mode) */}
-            {mode === 'build' && smsText && (
+            {/* SMS */}
+            {analysis?.sms && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <MessageSquare className="w-4 h-4 text-slate-500" />
-                  <h3 className="text-sm font-bold text-slate-700">Niche SMS template</h3>
+                  <h3 className="text-sm font-bold text-slate-700">Ready-to-send SMS</h3>
                 </div>
-                <p className="text-xs text-slate-400 mb-3">Auto-tailored for {nicheData?.label}. Customise and send after your real calls.</p>
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 leading-relaxed mb-3">
-                  {smsText}
+                  {analysis.sms}
                 </div>
                 <button
-                  onClick={() => navigator.clipboard.writeText(smsText)}
+                  onClick={() => navigator.clipboard.writeText(analysis.sms)}
                   className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors"
                 >
                   <Copy className="w-3.5 h-3.5" /> Copy SMS
@@ -1267,15 +1332,68 @@ export default function DemoPage({ onHome, onBookDemo }) {
               </div>
             )}
 
-            {/* Recording playback */}
-            {recordingUrl && (
+            {/* Email */}
+            {analysis?.email && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Mail className="w-4 h-4 text-slate-500" />
+                  <h3 className="text-sm font-bold text-slate-700">Follow-up email draft</h3>
+                </div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Subject</div>
+                <div className="text-sm text-slate-800 font-semibold mb-3">{analysis.email.subject}</div>
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 leading-relaxed whitespace-pre-wrap mb-3 max-h-56 overflow-y-auto">
+                  {analysis.email.body}
+                </div>
+                <button
+                  onClick={() => navigator.clipboard.writeText(`Subject: ${analysis.email.subject}\n\n${analysis.email.body}`)}
+                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Copy email
+                </button>
+              </div>
+            )}
+
+            {/* Invoice items */}
+            {analysis?.invoiceItems?.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <FileText className="w-4 h-4 text-slate-500" />
+                  <h3 className="text-sm font-bold text-slate-700">Suggested invoice items</h3>
+                </div>
+                <div className="space-y-2">
+                  {analysis.invoiceItems.map((item, i) => (
+                    <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-800">{item.description}</div>
+                        <div className="text-xs text-slate-400">Qty: {item.qty}</div>
+                      </div>
+                      <div className="text-sm font-bold text-slate-900 ml-4 flex-shrink-0">{item.rate}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Recording — presenter */}
+            {recordingUrl && !isViewer && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
                 <div className="flex items-center gap-2 mb-3">
                   <Play className="w-4 h-4 text-slate-500" />
                   <h3 className="text-sm font-bold text-slate-700">Call recording</h3>
-                  <span className="text-[10px] text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">Local · Twilio cloud recording coming soon</span>
+                  <span className="text-[10px] text-slate-400 bg-slate-50 border border-slate-200 px-2 py-0.5 rounded-full">Local · Twilio cloud coming soon</span>
                 </div>
                 <audio controls src={recordingUrl} className="w-full" />
+              </div>
+            )}
+
+            {/* Recording — viewer */}
+            {isViewer && hasRec && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-5 mb-5 flex items-center gap-3">
+                <Play className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <div>
+                  <div className="text-sm font-bold text-slate-700">Call recording</div>
+                  <div className="text-xs text-slate-400 mt-0.5">Saved on presenter's device — ask them to share it with you</div>
+                </div>
               </div>
             )}
 
