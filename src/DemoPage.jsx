@@ -1265,7 +1265,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
             <h2 className="text-center text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Dial</h2>
 
             {/* Number display */}
-            <div className="flex items-center justify-center gap-2 min-h-[52px] mb-5">
+            <div className="flex items-center justify-center gap-2 min-h-[52px] mb-2">
               <span className="text-3xl font-light tracking-widest text-slate-900 text-center break-all">
                 {dialNumber || <span className="text-slate-300 text-lg font-normal">+44 xxx xxx xxxx</span>}
               </span>
@@ -1273,6 +1273,24 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 <button onClick={del} className="text-slate-400 hover:text-slate-700 text-xl transition-colors flex-shrink-0">⌫</button>
               )}
             </div>
+
+            {/* Paste button */}
+            {!isViewer && (
+              <div className="flex justify-center mb-4">
+                <button
+                  onClick={async () => {
+                    try {
+                      const text = await navigator.clipboard.readText();
+                      const digits = text.replace(/[^\d+]/g, '').slice(0, 15);
+                      if (digits) { setDialNum(digits); broadcast({ dialNumber: digits }); }
+                    } catch { setErr('Clipboard access denied'); setTimeout(() => setErr(null), 3000); }
+                  }}
+                  className="text-xs text-green-600 hover:text-green-700 font-medium border border-green-200 hover:border-green-400 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors"
+                >
+                  Paste number
+                </button>
+              </div>
+            )}
 
             {/* Keypad */}
             <div className={`grid grid-cols-3 gap-2.5 mb-5 ${isViewer ? 'pointer-events-none opacity-50' : ''}`}>
@@ -1313,9 +1331,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
             )}
           </div>
 
-          <p className="text-xs text-slate-400 text-center max-w-xs">
-            Outbound calls routed via Twilio. Add <span className="font-mono">TWILIO_*</span> env vars in Vercel to enable.
-          </p>
         </div>
       </PageShell>
     );
