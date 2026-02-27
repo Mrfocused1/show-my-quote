@@ -6,7 +6,7 @@ import twilio from 'twilio';
 // Flow:
 //   1. Twilio calls this URL when B-leg answers (no Digits in body) → play prompt
 //   2. <Gather> fires back to THIS same URL with Digits=1 → return empty TwiML → bridge forms
-//   3. If no digit within 8s, or wrong key → <Hangup> → screening IVR never bridges
+//   3. If no digit within 15s, or wrong key → <Hangup> → screening IVR never bridges
 
 export default function handler(req, res) {
   res.setHeader('Content-Type', 'text/xml');
@@ -25,13 +25,15 @@ export default function handler(req, res) {
   }
 
   // Initial call or wrong digit — play the prompt
+  // 15s timeout allows time for the callee to hear the prompt and press 1,
+  // even through carrier screening / voicemail IVRs.
   const gather = twiml.gather({
     numDigits: '1',
-    timeout: '8',
+    timeout: '15',
     action: `${appUrl}/api/twilio-call-confirm`,
     method: 'POST',
   });
-  gather.say('You have an incoming business call. Press 1 to connect.');
+  gather.say('Press 1 to connect this call.');
 
   // No digit pressed within timeout — hang up (prevents call-screening bridge)
   twiml.hangup();

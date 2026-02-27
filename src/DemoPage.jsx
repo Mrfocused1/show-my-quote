@@ -260,6 +260,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
   const lastYouTxRef    = useRef(false);   // true once Twilio inbound_track produces a 'You' line
   const youWatchdogRef  = useRef(null);    // timer to fall back to Web Speech API if inbound_track silent
+  const remoteHungUpRef = useRef(false);   // true when disconnect was initiated by remote party
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -289,6 +290,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     clearInterval(timerRef.current);
     clearTimeout(bufTimerRef.current);
     clearTimeout(youWatchdogRef.current);
+    remoteHungUpRef.current = false;
     stopMic();
   }, []);
 
@@ -548,10 +550,22 @@ export default function DemoPage({ onHome, onBookDemo }) {
           }
 
           // Auto-end when remote party hangs up
-          call.on('disconnect', () => { if (caRef.current) endCall(); });
+          call.on('disconnect', () => {
+            remoteHungUpRef.current = true;
+            if (caRef.current) endCall();
+          });
           // Twilio 'both_tracks' handles inbound (You) + outbound (Client) via Pusher.
           // Give it 12s to produce a 'You' result; fall back to Web Speech API if silent.
           call.on('accept', () => {
+            // Capture the parent CallSid — needed to fetch server-side recording after call ends.
+            // For outbound calls, call.parameters.CallSid is available once the accept event fires.
+            const sid = call.parameters?.CallSid;
+            if (sid) {
+              twilioCallSidRef.current = sid;
+              console.log('[twilio] CallSid captured:', sid);
+            } else {
+              console.warn('[twilio] CallSid not available in call.parameters after accept');
+            }
             lastYouTxRef.current = false;
             const wd = setTimeout(() => {
               if (caRef.current && !lastYouTxRef.current) {
@@ -602,11 +616,17 @@ export default function DemoPage({ onHome, onBookDemo }) {
     clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
     // Capture callSid before clearing refs (needed to fetch server-side recording)
     const endedCallSid = twilioCallSidRef.current;
-    // Disconnect Twilio
-    try { twilioCallRef.current?.disconnect(); } catch {}
+    // Disconnect Twilio — only call disconnect() if the call is still open
+    // (remote hangup already tears down the WebSocket; calling disconnect() again
+    // causes "WebSocket is already in CLOSING or CLOSED state" error)
+    try {
+      const call = twilioCallRef.current;
+      if (call && call.status() !== 'closed') call.disconnect();
+    } catch {}
     try { twilioDeviceRef.current?.destroy(); } catch {}
     twilioCallRef.current = null; twilioDeviceRef.current = null;
     twilioCallSidRef.current = null;
+    remoteHungUpRef.current = false;
     // Unsubscribe from Real-Time Transcription channel
     if (transcriptPusherRef.current) {
       const { pusher, channel } = transcriptPusherRef.current;
@@ -743,7 +763,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setMF([]); setML(''); setMT('text'); setAM(false);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
-    caRef.current = false; twilioCallSidRef.current = null;
+    caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
   };
 
   // ── Share URL ─────────────────────────────────────────────────────────────
