@@ -457,6 +457,8 @@ export default function GetMyQuoteApp({ onHome }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
   const [smsBadge, setSmsBadge] = useState(0);
+  const [notifPermission, setNotifPermission] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const ringtoneRef = useRef(null);
   const twilioDeviceRef = useRef(null);
 
   const navigateTo = (view, record = null) => {
@@ -465,6 +467,43 @@ export default function GetMyQuoteApp({ onHome }) {
     setSidebarOpen(false);
     if (view === 'sms-inbox') setSmsBadge(0);
   };
+
+  const requestNotifPermission = async () => {
+    if (typeof Notification === 'undefined') return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+  };
+
+  const showNotification = (title, body, onClick) => {
+    if (Notification.permission !== 'granted') return;
+    const n = new Notification(title, { body, icon: '/logo.png', badge: '/logo.png' });
+    if (onClick) n.onclick = () => { window.focus(); onClick(); n.close(); };
+  };
+
+  // Play ringtone using Web Audio API
+  const startRingtone = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const playBeep = (time) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 480; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.3, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+        osc.start(time); osc.stop(time + 0.4);
+      };
+      // Ring pattern: beep-beep pause beep-beep
+      let t = ctx.currentTime;
+      const interval = setInterval(() => {
+        playBeep(t); playBeep(t + 0.5);
+        t += 2.5;
+      }, 2500);
+      playBeep(t); playBeep(t + 0.5);
+      ringtoneRef.current = { stop: () => { clearInterval(interval); ctx.close(); } };
+    } catch {}
+  };
+  const stopRingtone = () => { ringtoneRef.current?.stop(); ringtoneRef.current = null; };
 
   // Register Twilio Device for inbound calls
   useEffect(() => {
@@ -478,13 +517,17 @@ export default function GetMyQuoteApp({ onHome }) {
         device = new Device(token, { logLevel: 1 });
         twilioDeviceRef.current = device;
         await device.register();
-        device.on('incoming', call => setIncomingCall({ call, from: call.parameters?.From || 'Unknown' }));
+        device.on('incoming', call => {
+          setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
+          startRingtone();
+          showNotification('📞 Incoming Call', call.parameters?.From || 'Unknown number', () => {});
+        });
       } catch (e) { console.warn('Twilio Device init:', e.message); }
     })();
     return () => { try { device?.destroy(); } catch {} };
   }, []);
 
-  // Global Pusher listener for SMS badge
+  // Global Pusher listener for SMS badge + notifications
   useEffect(() => {
     const key = import.meta.env.VITE_PUSHER_KEY;
     const cluster = import.meta.env.VITE_PUSHER_CLUSTER;
@@ -493,7 +536,10 @@ export default function GetMyQuoteApp({ onHome }) {
     import('pusher-js').then(({ default: Pusher }) => {
       pusher = new Pusher(key, { cluster });
       ch = pusher.subscribe('sms-inbox');
-      ch.bind('message', () => setSmsBadge(b => b + 1));
+      ch.bind('message', (msg) => {
+        setSmsBadge(b => b + 1);
+        showNotification('💬 New Message', `${msg.from}: ${msg.body}`);
+      });
     });
     return () => { try { pusher?.unsubscribe('sms-inbox'); } catch {} };
   }, []);
@@ -548,6 +594,20 @@ export default function GetMyQuoteApp({ onHome }) {
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} />}
 
+      {/* Notification permission banner */}
+      {notifPermission === 'default' && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-xl px-5 py-3 flex items-center gap-4 shadow-xl text-sm">
+          <Bell className="w-4 h-4 text-green-400 flex-shrink-0" />
+          <span>Enable notifications to get alerted for calls & messages</span>
+          <button onClick={requestNotifPermission} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg font-medium transition-colors flex-shrink-0">
+            Enable
+          </button>
+          <button onClick={() => setNotifPermission('dismissed')} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Incoming call modal */}
       {incomingCall && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -559,13 +619,13 @@ export default function GetMyQuoteApp({ onHome }) {
             <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => { incomingCall.call.reject(); setIncomingCall(null); }}
+                onClick={() => { incomingCall.call.reject(); stopRingtone(); setIncomingCall(null); }}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" /> Decline
               </button>
               <button
-                onClick={() => { incomingCall.call.accept(); setIncomingCall(null); }}
+                onClick={() => { incomingCall.call.accept(); stopRingtone(); setIncomingCall(null); }}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" /> Answer
