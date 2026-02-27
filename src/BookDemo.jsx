@@ -165,22 +165,6 @@ export default function BookDemo({ onHome, onEnterApp }) {
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">
-                    Events per month
-                  </label>
-                  <select
-                    value={form.guests}
-                    onChange={set('guests')}
-                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition"
-                  >
-                    <option value="">Select…</option>
-                    <option>1–5</option>
-                    <option>6–15</option>
-                    <option>16–30</option>
-                    <option>30+</option>
-                  </select>
-                </div>
               </div>
 
               <div>
