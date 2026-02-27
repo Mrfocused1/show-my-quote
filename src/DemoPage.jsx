@@ -516,6 +516,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
           await device.register();
           const call = await device.connect({ params: { To: phoneNumber } });
           twilioCallRef.current = call;
+          // Auto-end when remote party hangs up
+          call.on('disconnect', () => { if (caRef.current) endCall(); });
         }
       } catch (e) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
