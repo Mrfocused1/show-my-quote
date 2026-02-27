@@ -533,7 +533,12 @@ export default function DemoPage({ onHome, onBookDemo }) {
             const callSid = acceptedCall?.parameters?.CallSid || call.parameters?.CallSid;
             if (!callSid) return;
             twilioCallSidRef.current = callSid;
-            // Start transcription via REST API (safer than TwiML — won't block Dial)
+
+            // Auto-start mic for presenter's voice
+            // (works on desktop; on mobile Web Speech API may not share mic with WebRTC)
+            setTimeout(() => { if (caRef.current) startMic(); }, 800);
+
+            // Start server-side transcription for both sides
             try {
               await fetch('/api/start-transcription', {
                 method: 'POST',
@@ -541,7 +546,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 body: JSON.stringify({ callSid }),
               });
             } catch (e) { console.warn('Could not start transcription:', e.message); }
-            // Subscribe to Pusher for live transcript events
+            // Subscribe to Pusher for live transcript events from Twilio
             if (PUSHER_KEY && PUSHER_CLUSTER) {
               const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
               const ch = p.subscribe(`call-${callSid}`);
@@ -549,7 +554,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
                 if (onLineRef.current) onLineRef.current(speaker, text);
               });
               transcriptPusherRef.current = { pusher: p, callSid };
-              console.log('Transcription started for call-' + callSid);
+              console.log('Subscribed to call-' + callSid);
             }
           });
         }
