@@ -253,8 +253,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const heartbeatRef    = useRef(null);
   const twilioDeviceRef   = useRef(null);
   const twilioCallRef     = useRef(null);
-  const whisperIntervalRef = useRef(null);
-  const whisperHeaderRef   = useRef(null); // first MediaRecorder chunk (WebM header)
+  const whisperIntervalRef  = useRef(null);
+  const whisperHeaderRef    = useRef(null);
+  const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -526,6 +527,19 @@ export default function DemoPage({ onHome, onBookDemo }) {
           twilioCallRef.current = call;
           // Auto-end when remote party hangs up
           call.on('disconnect', () => { if (caRef.current) endCall(); });
+          // Subscribe to Real-Time Transcription via Pusher when call connects
+          call.on('accept', (acceptedCall) => {
+            const callSid = acceptedCall?.parameters?.CallSid || call.parameters?.CallSid;
+            if (callSid && PUSHER_KEY && PUSHER_CLUSTER) {
+              const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+              const ch = p.subscribe(`call-${callSid}`);
+              ch.bind('transcript', ({ speaker, text }) => {
+                if (onLineRef.current) onLineRef.current(speaker, text);
+              });
+              transcriptPusherRef.current = { pusher: p, callSid };
+              console.log('Subscribed to transcription channel: call-' + callSid);
+            }
+          });
         }
       } catch (e) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
@@ -535,23 +549,13 @@ export default function DemoPage({ onHome, onBookDemo }) {
     // Mic-only mode: use Web Speech API (no WebRTC conflict)
     if (!phoneNumber) startMic();
 
-    // Record audio + Whisper chunked transcription for phone calls
+    // Record audio for playback (Twilio Real-Time Transcription handles live captions for phone calls)
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
       const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
       recChunksRef.current = [];
-      whisperHeaderRef.current = null;
-      const pendingChunks = [];
 
-      mr.ondataavailable = e => {
-        if (e.data.size === 0) return;
-        recChunksRef.current.push(e.data);
-        if (!whisperHeaderRef.current) {
-          whisperHeaderRef.current = e.data; // first chunk = WebM header
-        } else {
-          pendingChunks.push(e.data);
-        }
-      };
+      mr.ondataavailable = e => { if (e.data.size > 0) recChunksRef.current.push(e.data); };
 
       mr.onstop = () => {
         const blob = new Blob(recChunksRef.current, { type: 'audio/webm' });
@@ -560,23 +564,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
         stream.getTracks().forEach(t => t.stop());
       };
 
-      // For phone calls: use Whisper every 8s instead of Web Speech API
-      if (phoneNumber) {
-        mr.start(8000);
-        whisperIntervalRef.current = setInterval(async () => {
-          if (!pendingChunks.length || !whisperHeaderRef.current) return;
-          const chunks = pendingChunks.splice(0);
-          try {
-            const blob = new Blob([whisperHeaderRef.current, ...chunks], { type: 'audio/webm' });
-            const { transcribeAudio } = await import('./openaiHelper.js');
-            const text = await transcribeAudio(blob);
-            if (text?.trim()) onLineRef.current(lsRef.current, text.trim());
-          } catch (e) { console.warn('Whisper chunk error:', e.message); }
-        }, 8000);
-      } else {
-        mr.start();
-      }
-
+      mr.start();
       mediaRecRef.current = mr;
     }).catch(() => {});
   };
@@ -590,6 +578,12 @@ export default function DemoPage({ onHome, onBookDemo }) {
     try { twilioCallRef.current?.disconnect(); } catch {}
     try { twilioDeviceRef.current?.destroy(); } catch {}
     twilioCallRef.current = null; twilioDeviceRef.current = null;
+    // Unsubscribe from Real-Time Transcription channel
+    if (transcriptPusherRef.current) {
+      const { pusher, callSid } = transcriptPusherRef.current;
+      try { pusher.unsubscribe(`call-${callSid}`); pusher.disconnect(); } catch {}
+      transcriptPusherRef.current = null;
+    }
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
     const nextPhase = 'done';
