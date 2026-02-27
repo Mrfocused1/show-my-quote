@@ -266,33 +266,33 @@ function LiveCallDemo() {
 
         {/* ── Left: auto-fill form ── */}
         <div className="border-r border-slate-100 overflow-y-auto p-3" style={{ width: '55%' }}>
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Client Details</span>
-            <span className="text-[8px] bg-[#F0F0EE] text-green-700 border border-green-100 px-1.5 py-0.5 rounded-full font-semibold">
+          <div className="flex items-center gap-1.5 mb-2">
+            <span className="text-[7px] font-bold text-slate-500 uppercase tracking-wider">Client Details</span>
+            <span className="text-[7px] bg-[#F0F0EE] text-green-700 border border-green-100 px-1 py-0.5 rounded-full font-semibold">
               Auto-filling from call
             </span>
           </div>
 
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {FORM_FIELDS.map(f => {
               const highlighted = recentField === f.key;
               const filled      = !!formData[f.key];
               return (
                 <div key={f.key} className={f.half ? 'w-[calc(50%-4px)]' : 'w-full'}>
-                  <label className="text-[8px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-0.5">
+                  <label className="text-[7px] font-semibold text-slate-500 uppercase tracking-wider flex items-center gap-1 mb-0.5">
                     {f.label}
                     {highlighted && (
-                      <span className="text-[8px] text-green-600 normal-case tracking-normal animate-pulse">● filling</span>
+                      <span className="text-[7px] text-green-600 normal-case tracking-normal animate-pulse">● filling</span>
                     )}
                     {filled && !highlighted && (
-                      <span className="text-[9px] text-green-500">✓</span>
+                      <span className="text-[7px] text-green-500">✓</span>
                     )}
                   </label>
                   <input
                     readOnly
                     value={formData[f.key] || ''}
                     placeholder={f.placeholder}
-                    className={`w-full px-2 py-1.5 rounded border text-[10px] outline-none transition-all duration-300 ${
+                    className={`w-full px-1.5 py-1 rounded border text-[8px] outline-none transition-all duration-300 ${
                       highlighted
                         ? 'border-green-400 bg-[#F0F0EE] text-green-900 shadow-sm shadow-green-100'
                         : filled
@@ -313,7 +313,7 @@ function LiveCallDemo() {
             <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">Live Transcript</span>
           </div>
 
-          <div ref={transcriptRef} className="flex-1 overflow-y-auto p-3 space-y-3">
+          <div ref={transcriptRef} className="flex-1 overflow-hidden p-3 space-y-3">
             {transcript.length === 0 ? (
               <div className="flex items-center justify-center h-full gap-1 py-8">
                 {[0, 150, 300].map(d => (
