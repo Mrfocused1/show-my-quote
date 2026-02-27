@@ -523,6 +523,9 @@ export default function DemoPage({ onHome, onBookDemo }) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
       }
     }
+    // Auto-start transcription
+    startMic();
+
     // Record audio (best-effort)
     navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : '';
