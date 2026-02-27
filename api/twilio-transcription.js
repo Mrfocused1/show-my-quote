@@ -11,13 +11,17 @@ const pusher = new Pusher({
 export default async function handler(req, res) {
   res.setHeader('Content-Type', 'text/plain');
 
+  // Twilio sends POST with URL-encoded body, but may also send GET with query params.
+  // Merge both sources so we handle either method reliably.
+  const params = { ...(req.query || {}), ...(req.body || {}) };
+
   const {
     TranscriptionEvent,
     TranscriptionData,
     Track,
     Final,
     CallSid,
-  } = req.body || {};
+  } = params;
 
   // TranscriptionData is a JSON string: {"transcript":"...", "confidence":0.99}
   let transcriptText = '';
@@ -28,11 +32,11 @@ export default async function handler(req, res) {
     }
   } catch { /* ignore malformed JSON */ }
 
-  console.log('Transcription webhook body keys:', Object.keys(req.body || {}));
+  console.log('Transcription webhook method:', req.method, '| keys:', Object.keys(params));
   console.log('Transcription event:', TranscriptionEvent, '| Track:', Track, '| Final:', Final, '| CallSid:', CallSid, '| Text:', transcriptText);
 
   // Determine channel: prefer session-based tx channel, fall back to CallSid
-  const session = req.query?.session;
+  const session = params.session || req.query?.session;
   const channel = session ? `tx-${session}` : (CallSid ? `call-${CallSid}` : null);
 
   // Only process final transcription content
@@ -42,16 +46,27 @@ export default async function handler(req, res) {
     transcriptText &&
     channel
   ) {
-    // With our TwiML labels: inboundTrackLabel='Client', outboundTrackLabel='You'
-    // Track field will be 'Client' or 'You'; fall back for default labels
-    const speaker = (Track === 'Client' || Track === 'inbound_track') ? 'Client' : 'You';
+    // With our corrected TwiML labels (twilio-voice.js):
+    //   inboundTrackLabel  = 'You'     (browser user — audio Twilio receives from WebRTC)
+    //   outboundTrackLabel = 'Client'  (phone person — audio from child call via <Dial>)
+    // The Track field will contain the label value ('You' or 'Client'),
+    // or the raw track name ('inbound_track' / 'outbound_track') if no label was set.
+    let speaker;
+    if (Track === 'You' || Track === 'inbound_track') {
+      speaker = 'You';
+    } else if (Track === 'Client' || Track === 'outbound_track') {
+      speaker = 'Client';
+    } else {
+      // Unknown track — default to Client (phone person is more valuable to capture)
+      speaker = 'Client';
+    }
+
+    console.log('Publishing transcript:', speaker, '→', transcriptText.slice(0, 60));
     await pusher.trigger(channel, 'transcript', {
       speaker,
       text: transcriptText,
     });
   }
-
-  if (!channel) { res.status(200).end(); return; }
 
   res.status(200).end();
 }

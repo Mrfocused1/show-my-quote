@@ -9,7 +9,7 @@ export default async function handler(req, res) {
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken  = process.env.TWILIO_AUTH_TOKEN;
-  const appUrl     = process.env.APP_URL || 'https://showmyquote.com';
+  const appUrl     = process.env.APP_URL || 'https://www.showmyquote.com';
 
   console.log('[start-transcription] callSid:', callSid, '| accountSid prefix:', accountSid?.slice(0,8));
 

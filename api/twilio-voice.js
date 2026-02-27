@@ -12,16 +12,22 @@ export default async function handler(req, res) {
   if (To && To !== twilioNumber) {
     // Outbound call from browser SDK — start real-time transcription via TwiML,
     // then dial the destination number
-    const appUrl = process.env.APP_URL || 'https://showmyquote.com';
+    // Use www subdomain to avoid 307 redirect (showmyquote.com → www.showmyquote.com)
+    // which can cause Twilio to downgrade POST webhooks to GET, losing the request body.
+    const appUrl = process.env.APP_URL || 'https://www.showmyquote.com';
     const Session = req.body?.Session || req.query?.Session || '';
     const cbUrl = `${appUrl}/api/twilio-transcription${Session ? '?session=' + encodeURIComponent(Session) : ''}`;
 
     const start = twiml.start();
+    // Track labels from Twilio's perspective:
+    //   inbound_track  = audio Twilio RECEIVES from the browser (WebRTC) = the business owner ("You")
+    //   outbound_track = audio Twilio SENDS to the browser, which includes child-call audio
+    //                    from <Dial> (the PSTN phone person) = the "Client"
     start.transcription({
       statusCallbackUrl: cbUrl,
       track: 'both_tracks',
-      inboundTrackLabel: 'Client',
-      outboundTrackLabel: 'You',
+      inboundTrackLabel: 'You',
+      outboundTrackLabel: 'Client',
       languageCode: 'en-US',
       partialResults: 'false',
     });
