@@ -4,21 +4,27 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const { callSid } = req.body || {};
+  const { callSid, session } = req.body || {};
   if (!callSid) return res.status(400).json({ error: 'missing callSid' });
 
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const authToken  = process.env.TWILIO_AUTH_TOKEN;
   const appUrl     = process.env.APP_URL || 'https://www.showmyquote.com';
 
-  console.log('[start-transcription] callSid:', callSid, '| accountSid prefix:', accountSid?.slice(0,8));
+  // Include session in the callback URL so transcription results route to the
+  // correct Pusher channel (tx-{session}) for the active demo session.
+  const cbUrl = session
+    ? `${appUrl}/api/twilio-transcription?session=${encodeURIComponent(session)}`
+    : `${appUrl}/api/twilio-transcription`;
+
+  console.log('[start-transcription] callSid:', callSid, '| session:', session || '(none)', '| accountSid prefix:', accountSid?.slice(0,8));
 
   const url = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Calls/${callSid}/Transcriptions.json`;
 
   const body = new URLSearchParams({
     track:                'both_tracks',
     languageCode:         'en-US',
-    statusCallbackUrl:    `${appUrl}/api/twilio-transcription`,
+    statusCallbackUrl:    cbUrl,
     statusCallbackMethod: 'POST',
     inboundTrackLabel:    'You',
     outboundTrackLabel:   'Client',

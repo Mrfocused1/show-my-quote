@@ -563,9 +563,20 @@ export default function DemoPage({ onHome, onBookDemo }) {
             if (sid) {
               twilioCallSidRef.current = sid;
               console.log('[twilio] CallSid captured:', sid);
+              // Start real-time transcription via REST API now that the call is connected.
+              // This avoids <Start><Transcription> in TwiML which was blocking early media / ringback.
+              fetch('/api/start-transcription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ callSid: sid, session: scRef.current || '' }),
+              })
+                .then(r => r.json())
+                .then(data => { console.log('[twilio] Transcription started via REST:', data); })
+                .catch(e => { console.warn('[twilio] Transcription start failed:', e.message); });
             } else {
               console.warn('[twilio] CallSid not available in call.parameters after accept');
             }
+            // Watchdog: if no 'You' transcription in 12s, fall back to Web Speech API
             lastYouTxRef.current = false;
             const wd = setTimeout(() => {
               if (caRef.current && !lastYouTxRef.current) {
