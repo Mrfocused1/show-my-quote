@@ -15,7 +15,8 @@ export default async function handler(req, res) {
   const fieldList = fillable.map(f =>
     `key="${f.key}" label="${f.label}" type="${f.type}"` +
     (f.options?.length ? ` options=[${f.options.join(', ')}]` : '') +
-    (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit === 'per_head' ? 'per head' : 'flat'}` : '')
+    (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit === 'per_head' ? 'per head' : 'flat'}` : '') +
+    (f.hint ? ` IMPORTANT: ${f.hint}` : '')
   ).join('\n');
 
   // Build the conversation input

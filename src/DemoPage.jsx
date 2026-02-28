@@ -91,14 +91,18 @@ const TEMPLATE_FORMS = {
     { key: 'requests', label: 'Special Requests',  type: 'long-text' },
   ],
   'wedding-catering': [
-    { key: 'date',     label: 'Event Date',             type: 'date' },
-    { key: 'venue',    label: 'Venue',                  type: 'text' },
-    { key: 'guests',   label: 'Guest Count (Adults)',   type: 'number' },
-    { key: 'children', label: 'Children Attending',     type: 'number' },
-    { key: 'style',    label: 'Service Style',          type: 'select', options: ['Plated Sit-down', 'Buffet', 'Canapés', 'Family Style'] },
-    { key: 'dietary',  label: 'Dietary Requirements',   type: 'long-text' },
-    { key: 'bar',      label: 'Bar Package',            type: 'select', options: ['Open Bar', 'Wine & Beer', 'Soft Drinks Only', 'No Bar'] },
-    { key: 'evening',  label: 'Evening Food',           type: 'text' },
+    { key: 'date',     label: 'Event Date',           type: 'date' },
+    { key: 'venue',    label: 'Venue',                type: 'text' },
+    { key: 'guests',   label: 'Guest Count (Adults)', type: 'number' },
+    { key: 'children', label: 'Children Attending',   type: 'number' },
+    { key: 'style',    label: 'Service Style',        type: 'select',   options: ['Plated Sit-down', 'Buffet', 'Canapés', 'Family Style'],
+      hint: 'How food will be served: plated sit-down, buffet, canapés, or family style. Only fill if explicitly stated.' },
+    { key: 'dietary',  label: 'Dietary Requirements', type: 'long-text',
+      hint: 'ONLY dietary restrictions, allergies or intolerances (e.g. halal, vegan, gluten-free, nut allergy). Do NOT put food orders, menu choices or dish names here.' },
+    { key: 'bar',      label: 'Bar Package',          type: 'select',   options: ['Open Bar', 'Wine & Beer', 'Soft Drinks Only', 'No Bar'],
+      hint: 'Drink/bar preference only. Fill with closest option or leave empty if not mentioned.' },
+    { key: 'evening',  label: 'Evening Food',         type: 'text',
+      hint: 'ONLY fill if a SEPARATE evening buffet or late-night food was explicitly discussed (e.g. "evening buffet", "midnight snacks"). Leave empty if only main reception food was discussed.' },
     { key: 'menu_selection', label: 'Menu', type: 'menu-checklist' },
   ],
   'wedding-venue': [
@@ -157,7 +161,7 @@ const DEOSA_MENU = [
           { key: 'ng_st_kebab',           name: 'Spicy Shish Kebab',                   keywords: ['shish kebab', 'kebab'] },
           { key: 'ng_st_plantain_salmon', name: 'Plantain & Smoked Salmon Sticks',     keywords: ['smoked salmon', 'salmon sticks'] },
           { key: 'ng_st_pepper_soup',     name: 'Assorted Meat / Fish Pepper Soup',    keywords: ['pepper soup'] },
-          { key: 'ng_st_spring_rolls',    name: 'Spring Rolls with Sauce',             keywords: ['spring rolls', 'spring roll'] },
+          { key: 'ng_st_spring_rolls',    name: 'Spring Rolls with Sauce',             keywords: ['spring rolls', 'spring roll', 'for roll', 'four roll', 'for rolls', 'four rolls'] },
           { key: 'ng_st_ugba',            name: 'Fermented Oil Bean Seed (Ugba)',      keywords: ['ugba', 'oil bean', 'agba', 'ogba', 'uguba'] },
           { key: 'ng_st_king_prawns',     name: 'Crispy Breaded King Prawns',          keywords: ['king prawns', 'breaded prawns'] },
           { key: 'ng_st_prawns_lettuce',  name: 'Cooked Prawns on Lettuce',            keywords: ['prawns on lettuce'] },
@@ -167,7 +171,7 @@ const DEOSA_MENU = [
       {
         name: 'Mains', price: 22,
         items: [
-          { key: 'ng_mn_jollof',     name: 'Jollof / Fried / Coconut / White Rice',                 keywords: ['jollof rice', 'fried rice', 'coconut rice', 'white rice', 'jollof'] },
+          { key: 'ng_mn_jollof',     name: 'Jollof / Fried / Coconut / White Rice',                 keywords: ['jollof rice', 'fried rice', 'coconut rice', 'white rice', 'jollof', 'love rice', 'lof rice', 'jalof', 'jolof'] },
           { key: 'ng_mn_soups',      name: 'Egusi / Eforiro / Ewedu / Ogbono / Edikaikong / Banga', keywords: ['egusi', 'egorsi', 'egoshi', 'eforiro', 'efariro', 'ewedu', 'ewedo', 'ogbono', 'ogbono soup', 'edikaikong', 'edika', 'banga soup', 'banga'] },
           { key: 'ng_mn_swallow',    name: 'Semolina / Pounded Yam / Garri / Amala',                keywords: ['semolina', 'pounded yam', 'garri', 'gari', 'amala', 'swallow', 'eba'] },
           { key: 'ng_mn_roasted',    name: 'Roasted Potatoes with Lamb / Chicken / Turkey',         keywords: ['roasted potatoes', 'roasted lamb', 'roasted turkey'] },
@@ -251,14 +255,14 @@ const DEOSA_MENU = [
         name: 'Specials', price: 24,
         items: [
           { key: 'cb_sp_callaloo', name: 'Callaloo',        keywords: ['callaloo', 'calaloo', 'callalou', 'calalou', 'callalu'] },
-          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee', 'aki', 'ackie', 'acky', 'ackee cod'] },
+          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee', 'aki', 'ackie', 'acky', 'ackee cod', 'echo see', 'ackey'] },
         ],
       },
       {
         name: 'Sides', price: 5,
         items: [
-          { key: 'cb_sd_plantains', name: 'Plantains',      keywords: ['caribbean plantain', 'rice and peas plantain'] },
-          { key: 'cb_sd_dumpling',  name: 'Fried Dumpling', keywords: ['fried dumpling', 'dumpling'] },
+          { key: 'cb_sd_plantains', name: 'Plantains',      keywords: ['caribbean plantain', 'rice and peas plantain', 'plantain'] },
+          { key: 'cb_sd_dumpling',  name: 'Fried Dumpling', keywords: ['fried dumpling', 'dumpling', 'fried dumplin', 'fry dumpling'] },
           { key: 'cb_sd_wings',     name: 'Wings (Side)',   keywords: ['wings side'] },
         ],
       },
@@ -307,9 +311,23 @@ const DEOSA_ALL_ITEMS = DEOSA_MENU.flatMap(cg =>
 );
 
 // Detect food items mentioned in a transcript line
-// Returns { toCheck: [key], toAmbiguous: [{id, label, candidates, minPrice, maxPrice}] }
+// Returns { toCheck: [key], toUncheck: [key], toAmbiguous: [{id, label, candidates, minPrice, maxPrice}] }
 function detectFoodInText(text) {
   const lower = text.toLowerCase();
+
+  // Detect if this line is a removal/negation instruction
+  const REMOVAL_PATTERNS = [
+    /\b(remove|removing)\b/,
+    /\bdon'?t want\b/,
+    /\bdo not want\b/,
+    /\bnot the\b/,
+    /\bcancel\b/,
+    /\btake (it\s+)?off\b/,
+    /\bscratch that\b/,
+    /\bno (more|longer)\b/,
+  ];
+  const isRemoval = REMOVAL_PATTERNS.some(p => p.test(lower));
+
   // Map from keyword → array of matching items
   const kwMatches = new Map();
   for (const item of DEOSA_ALL_ITEMS) {
@@ -322,6 +340,7 @@ function detectFoodInText(text) {
     }
   }
   const toCheck = [];
+  const toUncheck = [];
   const toAmbiguous = [];
   const resolvedKeys = new Set();
 
@@ -331,21 +350,29 @@ function detectFoodInText(text) {
     const fresh = items.filter(i => !resolvedKeys.has(i.key));
     if (!fresh.length) continue;
     if (fresh.length === 1) {
-      toCheck.push(fresh[0].key);
+      if (isRemoval) {
+        toUncheck.push(fresh[0].key);
+      } else {
+        toCheck.push(fresh[0].key);
+      }
       resolvedKeys.add(fresh[0].key);
     } else {
-      const prices = fresh.map(i => i.price);
-      toAmbiguous.push({
-        id: `amb_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-        label: kw,
-        candidates: fresh,
-        minPrice: Math.min(...prices),
-        maxPrice: Math.max(...prices),
-      });
+      if (!isRemoval) {
+        const prices = fresh.map(i => i.price);
+        toAmbiguous.push({
+          id: `amb_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+          label: kw,
+          candidates: fresh,
+          minPrice: Math.min(...prices),
+          maxPrice: Math.max(...prices),
+        });
+      } else {
+        fresh.forEach(i => toUncheck.push(i.key));
+      }
       fresh.forEach(i => resolvedKeys.add(i.key));
     }
   }
-  return { toCheck, toAmbiguous };
+  return { toCheck, toUncheck, toAmbiguous };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -680,11 +707,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
       // ── Live food detection for catering niche ────────────────────────────
       if (nicheRef.current?.id === 'wedding-catering') {
-        const { toCheck, toAmbiguous } = detectFoodInText(text);
-        if (toCheck.length) {
+        const { toCheck, toUncheck, toAmbiguous } = detectFoodInText(text);
+        if (toCheck.length || toUncheck.length) {
           setMenuChecked(prev => {
             const next = { ...prev };
             toCheck.forEach(k => { next[k] = true; });
+            toUncheck.forEach(k => { delete next[k]; });
             menuCheckedRef.current = next;
             return next;
           });
@@ -880,10 +908,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
     // Re-scan full transcript for missed food items (catering niche)
     if (nicheRef.current?.id === 'wedding-catering' && txRef.current.length > 0) {
-      const allChecked = { ...menuCheckedRef.current };
+      const allChecked = {};
       txRef.current.forEach(line => {
-        const { toCheck } = detectFoodInText(line.text);
+        const { toCheck, toUncheck } = detectFoodInText(line.text);
         toCheck.forEach(k => { allChecked[k] = true; });
+        toUncheck.forEach(k => { delete allChecked[k]; });
       });
       menuCheckedRef.current = allChecked;
       setMenuChecked(allChecked);
