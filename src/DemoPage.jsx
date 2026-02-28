@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Pusher from 'pusher-js';
 import {
   Phone, PhoneCall, PhoneOff, Mic, MicOff, Radio, Check, CheckCircle2,
-  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, MessageSquare,
+  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, ChevronUp, Minus, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
   Bookmark, Edit2,
@@ -452,9 +452,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [fields,      setFields] = useState([]);
   const [fieldValues, setFVals]  = useState({});
   const [transcript,  setTx]     = useState([]);
-  const [callActive,  setCA]     = useState(false);
-  const [callSeconds, setCS]     = useState(0);
-  const [recordingUrl, setRec]   = useState(null);
+  const [callActive,   setCA]          = useState(false);
+  const [callStatus,   setCallStatus]  = useState('idle'); // 'idle'|'connecting'|'ringing'|'active'
+  const [timerRunning, setTimerRunning]= useState(false);
+  const [callSeconds,  setCS]          = useState(0);
+  const [recordingUrl, setRec]         = useState(null);
 
   // ── Call controls ──
   const [micActive,   setMic]     = useState(false);
@@ -467,6 +469,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [lineSpeaker, setLS]      = useState('Client');
   const [lastAdded,   setLA]      = useState(null);
   const [lastFilled,  setLF]      = useState(null);
+  const [txMinimised, setTxMin]   = useState(false);
 
   // ── Manual builder ──
   const [manualFields, setMF]  = useState([]);
@@ -552,12 +555,20 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     if (txDivRef.current) txDivRef.current.scrollTop = txDivRef.current.scrollHeight;
   }, [transcript]);
 
-  // Call timer
+  // Auto-scroll form to the field that was just filled
+  const fieldElemRefs = useRef({});
   useEffect(() => {
-    if (callActive) timerRef.current = setInterval(() => setCS(s => s + 1), 1000);
+    if (!lastFilled) return;
+    const el = fieldElemRefs.current[lastFilled];
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }, [lastFilled]);
+
+  // Call timer — only starts when customer's phone begins ringing
+  useEffect(() => {
+    if (timerRunning) timerRef.current = setInterval(() => setCS(s => s + 1), 1000);
     else clearInterval(timerRef.current);
     return () => clearInterval(timerRef.current);
-  }, [callActive]);
+  }, [timerRunning]);
 
   // Cleanup on unmount
   useEffect(() => () => {
@@ -823,6 +834,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     broadcast({ phase: cp });
     setCA(true); caRef.current = true;
     setCS(0);
+    setCallStatus('connecting');
     // Heartbeat — keeps viewer in sync every 2.5s
     heartbeatRef.current = setInterval(() => broadcast({}), 2500);
 
@@ -836,6 +848,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           const device = new Device(token, { logLevel: 1 });
           twilioDeviceRef.current = device;
           await device.register();
+          // Mute local ringback — don't play until remote party's phone rings
+          try { device.audio.outgoing(false); } catch {}
           const call = await device.connect({ params: { To: phoneNumber, Session: scRef.current || '' } });
           twilioCallRef.current = call;
 
@@ -855,10 +869,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             remoteHungUpRef.current = true;
             if (caRef.current) endCall();
           });
-          // Twilio 'both_tracks' handles inbound (You) + outbound (Client) via Pusher.
-          // Give it 12s to produce a 'You' result; fall back to Web Speech API if silent.
+          // Capture CallSid on accept (needed for server-side recording after call ends).
           call.on('accept', () => {
-            // Capture CallSid — needed to fetch server-side recording after call ends.
             const sid = call.parameters?.CallSid;
             if (sid) {
               twilioCallSidRef.current = sid;
@@ -866,11 +878,14 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             } else {
               console.warn('[twilio] CallSid not available in call.parameters after accept');
             }
-            // Twilio handles outbound_track (phone person) via <Start><Transcription>.
-            // Browser mic ('You') is always handled by Web Speech API — Twilio's
-            // inbound_track over WebRTC/Opus is unreliable: a single stray result would
-            // cancel the old watchdog before Web Speech API could take over, leaving
-            // 'You' with no ongoing transcription. Starting immediately is more reliable.
+          });
+
+          // 'ringing' fires when the remote party's phone starts ringing.
+          // Only now: enable local ringback, start the mic, and start the timer.
+          call.on('ringing', () => {
+            setCallStatus('ringing');
+            setTimerRunning(true);
+            try { twilioDeviceRef.current?.audio.outgoing(true); } catch {}
             startMic();
           });
         }
@@ -881,6 +896,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
     // Mic-only mode: use Web Speech API + local MediaRecorder (no WebRTC conflict)
     if (!phoneNumber) {
+      setTimerRunning(true);
       startMic();
       // Local recording only for mic-only mode (no Twilio call to record server-side)
       navigator.mediaDevices?.getUserMedia({ audio: true }).then(stream => {
@@ -988,6 +1004,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     // Stop local MediaRecorder (mic-only mode)
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
+    setCallStatus('idle');
+    setTimerRunning(false);
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
@@ -1334,6 +1352,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     return (
       <div
         key={f.key}
+        ref={el => { if (el) fieldElemRefs.current[f.key] = el; else delete fieldElemRefs.current[f.key]; }}
         className={`bg-white rounded-xl border px-4 py-3 transition-all duration-400
           ${hl ? 'border-green-400 shadow-[0_0_0_3px_rgba(74,222,128,0.15)]' : 'border-slate-200'}`}
         style={{ animation: 'slideUp 0.3s ease forwards' }}
@@ -1380,8 +1399,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rec</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-          <span className="text-[10px] font-bold text-green-400 uppercase tracking-widest">Live</span>
+          <div className={`w-2 h-2 rounded-full animate-pulse ${callStatus === 'connecting' ? 'bg-amber-400' : 'bg-green-400'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${callStatus === 'connecting' ? 'text-amber-400' : 'text-green-400'}`}>
+            {callStatus === 'connecting' ? 'Connecting' : 'Live'}
+          </span>
         </div>
         <span className="text-slate-400 font-mono text-sm ml-1">{fmt(callSeconds)}</span>
         <div className="flex-1" />
@@ -1392,20 +1413,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           </div>
         )}
         {!isViewer && (
-          <>
-            <button
-              onClick={() => setTypeMode(v => !v)}
-              className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-colors ${showTypeMode ? 'bg-slate-600 text-white' : 'bg-slate-800 text-slate-300 hover:bg-slate-700'}`}
-            >
-              Type
-            </button>
-            <button
-              onClick={endCall}
-              className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
-            >
-              <PhoneOff className="w-3.5 h-3.5" /> End Call
-            </button>
-          </>
+          <button
+            onClick={endCall}
+            className="flex items-center gap-1.5 bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
+          >
+            <PhoneOff className="w-3.5 h-3.5" /> End Call
+          </button>
         )}
         {isViewer && (
           <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 px-3 py-1.5 rounded-lg">
@@ -1434,118 +1447,106 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       {/* Main panels */}
       <div className="flex-1 flex overflow-hidden" style={{ minHeight: 0 }}>
         {/* Transcript */}
-        <div className="w-[42%] flex flex-col border-r border-slate-200 bg-white overflow-hidden">
-          <div className="px-4 py-3 border-b border-slate-100 flex-shrink-0 flex items-center justify-between">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Live Transcript</p>
-            {micActive && (
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-600">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                Listening
-              </span>
-            )}
-            {!micActive && txPusherActive && (
-              <span className="flex items-center gap-1.5 text-[10px] font-semibold text-blue-500">
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
-                Both sides
-              </span>
-            )}
-          </div>
-          <div ref={txDivRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-            {transcript.length === 0 && (
-              <div className="text-center py-8 space-y-2">
-                {micActive ? (
-                  <>
-                    <div className="flex justify-center gap-1 mb-3">
-                      {[0,1,2,3].map(i => (
-                        <span key={i} className="w-1 h-4 bg-green-400 rounded-full animate-pulse"
-                          style={{ animationDelay: `${i * 0.15}s` }} />
-                      ))}
-                    </div>
-                    <p className="text-slate-400 text-sm">Listening for speech…</p>
-                  </>
-                ) : (
-                  <p className="text-slate-300 text-sm">Transcript will appear here</p>
+        <div className={`flex flex-col border-r border-slate-200 bg-white overflow-hidden transition-all duration-300 flex-shrink-0 ${txMinimised ? 'w-10' : 'w-[42%]'}`}>
+          <div className="px-3 py-3 border-b border-slate-100 flex-shrink-0 flex items-center justify-between gap-2">
+            {!txMinimised && (
+              <div className="flex items-center gap-2 min-w-0">
+                {micActive && (
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-green-600 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                    Listening
+                  </span>
+                )}
+                {!micActive && txPusherActive && (
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold text-blue-500 whitespace-nowrap">
+                    <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                    Both sides
+                  </span>
                 )}
               </div>
             )}
-            {transcript.map((line, i) => (
-              <div
-                key={i}
-                className={`flex gap-2.5 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}
-                style={{ animation: 'slideUp 0.25s ease forwards' }}
-              >
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0
-                  ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-white'}`}>
-                  {line.speaker === 'You' ? 'Y' : 'C'}
-                </div>
-                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed
-                  ${line.speaker === 'You'
-                    ? 'bg-slate-100 text-slate-800 rounded-tl-sm'
-                    : 'bg-slate-800 text-white rounded-tr-sm'}`}>
-                  {line.text}
-                </div>
-              </div>
-            ))}
-            {interimText && (
-              <div className="flex gap-2.5">
-                <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[10px] font-bold flex-shrink-0">
-                  {lineSpeaker === 'You' ? 'Y' : 'C'}
-                </div>
-                <div className="max-w-[80%] px-3 py-2 rounded-2xl text-sm bg-slate-50 text-slate-400 italic rounded-tl-sm border border-slate-200">
-                  {interimText}
-                </div>
-              </div>
-            )}
+            <button
+              onClick={() => setTxMin(v => !v)}
+              className="w-6 h-6 flex-shrink-0 flex items-center justify-center text-slate-400 hover:text-slate-700 transition-colors rounded ml-auto"
+              title={txMinimised ? 'Expand transcript' : 'Collapse transcript'}
+            >
+              {txMinimised ? <ChevronRight className="w-3.5 h-3.5" /> : <Minus className="w-3.5 h-3.5" />}
+            </button>
           </div>
 
-          {/* Mic / Type controls */}
-          {!isViewer && (
-            <div className="flex-shrink-0 border-t border-slate-100 p-3 space-y-2">
-              {/* Mic button + speaker toggle */}
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={micActive ? stopMic : startMic}
-                  className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex-shrink-0
-                    ${micActive
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                      : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
-                >
-                  {micActive ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
-                  {micActive ? 'Stop mic' : 'Start mic'}
-                </button>
-                <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
-                  {['You', 'Client'].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => setLS(s)}
-                      className={`px-2.5 py-1 rounded-md font-medium transition-colors
-                        ${lineSpeaker === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
+          {!txMinimised && (
+            <>
+              <div ref={txDivRef} className="flex-1 overflow-y-auto p-3 space-y-2">
+                {transcript.length === 0 && (
+                  <div className="text-center py-8 space-y-2">
+                    {micActive ? (
+                      <>
+                        <div className="flex justify-center gap-1 mb-3">
+                          {[0,1,2,3].map(i => (
+                            <span key={i} className="w-1 h-4 bg-green-400 rounded-full animate-pulse"
+                              style={{ animationDelay: `${i * 0.15}s` }} />
+                          ))}
+                        </div>
+                        <p className="text-slate-400 text-xs">Listening for speech…</p>
+                      </>
+                    ) : (
+                      <p className="text-slate-300 text-xs">Transcript will appear here</p>
+                    )}
+                  </div>
+                )}
+                {transcript.map((line, i) => (
+                  <div
+                    key={i}
+                    className={`flex ${line.speaker !== 'You' ? 'justify-end' : 'justify-start'}`}
+                    style={{ animation: 'slideUp 0.25s ease forwards' }}
+                  >
+                    <div className={`max-w-[88%] px-2.5 py-1.5 rounded-2xl text-[11px] leading-snug
+                      ${line.speaker === 'You'
+                        ? 'bg-slate-100 text-slate-800 rounded-tl-sm'
+                        : 'bg-sky-400 text-white rounded-tr-sm'}`}>
+                      {line.text}
+                    </div>
+                  </div>
+                ))}
+                {interimText && (
+                  <div className="flex justify-start">
+                    <div className="max-w-[88%] px-2.5 py-1.5 rounded-2xl text-[11px] bg-slate-50 text-slate-400 italic rounded-tl-sm border border-slate-200">
+                      {interimText}
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Type mode */}
-              {showTypeMode && (
-                <div className="flex gap-2">
-                  <input
-                    value={lineText}
-                    onChange={e => setLT(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addLine()}
-                    placeholder={`Type as ${lineSpeaker}…`}
-                    className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                  <button
-                    onClick={addLine}
-                    className="px-3 py-2 bg-slate-900 text-white rounded-lg text-xs font-semibold hover:bg-slate-700 transition-colors"
-                  >
-                    Add
-                  </button>
+              {/* Mic controls */}
+              {!isViewer && (
+                <div className="flex-shrink-0 border-t border-slate-100 p-3 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={micActive ? stopMic : startMic}
+                      className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold transition-colors flex-shrink-0
+                        ${micActive
+                          ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                          : 'bg-green-100 text-green-700 hover:bg-green-200'}`}
+                    >
+                      {micActive ? <MicOff className="w-3.5 h-3.5" /> : <Mic className="w-3.5 h-3.5" />}
+                      {micActive ? 'Stop mic' : 'Start mic'}
+                    </button>
+                    <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
+                      {['You', 'Client'].map(s => (
+                        <button
+                          key={s}
+                          onClick={() => setLS(s)}
+                          className={`px-2.5 py-1 rounded-md font-medium transition-colors
+                            ${lineSpeaker === s ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}
+                        >
+                          {s}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
 
@@ -1554,7 +1555,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           <div className="px-5 py-3 border-b border-slate-200 bg-white flex items-center justify-between flex-shrink-0">
             <div>
               <h2 className="text-sm font-bold text-slate-900">
-                {mode === 'build' ? 'Intake Form — Auto-building' : 'Intake Form — Auto-filling'}
+                {mode === 'build' ? 'Form — Auto-building' : 'Form — Auto-filling'}
               </h2>
               <p className="text-xs text-slate-400 mt-0.5">
                 {fields.length} {fields.length === 1 ? 'field' : 'fields'}
