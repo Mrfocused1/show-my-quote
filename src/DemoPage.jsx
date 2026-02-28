@@ -445,6 +445,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [menuChecked, setMenuChecked]     = useState({}); // { itemKey: true }
   const menuCheckedRef = useRef({});
   const [menuAmbiguous, setMenuAmbiguous] = useState([]); // [{ id, label, candidates, minPrice, maxPrice }]
+  const [priceOverrides, setPriceOverrides] = useState({}); // { itemKey: overridePrice }
 
   // ── Post-call analysis ──
   const [analysis,  setAnalysis]  = useState(null);
@@ -862,6 +863,52 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     clearTimeout(bufTimerRef.current);
     clearTimeout(fillDebounceRef.current);
     clearTimeout(youWatchdogRef.current); youWatchdogRef.current = null;
+
+    // Final full-transcript field extraction
+    if (txRef.current.length > 0 && fieldsRef.current.length > 0) {
+      fillFieldsFromTranscript(txRef.current, fieldsRef.current).then(res => {
+        if (res.fills?.length) {
+          const next = {};
+          res.fills.forEach(({ key, value }) => {
+            if (value !== null && value !== undefined && value !== '') next[key] = value;
+          });
+          fvRef.current = next;
+          setFVals(next);
+        }
+      }).catch(() => {});
+    }
+
+    // Re-scan full transcript for missed food items (catering niche)
+    if (nicheRef.current?.id === 'wedding-catering' && txRef.current.length > 0) {
+      const allChecked = { ...menuCheckedRef.current };
+      txRef.current.forEach(line => {
+        const { toCheck } = detectFoodInText(line.text);
+        toCheck.forEach(k => { allChecked[k] = true; });
+      });
+      menuCheckedRef.current = allChecked;
+      setMenuChecked(allChecked);
+    }
+
+    // Sync menu checklist → fieldValues so MENU shows as "captured"
+    if (nicheRef.current?.id === 'wedding-catering') {
+      setTimeout(() => {
+        const menuField = fieldsRef.current.find(f => f.type === 'menu-checklist');
+        if (menuField) {
+          const checkedNames = Object.keys(menuCheckedRef.current).map(key => {
+            const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
+            return item ? item.name : null;
+          }).filter(Boolean);
+          if (checkedNames.length) {
+            setFVals(prev => {
+              const next = { ...prev, [menuField.key]: checkedNames.join(', ') };
+              fvRef.current = next;
+              return next;
+            });
+          }
+        }
+      }, 200);
+    }
+
     lastYouTxRef.current = false;
     clearInterval(heartbeatRef.current);
     clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
@@ -973,6 +1020,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
+    setPriceOverrides({});
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [] });
@@ -986,6 +1034,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
+    setPriceOverrides({});
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [] });
@@ -1057,6 +1106,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setMF([]); setML(''); setMT('text'); setAM(false);
     setSaveName(''); setFormSaved(false);
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
+    setPriceOverrides({});
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
@@ -2056,22 +2106,28 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                 DEOSA_MENU.forEach(cg => {
                   cg.sections.forEach(section => {
                     section.items.filter(i => menuChecked[i.key]).forEach(item => {
+                      const basePrice = section.price;
+                      const effectivePrice = priceOverrides[item.key] !== undefined ? priceOverrides[item.key] : basePrice;
                       lineItems.push({
+                        itemKey: item.key,
                         description: item.name,
                         note: `${cg.cuisine} · ${section.name}`,
                         qty: 1,
-                        unitPrice: section.price,
+                        unitPrice: effectivePrice,
+                        basePrice,
                         perPerson: true,
                       });
                     });
                   });
                 });
               } else if (analysis?.quote?.lineItems?.length > 0) {
-                lineItems = analysis.quote.lineItems.map(li => ({
+                lineItems = analysis.quote.lineItems.map((li, idx) => ({
+                  itemKey: `ai_${idx}`,
                   description: li.description,
                   note: li.note || null,
                   qty: li.qty || 1,
-                  unitPrice: li.unitPrice || 0,
+                  unitPrice: priceOverrides[`ai_${idx}`] !== undefined ? priceOverrides[`ai_${idx}`] : (li.unitPrice || 0),
+                  basePrice: li.unitPrice || 0,
                   perPerson: false,
                 }));
               }
@@ -2172,14 +2228,40 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                           <div className="flex-1 min-w-0">
                             <div className="text-sm text-slate-800">{li.description}</div>
                             {li.note && <div className="text-[10px] text-slate-400 mt-0.5">{li.note}</div>}
-                            {!li.perPerson && li.qty > 1 && (
-                              <div className="text-[10px] text-slate-400 mt-0.5">
-                                {li.qty} × £{li.unitPrice.toLocaleString()}
+                            {!li.perPerson && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                {li.qty > 1 && <span className="text-[10px] text-slate-400">{li.qty} ×</span>}
+                                <span className="text-[10px] text-slate-400">£</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={li.unitPrice}
+                                  onChange={e => setPriceOverrides(prev => ({ ...prev, [li.itemKey]: parseFloat(e.target.value) || 0 }))}
+                                  className="w-16 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-green-400 focus:border-green-400"
+                                />
+                                {li.basePrice !== li.unitPrice && (
+                                  <button onClick={() => setPriceOverrides(prev => { const n = { ...prev }; delete n[li.itemKey]; return n; })}
+                                    className="text-[10px] text-slate-400 hover:text-red-500 ml-1">reset</button>
+                                )}
                               </div>
                             )}
                             {li.perPerson && (
-                              <div className="text-[10px] text-slate-400 mt-0.5">
-                                £{li.unitPrice}pp{guestCount > 0 ? ` × ${guestCount} guests` : ''}
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <span className="text-[10px] text-slate-400">£</span>
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  value={li.unitPrice}
+                                  onChange={e => setPriceOverrides(prev => ({ ...prev, [li.itemKey]: parseFloat(e.target.value) || 0 }))}
+                                  className="w-16 text-[10px] text-slate-600 bg-slate-50 border border-slate-200 rounded px-1 py-0.5 outline-none focus:ring-1 focus:ring-green-400 focus:border-green-400"
+                                />
+                                <span className="text-[10px] text-slate-400">pp{guestCount > 0 ? ` × ${guestCount} guests` : ''}</span>
+                                {li.basePrice !== li.unitPrice && (
+                                  <button onClick={() => setPriceOverrides(prev => { const n = { ...prev }; delete n[li.itemKey]; return n; })}
+                                    className="text-[10px] text-slate-400 hover:text-red-500 ml-1">reset</button>
+                                )}
                               </div>
                             )}
                           </div>
