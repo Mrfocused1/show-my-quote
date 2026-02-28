@@ -1202,6 +1202,15 @@ export default function DemoPage({ onHome, onBookDemo }) {
               <p className="text-slate-500 text-sm">Select your business type so we can tailor the AI's field detection and your follow-up SMS template.</p>
             </div>
 
+            <div className="mb-6">
+              <button
+                onClick={() => selectNiche({ id: 'blank', label: null, seedFields: [], smsTemplate: '', promptHint: '' })}
+                className="text-sm text-slate-400 hover:text-slate-700 underline underline-offset-4 transition-colors"
+              >
+                Skip — start with a blank form
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {NICHES.map(n => {
                 const Icon = n.Icon;
@@ -1219,15 +1228,6 @@ export default function DemoPage({ onHome, onBookDemo }) {
                   </button>
                 );
               })}
-            </div>
-
-            <div className="mt-8 text-center">
-              <button
-                onClick={() => selectNiche({ id: 'blank', label: null, seedFields: [], smsTemplate: '', promptHint: '' })}
-                className="text-sm text-slate-400 hover:text-slate-700 underline underline-offset-4 transition-colors"
-              >
-                Skip — start with a blank form
-              </button>
             </div>
           </div>
         </div>
