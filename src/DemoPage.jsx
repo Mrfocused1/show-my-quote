@@ -258,8 +258,8 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const whisperIntervalRef  = useRef(null);
   const whisperHeaderRef    = useRef(null);
   const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
-  const lastYouTxRef    = useRef(false);   // true once Twilio inbound_track produces a 'You' line
-  const youWatchdogRef  = useRef(null);    // timer to fall back to Web Speech API if inbound_track silent
+  const lastYouTxRef    = useRef(false);   // unused — kept for cleanup safety
+  const youWatchdogRef  = useRef(null);    // unused — kept for cleanup safety
   const remoteHungUpRef = useRef(false);   // true when disconnect was initiated by remote party
 
   // Mirror state → refs
@@ -565,20 +565,12 @@ export default function DemoPage({ onHome, onBookDemo }) {
             } else {
               console.warn('[twilio] CallSid not available in call.parameters after accept');
             }
-            // Transcription is handled by <Start><Transcription> in the TwiML webhook —
-            // it taps both legs of the <Dial> at the Twilio media layer, including the
-            // outbound_track (phone person) once the bridge forms. A REST API call here
-            // would fire before the B-leg answers, missing the outbound_track entirely.
-            //
-            // Watchdog: if no 'You' transcription in 12s, fall back to Web Speech API.
-            lastYouTxRef.current = false;
-            const wd = setTimeout(() => {
-              if (caRef.current && !lastYouTxRef.current) {
-                console.log('[watchdog] No inbound_track results — falling back to Web Speech API');
-                startMic();
-              }
-            }, 12000);
-            youWatchdogRef.current = wd;
+            // Twilio handles outbound_track (phone person) via <Start><Transcription>.
+            // Browser mic ('You') is always handled by Web Speech API — Twilio's
+            // inbound_track over WebRTC/Opus is unreliable: a single stray result would
+            // cancel the old watchdog before Web Speech API could take over, leaving
+            // 'You' with no ongoing transcription. Starting immediately is more reliable.
+            startMic();
           });
         }
       } catch (e) {

@@ -21,10 +21,13 @@ export default async function handler(req, res) {
     const cbUrl = `${appUrl}/api/twilio-transcription${Session ? '?session=' + encodeURIComponent(Session) : ''}`;
 
     const start = twiml.start();
+    // outbound_track = audio Twilio sends TO the browser = the phone person's voice via <Dial>.
+    // inbound_track (browser WebRTC/Opus) is transcribed unreliably by Twilio — one stray
+    // result cancels the watchdog before Web Speech API can take over. Browser mic is always
+    // handled by Web Speech API started immediately on call.on('accept').
     start.transcription({
       statusCallbackUrl: cbUrl,
-      track: 'both_tracks',
-      inboundTrackLabel: 'You',
+      track: 'outbound_track',
       outboundTrackLabel: 'Client',
       languageCode: 'en-US',
       partialResults: 'false',
