@@ -25,12 +25,34 @@ export default async function handler(req, res) {
     // inbound_track (browser WebRTC/Opus) is transcribed unreliably by Twilio — one stray
     // result cancels the watchdog before Web Speech API can take over. Browser mic is always
     // handled by Web Speech API started immediately on call.on('accept').
+    // speechModel: 'long' is required for hints/vocabulary boost to work.
+    // 'telephony' (the default) ignores hints entirely.
+    // hints are passed directly to Google STT as speech_contexts phrases,
+    // boosting recognition of non-English food names and West African words.
     start.transcription({
       statusCallbackUrl: cbUrl,
       track: 'outbound_track',
       outboundTrackLabel: 'Client',
       languageCode: 'en-US',
       partialResults: 'false',
+      speechModel: 'long',
+      hints: [
+        // Nigerian
+        'Egusi', 'Eforiro', 'Ewedu', 'Ogbono', 'Edikaikong', 'Banga',
+        'Moyin Moyin', 'Moin Moin', 'Moimoi', 'Puff Puff',
+        'Jollof', 'Suya', 'Akara', 'Amala', 'Eba', 'Garri', 'Semolina',
+        'Asaro', 'Dodo', 'Ugba',
+        // Ghanaian
+        'Banku', 'Kelewele', 'Fufu', 'Waakye', 'Kenkey', 'Omo Tuo', 'Ampesi',
+        'Shito', 'Kontomire',
+        // Sierra Leonean
+        'Crain Crain', 'Salone', 'Cassava leaves', 'Groundnut soup',
+        // Caribbean
+        'Callaloo', 'Escovitch', 'Ackee', 'Oxtail', 'Jerk chicken',
+        'Jerk pork', 'Curry goat', 'Plantain',
+        // General
+        'Gizzard', 'Kebab', 'Spring rolls',
+      ].join(', '),
     });
 
     const dial = twiml.dial({
