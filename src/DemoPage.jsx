@@ -152,13 +152,13 @@ const DEOSA_MENU = [
         name: 'Starters', price: 8,
         items: [
           { key: 'ng_st_puff_puff',      name: 'Puff Puff',                           keywords: ['puff puff'] },
-          { key: 'ng_st_moyin',           name: 'Moyin Moyin',                         keywords: ['moyin moyin', 'moin moin'] },
+          { key: 'ng_st_moyin',           name: 'Moyin Moyin',                         keywords: ['moyin moyin', 'moin moin', 'moyin', 'moin', 'moaning moaning', 'moaning', 'morning morning', 'mine mine', 'morn morn', 'moine', 'moyne moyne', 'moyene'] },
           { key: 'ng_st_gizzard',         name: 'Spicy Gizzard',                       keywords: ['gizzard'] },
           { key: 'ng_st_kebab',           name: 'Spicy Shish Kebab',                   keywords: ['shish kebab', 'kebab'] },
           { key: 'ng_st_plantain_salmon', name: 'Plantain & Smoked Salmon Sticks',     keywords: ['smoked salmon', 'salmon sticks'] },
           { key: 'ng_st_pepper_soup',     name: 'Assorted Meat / Fish Pepper Soup',    keywords: ['pepper soup'] },
           { key: 'ng_st_spring_rolls',    name: 'Spring Rolls with Sauce',             keywords: ['spring rolls', 'spring roll'] },
-          { key: 'ng_st_ugba',            name: 'Fermented Oil Bean Seed (Ugba)',      keywords: ['ugba', 'oil bean'] },
+          { key: 'ng_st_ugba',            name: 'Fermented Oil Bean Seed (Ugba)',      keywords: ['ugba', 'oil bean', 'agba', 'ogba', 'uguba'] },
           { key: 'ng_st_king_prawns',     name: 'Crispy Breaded King Prawns',          keywords: ['king prawns', 'breaded prawns'] },
           { key: 'ng_st_prawns_lettuce',  name: 'Cooked Prawns on Lettuce',            keywords: ['prawns on lettuce'] },
           { key: 'ng_st_wings',           name: 'Chicken Wings with BBQ Sauce',        keywords: ['chicken wings', 'bbq wings'] },
@@ -168,12 +168,12 @@ const DEOSA_MENU = [
         name: 'Mains', price: 22,
         items: [
           { key: 'ng_mn_jollof',     name: 'Jollof / Fried / Coconut / White Rice',                 keywords: ['jollof rice', 'fried rice', 'coconut rice', 'white rice', 'jollof'] },
-          { key: 'ng_mn_soups',      name: 'Egusi / Eforiro / Ewedu / Ogbono / Edikaikong / Banga', keywords: ['egusi', 'eforiro', 'ewedu', 'ogbono', 'edikaikong', 'banga soup', 'banga'] },
-          { key: 'ng_mn_swallow',    name: 'Semolina / Pounded Yam / Garri / Amala',                keywords: ['semolina', 'pounded yam', 'garri', 'amala', 'swallow'] },
+          { key: 'ng_mn_soups',      name: 'Egusi / Eforiro / Ewedu / Ogbono / Edikaikong / Banga', keywords: ['egusi', 'egorsi', 'egoshi', 'eforiro', 'efariro', 'ewedu', 'ewedo', 'ogbono', 'ogbono soup', 'edikaikong', 'edika', 'banga soup', 'banga'] },
+          { key: 'ng_mn_swallow',    name: 'Semolina / Pounded Yam / Garri / Amala',                keywords: ['semolina', 'pounded yam', 'garri', 'gari', 'amala', 'swallow', 'eba'] },
           { key: 'ng_mn_roasted',    name: 'Roasted Potatoes with Lamb / Chicken / Turkey',         keywords: ['roasted potatoes', 'roasted lamb', 'roasted turkey'] },
           { key: 'ng_mn_yam_omelet', name: 'Boiled Yam and Omelette',                               keywords: ['boiled yam', 'yam omelette'] },
-          { key: 'ng_mn_dodo_omelet',name: 'Dodo (Fried Plantain) with Omelette',                   keywords: ['dodo omelette', 'plantain omelette'] },
-          { key: 'ng_mn_asaro',      name: 'Asaro (Yam Porridge) and Dodo',                         keywords: ['asaro', 'yam porridge'] },
+          { key: 'ng_mn_dodo_omelet',name: 'Dodo (Fried Plantain) with Omelette',                   keywords: ['dodo omelette', 'plantain omelette', 'dodo', 'fried plantain omelette'] },
+          { key: 'ng_mn_asaro',      name: 'Asaro (Yam Porridge) and Dodo',                         keywords: ['asaro', 'yam porridge', 'asaro yam', 'osharo'] },
         ],
       },
       {
@@ -193,13 +193,13 @@ const DEOSA_MENU = [
       {
         name: 'Mains', price: 22,
         items: [
-          { key: 'gh_mn_banku',    name: 'Banku with Okro Soup',             keywords: ['banku', 'okro soup'] },
-          { key: 'gh_mn_kelewele', name: 'Kelewele (Spiced Fried Plantain)', keywords: ['kelewele'] },
-          { key: 'gh_mn_fufu',     name: 'Fufu with Groundnut Soup',         keywords: ['ghanaian fufu', 'fufu groundnut'] },
+          { key: 'gh_mn_banku',    name: 'Banku with Okro Soup',             keywords: ['banku', 'banco', 'bankoo', 'bangku', 'okro soup'] },
+          { key: 'gh_mn_kelewele', name: 'Kelewele (Spiced Fried Plantain)', keywords: ['kelewele', 'kele wele', 'kelewele chicken', 'kelley kelly', 'kelewelay'] },
+          { key: 'gh_mn_fufu',     name: 'Fufu with Groundnut Soup',         keywords: ['ghanaian fufu', 'fufu groundnut', 'ghana fufu'] },
           { key: 'gh_mn_jollof',   name: 'Jollof Rice (Ghanaian)',           keywords: ['ghanaian jollof', 'ghana jollof'] },
-          { key: 'gh_mn_kenkey',   name: 'Kenkey',                           keywords: ['kenkey'] },
-          { key: 'gh_mn_omo_tuo',  name: 'Omo Tuo (Mashed Rice Balls)',      keywords: ['omo tuo'] },
-          { key: 'gh_mn_waakye',   name: 'Waakye (Rice and Beans)',          keywords: ['waakye'] },
+          { key: 'gh_mn_kenkey',   name: 'Kenkey',                           keywords: ['kenkey', 'kenkay', 'kenke', 'kinkey'] },
+          { key: 'gh_mn_omo_tuo',  name: 'Omo Tuo (Mashed Rice Balls)',      keywords: ['omo tuo', 'omo two', 'omoe tuo', 'omotuo', 'omo to'] },
+          { key: 'gh_mn_waakye',   name: 'Waakye (Rice and Beans)',          keywords: ['waakye', 'wahchay', 'waakey', 'watchee', 'wahchi', 'wachie'] },
           { key: 'gh_mn_ampesi',   name: "Yam Ampesi with Dosa Sauce",       keywords: ['yam ampesi', 'ampesi'] },
           { key: 'gh_mn_shito',    name: 'Shito Chicken Stew / Curry',       keywords: ['shito'] },
           { key: 'gh_mn_goat',     name: 'Goat Curry / Beef Stew / Curry',   keywords: ['goat curry', 'beef stew', 'beef curry'] },
@@ -219,10 +219,10 @@ const DEOSA_MENU = [
           { key: 'sl_mn_rice_sticks',name: 'Rice Sticks',                          keywords: ['rice sticks'] },
           { key: 'sl_mn_groundnut',  name: 'Groundnut Stew with Steamed Rice',     keywords: ['groundnut stew'] },
           { key: 'sl_mn_cassava',    name: 'Cassava Leaves with Meat / Fish',      keywords: ['cassava leaves'] },
-          { key: 'sl_mn_crain',      name: 'Crain Crain with Meat / Fish',         keywords: ['crain crain'] },
+          { key: 'sl_mn_crain',      name: 'Crain Crain with Meat / Fish',         keywords: ['crain crain', 'crane crane', 'cran cran', 'krain krain', 'grain grain'] },
           { key: 'sl_mn_potato',     name: 'Potato Leaves with Meat / Fish',       keywords: ['potato leaves'] },
           { key: 'sl_mn_palm_oil',   name: 'Red Palm Oil Stew with Check Rice',    keywords: ['palm oil stew', 'check rice'] },
-          { key: 'sl_mn_fufu',       name: 'Fufu with Choice of Soup',             keywords: ['sierra fufu', 'fufu palm oil'] },
+          { key: 'sl_mn_fufu',       name: 'Fufu with Choice of Soup',             keywords: ['sierra fufu', 'fufu palm oil', 'salone fufu'] },
         ],
       },
     ],
@@ -243,15 +243,15 @@ const DEOSA_MENU = [
           { key: 'cb_mn_curry_goat',    name: 'Curry Goat',             keywords: ['curry goat'] },
           { key: 'cb_mn_stew_shrimp',   name: 'Stew Shrimp',            keywords: ['stew shrimp', 'shrimp stew'] },
           { key: 'cb_mn_brown_fish',    name: 'Brown Stew Fish',        keywords: ['brown stew fish', 'stew fish'] },
-          { key: 'cb_mn_escovitch',     name: 'Escovitch Fish',         keywords: ['escovitch'] },
+          { key: 'cb_mn_escovitch',     name: 'Escovitch Fish',         keywords: ['escovitch', 'escobeech', 'escobitch', 'escovish', 'eskovitch'] },
           { key: 'cb_mn_curry_shrimp',  name: 'Curry Shrimp',          keywords: ['curry shrimp'] },
         ],
       },
       {
         name: 'Specials', price: 24,
         items: [
-          { key: 'cb_sp_callaloo', name: 'Callaloo',        keywords: ['callaloo'] },
-          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee'] },
+          { key: 'cb_sp_callaloo', name: 'Callaloo',        keywords: ['callaloo', 'calaloo', 'callalou', 'calalou', 'callalu'] },
+          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee', 'aki', 'ackie', 'acky', 'ackee cod'] },
         ],
       },
       {
@@ -666,7 +666,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       }
 
       // ── Live food detection for catering niche ────────────────────────────
-      if (speaker === 'Client' && nicheRef.current?.id === 'wedding-catering') {
+      if (nicheRef.current?.id === 'wedding-catering') {
         const { toCheck, toAmbiguous } = detectFoodInText(text);
         if (toCheck.length) {
           setMenuChecked(prev => {
@@ -1065,7 +1065,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     const minTotal = minPP * guestCount;
     const maxTotal = maxPP * guestCount;
     const checkedCount = Object.keys(menuChecked).length;
-    const isRange = minTotal !== maxTotal;
+    const isRange = minPP !== maxPP;
 
     return (
       <div key={f.key} className="bg-white rounded-xl border border-slate-200 overflow-hidden" style={{ animation: 'slideUp 0.3s ease forwards' }}>
@@ -1076,12 +1076,18 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             {checkedCount > 0 && (
               <span className="text-[10px] text-slate-400">{checkedCount} item{checkedCount !== 1 ? 's' : ''}</span>
             )}
-            {(checkedCount > 0 || menuAmbiguous.length > 0) && guestCount > 0 && (
+            {(checkedCount > 0 || menuAmbiguous.length > 0) && (
               <div className={`text-sm font-black ${isRange ? 'text-amber-600' : 'text-green-600'}`}>
-                {isRange
-                  ? `£${minTotal.toLocaleString()} – £${maxTotal.toLocaleString()}`
-                  : `£${minTotal.toLocaleString()}`}
-                <span className="text-[10px] font-normal text-slate-400 ml-1">est.</span>
+                {guestCount > 0
+                  ? (isRange
+                      ? `£${minTotal.toLocaleString()} – £${maxTotal.toLocaleString()}`
+                      : `£${minTotal.toLocaleString()}`)
+                  : (isRange
+                      ? `£${minPP}–£${maxPP}pp`
+                      : `£${minPP}pp`)}
+                <span className="text-[10px] font-normal text-slate-400 ml-1">
+                  {guestCount > 0 ? 'est.' : 'per person'}
+                </span>
               </div>
             )}
           </div>
