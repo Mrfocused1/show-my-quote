@@ -2083,8 +2083,25 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       );
     }
 
+    // Live quote total for header — catering niche only for now
+    let callQuoteTotal = null;
+    if (niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0) {
+      let pp = 0;
+      Object.keys(menuChecked).forEach(key => {
+        const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
+        if (item) pp += priceOverrides[item.key] !== undefined ? priceOverrides[item.key] : item.price;
+      });
+      if (pp > 0) {
+        const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest'));
+        const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
+        callQuoteTotal = guestCount > 0
+          ? { text: `£${(pp * guestCount).toLocaleString()}`, sub: `${guestCount} guests` }
+          : { text: `£${pp}pp`, sub: 'per person' };
+      }
+    }
+
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} quoteTotal={callQuoteTotal}>
         {renderCallScreen()}
       </PageShell>
     );
@@ -2624,7 +2641,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
 // ── Page shell (nav + viewer banner) ─────────────────────────────────────────
 
-function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset }) {
+function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Viewer banner */}
@@ -2662,12 +2679,19 @@ function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onRese
               Back to site
             </button>
           )}
-          <button
-            onClick={onBookDemo}
-            className="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-full hover:bg-slate-700 transition-colors shadow-md"
-          >
-            Book a demo
-          </button>
+          {quoteTotal ? (
+            <div className="flex flex-col items-end px-5 py-2 bg-green-600 text-white rounded-full shadow-md transition-all duration-300">
+              <span className="text-lg font-black leading-tight">{quoteTotal.text}</span>
+              <span className="text-[10px] font-medium opacity-75 leading-tight">{quoteTotal.sub}</span>
+            </div>
+          ) : (
+            <button
+              onClick={onBookDemo}
+              className="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-full hover:bg-slate-700 transition-colors shadow-md"
+            >
+              Book a demo
+            </button>
+          )}
         </div>
       </nav>
 
