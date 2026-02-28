@@ -5,7 +5,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { transcript = [], fields = [], fieldValues = {}, niche = null } = req.body || {};
+  const { transcript = [], fields = [], fieldValues = {}, niche = null, menuItems = [] } = req.body || {};
   const KEY = process.env.OPENAI_API_KEY;
   if (!KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
 
@@ -29,13 +29,13 @@ export default async function handler(req, res) {
 "summary": 2-3 sentence plain-English summary of the call, mentioning the key details captured.
 "sms": a warm, professional ready-to-send SMS (max 160 chars) referencing specific details from the call.
 "email": object with "subject" (short email subject line) and "body" (a 3-4 paragraph follow-up email, professional and personalised to the call details, ending with a clear next-step CTA).
-"invoiceItems": array of up to 5 suggested invoice line items based on what was discussed. Each item: { "description": string, "qty": number, "rate": string (e.g. "£500 flat" or "£50/hr") }.
+"invoiceItems": array of suggested invoice line items based on what was discussed. For catering, create one line item per food course/category ordered (e.g. starters, mains, desserts) with qty as guest count and rate as total cost. Each item: { "description": string, "qty": number, "rate": string (e.g. "£1,600 (200 × £8pp)") }.
 
 Use the actual names, dates, venues and details from the transcript in every message. Keep tone warm and professional.`,
           },
           {
             role: 'user',
-            content: `Transcript:\n${txText}\n\nCaptured data:\n${fieldSummary}`,
+            content: `Transcript:\n${txText}\n\nCaptured data:\n${fieldSummary}${menuItems?.length ? `\n\nSelected menu items:\n${menuItems.join('\n')}` : ''}`,
           },
         ],
       }),

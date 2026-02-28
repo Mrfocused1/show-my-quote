@@ -443,6 +443,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
   // ── Menu checklist (catering niche) ──
   const [menuChecked, setMenuChecked]     = useState({}); // { itemKey: true }
+  const menuCheckedRef = useRef({});
   const [menuAmbiguous, setMenuAmbiguous] = useState([]); // [{ id, label, candidates, minPrice, maxPrice }]
 
   // ── Post-call analysis ──
@@ -644,7 +645,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         }
       }
 
-      if (modeRef.current === 'fill' && speaker === 'Client') {
+      if (modeRef.current === 'fill') {
         const ctx = txRef.current.slice(-4);
         const res = await fillFields(text, fieldsRef.current, ctx);
         if (res.fills?.length) {
@@ -672,6 +673,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           setMenuChecked(prev => {
             const next = { ...prev };
             toCheck.forEach(k => { next[k] = true; });
+            menuCheckedRef.current = next;
             return next;
           });
         }
@@ -907,12 +909,20 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       const r = await fetch('/api/demo-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript:  txRef.current,
-          fields:      fieldsRef.current,
-          fieldValues: fvRef.current,
-          niche:       nicheRef.current?.label || null,
-        }),
+        // Build menu summary for catering niche
+        body: (() => {
+          const checkedMenuItems = Object.keys(menuCheckedRef.current).map(key => {
+            const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
+            return item ? `${item.name} (£${item.price}pp)` : null;
+          }).filter(Boolean);
+          return JSON.stringify({
+            transcript:  txRef.current,
+            fields:      fieldsRef.current,
+            fieldValues: fvRef.current,
+            niche:       nicheRef.current?.label || null,
+            menuItems:   checkedMenuItems,
+          });
+        })(),
       });
       if (r.ok) {
         const data = await r.json();
@@ -950,7 +960,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFields(seed); fieldsRef.current = seed;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    setMenuChecked({}); setMenuAmbiguous([]);
+    setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [] });
@@ -963,7 +973,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFields(tpl); fieldsRef.current = tpl;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    setMenuChecked({}); setMenuAmbiguous([]);
+    setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [] });
@@ -1034,7 +1044,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setCA(false); setCS(0); setRec(null);
     setMF([]); setML(''); setMT('text'); setAM(false);
     setSaveName(''); setFormSaved(false);
-    setMenuChecked({}); setMenuAmbiguous([]);
+    setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
@@ -1110,7 +1120,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                     <button
                       key={c.key}
                       onClick={() => {
-                        setMenuChecked(prev => ({ ...prev, [c.key]: true }));
+                        setMenuChecked(prev => { const next = { ...prev, [c.key]: true }; menuCheckedRef.current = next; return next; });
                         setMenuAmbiguous(prev => prev.filter(a => a.id !== amb.id));
                       }}
                       className="text-xs px-2.5 py-1 bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-100 transition-colors font-medium"
@@ -1160,6 +1170,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                                 const next = { ...prev };
                                 if (next[item.key]) delete next[item.key];
                                 else next[item.key] = true;
+                                menuCheckedRef.current = next;
                                 return next;
                               })}
                               className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all duration-200 ${
@@ -2191,6 +2202,74 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                 </button>
               </div>
             )}
+
+            {/* Catering quote — built from live menu checklist */}
+            {niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0 && (() => {
+              const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest'));
+              const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
+
+              // Group checked items by section
+              const lineItems = [];
+              let grandMin = 0, grandMax = 0;
+              DEOSA_MENU.forEach(cg => {
+                cg.sections.forEach(section => {
+                  const checkedInSection = section.items.filter(i => menuChecked[i.key]);
+                  if (!checkedInSection.length) return;
+                  checkedInSection.forEach(item => {
+                    const lineTotal = section.price * guestCount;
+                    grandMin += section.price;
+                    grandMax += section.price;
+                    lineItems.push({
+                      name: item.name,
+                      cuisine: cg.cuisine,
+                      section: section.name,
+                      pricePerPerson: section.price,
+                      lineTotal: guestCount > 0 ? lineTotal : null,
+                    });
+                  });
+                });
+              });
+              const grandPP = grandMin;
+              const grandTotal = guestCount > 0 ? grandPP * guestCount : null;
+
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-green-600" />
+                      <h3 className="text-sm font-bold text-slate-700">Menu Quote</h3>
+                    </div>
+                    {grandTotal && (
+                      <div className="text-right">
+                        <div className="text-lg font-black text-green-600">£{grandTotal.toLocaleString()}</div>
+                        <div className="text-[10px] text-slate-400">
+                          {guestCount} guests × £{grandPP}pp
+                        </div>
+                      </div>
+                    )}
+                    {!grandTotal && (
+                      <div className="text-sm font-bold text-green-600">£{grandPP}pp</div>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {lineItems.map((li, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
+                        <div className="flex-1 min-w-0">
+                          <div className="text-sm text-slate-800">{li.name}</div>
+                          <div className="text-xs text-slate-400">{li.cuisine} · {li.section} · £{li.pricePerPerson}pp</div>
+                        </div>
+                        <div className="text-sm font-bold text-slate-900 ml-4 flex-shrink-0">
+                          {li.lineTotal != null ? `£${li.lineTotal.toLocaleString()}` : `£${li.pricePerPerson}pp`}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {!guestCount && (
+                    <div className="mt-3 text-xs text-slate-400 italic">Add guest count to see total</div>
+                  )}
+                </div>
+              );
+            })()}
 
             {/* Invoice items */}
             {analysis?.invoiceItems?.length > 0 && (
