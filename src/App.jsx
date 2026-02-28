@@ -222,6 +222,40 @@ const STATUS_STYLES = {
   'Quote Sent': 'bg-green-100 text-green-800',
 };
 
+// --- TOUR ---
+const TOUR_STEPS = [
+  { view: 'dashboard', title: 'Your dashboard',   desc: "At a glance — today's calls, pipeline value, and open quotes. Updates every time a call ends." },
+  { view: 'calls',     title: 'Call log',         desc: 'Every call, recorded and transcribed. Tap any entry to read the full conversation and the quote it generated.' },
+  { view: 'quotes',    title: 'Quotes',           desc: 'Your full enquiry pipeline. Every call creates a quote automatically — no typing, no follow-up admin.' },
+  { view: 'templates', title: 'Templates',        desc: "Your intake form, built for your business. We configure this for you — every question you'd normally ask on a call." },
+];
+
+function TourCard({ step, onNext, onClose }) {
+  const s = TOUR_STEPS[step];
+  const isLast = step === TOUR_STEPS.length - 1;
+  return (
+    <div className="fixed bottom-6 right-6 z-50 w-72 bg-white rounded-2xl shadow-2xl border border-slate-200 p-5" style={{ animation: 'popIn 0.25s ease' }}>
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Step {step + 1} of {TOUR_STEPS.length}</span>
+        </div>
+        <button onClick={onClose} className="text-slate-300 hover:text-slate-600 transition-colors -mt-0.5">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+      <h3 className="font-black text-slate-900 mb-1.5">{s.title}</h3>
+      <p className="text-sm text-slate-500 leading-relaxed mb-4">{s.desc}</p>
+      <button
+        onClick={onNext}
+        className="w-full py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors flex items-center justify-center gap-2"
+      >
+        {isLast ? <><Check className="w-4 h-4" /> Done</> : <>Next <ArrowRight className="w-4 h-4" /></>}
+      </button>
+    </div>
+  );
+}
+
 // --- MAIN APP ---
 // ─── Phone Dialer ─────────────────────────────────────────────────────────────
 function PhoneDialer({ onClose, navigateTo }) {
@@ -450,11 +484,12 @@ function PhoneDialer({ onClose, navigateTo }) {
   );
 }
 
-export default function GetMyQuoteApp({ onHome }) {
+export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeRecord, setActiveRecord] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
   const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
   const [smsBadge, setSmsBadge] = useState(0);
   const [notifPermission, setNotifPermission] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
@@ -466,6 +501,18 @@ export default function GetMyQuoteApp({ onHome }) {
     setActiveRecord(record);
     setSidebarOpen(false);
     if (view === 'sms-inbox') setSmsBadge(0);
+  };
+
+  const handleTourNext = () => {
+    if (tourStep < TOUR_STEPS.length - 1) {
+      const next = tourStep + 1;
+      setTourStep(next);
+      setCurrentView(TOUR_STEPS[next].view);
+      setActiveRecord(null);
+      setSidebarOpen(false);
+    } else {
+      setTourStep(null);
+    }
   };
 
   const requestNotifPermission = async () => {
@@ -549,7 +596,7 @@ export default function GetMyQuoteApp({ onHome }) {
 
   return (
     <div className="flex h-screen bg-white text-slate-800 font-sans antialiased overflow-hidden">
-      <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} smsBadge={smsBadge} />
+      <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} smsBadge={smsBadge} tourStep={tourStep} />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
         <header className="h-14 border-b border-slate-200 flex items-center px-3 md:px-6 justify-between bg-white/80 backdrop-blur-sm z-10">
@@ -596,6 +643,11 @@ export default function GetMyQuoteApp({ onHome }) {
       </div>
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} />}
+
+      {/* Dashboard tour card */}
+      {tourStep !== null && (
+        <TourCard step={tourStep} onNext={handleTourNext} onClose={() => setTourStep(null)} />
+      )}
 
       {/* Notification permission banner */}
       {notifPermission === 'default' && (
@@ -6008,7 +6060,7 @@ function SmsInboxView() {
 }
 
 // --- SIDEBAR ---
-function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0 }) {
+function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0, tourStep = null }) {
   const navGroups = [
     {
       title: 'Workspace',
@@ -6046,7 +6098,9 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
           <div key={i} className="mb-6 px-2">
             <div className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{group.title}</div>
             <div className="space-y-0.5">
-              {group.items.map(item => (
+              {group.items.map(item => {
+                const isTourItem = tourStep !== null && TOUR_STEPS[tourStep]?.view === item.id;
+                return (
                 <button
                   key={item.id}
                   onClick={() => navigateTo(item.id)}
@@ -6054,7 +6108,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
                     currentView === item.id
                       ? 'bg-slate-200/60 text-slate-900 font-medium'
                       : 'text-slate-600 hover:bg-slate-200/40 hover:text-slate-900'
-                  }`}
+                  }${isTourItem ? ' ring-2 ring-green-400 ring-offset-1' : ''}`}
                 >
                   <item.icon className={`w-4 h-4 mr-3 ${currentView === item.id ? 'text-slate-800' : 'text-slate-400'}`} />
                   <span className="flex-1 text-left truncate">{item.label}</span>
@@ -6062,7 +6116,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
                     <span className="bg-slate-800 text-white text-[10px] px-1.5 py-0.5 rounded ml-2 font-medium">{item.badge}</span>
                   )}
                 </button>
-              ))}
+              ); })}
             </div>
           </div>
         ))}

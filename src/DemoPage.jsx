@@ -99,6 +99,7 @@ const TEMPLATE_FORMS = {
     { key: 'dietary',  label: 'Dietary Requirements',   type: 'long-text' },
     { key: 'bar',      label: 'Bar Package',            type: 'select', options: ['Open Bar', 'Wine & Beer', 'Soft Drinks Only', 'No Bar'] },
     { key: 'evening',  label: 'Evening Food',           type: 'text' },
+    { key: 'menu_selection', label: 'Menu', type: 'menu-checklist' },
   ],
   'wedding-venue': [
     { key: 'date',     label: 'Event Date',     type: 'date' },
@@ -141,6 +142,212 @@ const TEMPLATE_FORMS = {
   ],
 };
 
+// ── De'Osa Menu Data ──────────────────────────────────────────────────────────
+
+const DEOSA_MENU = [
+  {
+    cuisine: 'Nigerian Cuisine',
+    sections: [
+      {
+        name: 'Starters', price: 8,
+        items: [
+          { key: 'ng_st_puff_puff',      name: 'Puff Puff',                           keywords: ['puff puff'] },
+          { key: 'ng_st_moyin',           name: 'Moyin Moyin',                         keywords: ['moyin moyin', 'moin moin'] },
+          { key: 'ng_st_gizzard',         name: 'Spicy Gizzard',                       keywords: ['gizzard'] },
+          { key: 'ng_st_kebab',           name: 'Spicy Shish Kebab',                   keywords: ['shish kebab', 'kebab'] },
+          { key: 'ng_st_plantain_salmon', name: 'Plantain & Smoked Salmon Sticks',     keywords: ['smoked salmon', 'salmon sticks'] },
+          { key: 'ng_st_pepper_soup',     name: 'Assorted Meat / Fish Pepper Soup',    keywords: ['pepper soup'] },
+          { key: 'ng_st_spring_rolls',    name: 'Spring Rolls with Sauce',             keywords: ['spring rolls', 'spring roll'] },
+          { key: 'ng_st_ugba',            name: 'Fermented Oil Bean Seed (Ugba)',      keywords: ['ugba', 'oil bean'] },
+          { key: 'ng_st_king_prawns',     name: 'Crispy Breaded King Prawns',          keywords: ['king prawns', 'breaded prawns'] },
+          { key: 'ng_st_prawns_lettuce',  name: 'Cooked Prawns on Lettuce',            keywords: ['prawns on lettuce'] },
+          { key: 'ng_st_wings',           name: 'Chicken Wings with BBQ Sauce',        keywords: ['chicken wings', 'bbq wings'] },
+        ],
+      },
+      {
+        name: 'Mains', price: 22,
+        items: [
+          { key: 'ng_mn_jollof',     name: 'Jollof / Fried / Coconut / White Rice',                 keywords: ['jollof rice', 'fried rice', 'coconut rice', 'white rice', 'jollof'] },
+          { key: 'ng_mn_soups',      name: 'Egusi / Eforiro / Ewedu / Ogbono / Edikaikong / Banga', keywords: ['egusi', 'eforiro', 'ewedu', 'ogbono', 'edikaikong', 'banga soup', 'banga'] },
+          { key: 'ng_mn_swallow',    name: 'Semolina / Pounded Yam / Garri / Amala',                keywords: ['semolina', 'pounded yam', 'garri', 'amala', 'swallow'] },
+          { key: 'ng_mn_roasted',    name: 'Roasted Potatoes with Lamb / Chicken / Turkey',         keywords: ['roasted potatoes', 'roasted lamb', 'roasted turkey'] },
+          { key: 'ng_mn_yam_omelet', name: 'Boiled Yam and Omelette',                               keywords: ['boiled yam', 'yam omelette'] },
+          { key: 'ng_mn_dodo_omelet',name: 'Dodo (Fried Plantain) with Omelette',                   keywords: ['dodo omelette', 'plantain omelette'] },
+          { key: 'ng_mn_asaro',      name: 'Asaro (Yam Porridge) and Dodo',                         keywords: ['asaro', 'yam porridge'] },
+        ],
+      },
+      {
+        name: 'Desserts', price: 7,
+        items: [
+          { key: 'ng_ds_fruit_salad',  name: 'Fresh Tropical Fruit Salad', keywords: ['fruit salad', 'tropical fruit'] },
+          { key: 'ng_ds_banana_cake',  name: 'Banana Cake and Ice Cream',  keywords: ['banana cake ice cream'] },
+          { key: 'ng_ds_choc_gateau',  name: 'Chocolate Gateau',           keywords: ['gateau', 'chocolate gateau'] },
+          { key: 'ng_ds_apple_pie',    name: 'Apple Pie with Ice Cream',   keywords: ['apple pie'] },
+        ],
+      },
+    ],
+  },
+  {
+    cuisine: 'Ghanaian Cuisine',
+    sections: [
+      {
+        name: 'Mains', price: 22,
+        items: [
+          { key: 'gh_mn_banku',    name: 'Banku with Okro Soup',             keywords: ['banku', 'okro soup'] },
+          { key: 'gh_mn_kelewele', name: 'Kelewele (Spiced Fried Plantain)', keywords: ['kelewele'] },
+          { key: 'gh_mn_fufu',     name: 'Fufu with Groundnut Soup',         keywords: ['ghanaian fufu', 'fufu groundnut'] },
+          { key: 'gh_mn_jollof',   name: 'Jollof Rice (Ghanaian)',           keywords: ['ghanaian jollof', 'ghana jollof'] },
+          { key: 'gh_mn_kenkey',   name: 'Kenkey',                           keywords: ['kenkey'] },
+          { key: 'gh_mn_omo_tuo',  name: 'Omo Tuo (Mashed Rice Balls)',      keywords: ['omo tuo'] },
+          { key: 'gh_mn_waakye',   name: 'Waakye (Rice and Beans)',          keywords: ['waakye'] },
+          { key: 'gh_mn_ampesi',   name: "Yam Ampesi with Dosa Sauce",       keywords: ['yam ampesi', 'ampesi'] },
+          { key: 'gh_mn_shito',    name: 'Shito Chicken Stew / Curry',       keywords: ['shito'] },
+          { key: 'gh_mn_goat',     name: 'Goat Curry / Beef Stew / Curry',   keywords: ['goat curry', 'beef stew', 'beef curry'] },
+          { key: 'gh_mn_fish',     name: 'Fish Stew / Red Snapper / Tilapia',keywords: ['red snapper', 'tilapia', 'fish curry'] },
+        ],
+      },
+    ],
+  },
+  {
+    cuisine: 'Sierra Leonean Cuisine',
+    sections: [
+      {
+        name: 'Mains', price: 22,
+        items: [
+          { key: 'sl_mn_jollof',     name: 'Jollof Rice & Stew (Sierra Leonean)', keywords: ['sierra leonean jollof', 'sierra leone jollof'] },
+          { key: 'sl_mn_fried_rice', name: 'Boneless Chicken / Seafood Fried Rice',keywords: ['seafood fried rice', 'chicken fried rice'] },
+          { key: 'sl_mn_rice_sticks',name: 'Rice Sticks',                          keywords: ['rice sticks'] },
+          { key: 'sl_mn_groundnut',  name: 'Groundnut Stew with Steamed Rice',     keywords: ['groundnut stew'] },
+          { key: 'sl_mn_cassava',    name: 'Cassava Leaves with Meat / Fish',      keywords: ['cassava leaves'] },
+          { key: 'sl_mn_crain',      name: 'Crain Crain with Meat / Fish',         keywords: ['crain crain'] },
+          { key: 'sl_mn_potato',     name: 'Potato Leaves with Meat / Fish',       keywords: ['potato leaves'] },
+          { key: 'sl_mn_palm_oil',   name: 'Red Palm Oil Stew with Check Rice',    keywords: ['palm oil stew', 'check rice'] },
+          { key: 'sl_mn_fufu',       name: 'Fufu with Choice of Soup',             keywords: ['sierra fufu', 'fufu palm oil'] },
+        ],
+      },
+    ],
+  },
+  {
+    cuisine: 'Caribbean Cuisine',
+    sections: [
+      {
+        name: 'Mains', price: 20,
+        items: [
+          { key: 'cb_mn_jerk_chicken',  name: 'Jerk Chicken',           keywords: ['jerk chicken'] },
+          { key: 'cb_mn_jerk_wings',    name: 'Jerk Chicken Wings',     keywords: ['jerk chicken wings', 'jerk wings'] },
+          { key: 'cb_mn_jerk_pork',     name: 'Jerk Pork',              keywords: ['jerk pork'] },
+          { key: 'cb_mn_curried',       name: 'Curried Chicken',        keywords: ['curried chicken', 'curry chicken'] },
+          { key: 'cb_mn_brown_chicken', name: 'Brown Stew Chicken',     keywords: ['brown stew chicken'] },
+          { key: 'cb_mn_oxtail',        name: 'Oxtail',                 keywords: ['oxtail'] },
+          { key: 'cb_mn_pepper_steak',  name: 'Pepper Steak',           keywords: ['pepper steak'] },
+          { key: 'cb_mn_curry_goat',    name: 'Curry Goat',             keywords: ['curry goat'] },
+          { key: 'cb_mn_stew_shrimp',   name: 'Stew Shrimp',            keywords: ['stew shrimp', 'shrimp stew'] },
+          { key: 'cb_mn_brown_fish',    name: 'Brown Stew Fish',        keywords: ['brown stew fish', 'stew fish'] },
+          { key: 'cb_mn_escovitch',     name: 'Escovitch Fish',         keywords: ['escovitch'] },
+          { key: 'cb_mn_curry_shrimp',  name: 'Curry Shrimp',          keywords: ['curry shrimp'] },
+        ],
+      },
+      {
+        name: 'Specials', price: 24,
+        items: [
+          { key: 'cb_sp_callaloo', name: 'Callaloo',        keywords: ['callaloo'] },
+          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee'] },
+        ],
+      },
+      {
+        name: 'Sides', price: 5,
+        items: [
+          { key: 'cb_sd_plantains', name: 'Plantains',      keywords: ['caribbean plantain', 'rice and peas plantain'] },
+          { key: 'cb_sd_dumpling',  name: 'Fried Dumpling', keywords: ['fried dumpling', 'dumpling'] },
+          { key: 'cb_sd_wings',     name: 'Wings (Side)',   keywords: ['wings side'] },
+        ],
+      },
+      {
+        name: 'Desserts', price: 7,
+        items: [
+          { key: 'cb_ds_rum_cake',  name: 'Rum Cake',        keywords: ['rum cake'] },
+          { key: 'cb_ds_banana',    name: 'Banana Cake',     keywords: ['banana cake'] },
+          { key: 'cb_ds_choc_cake', name: 'Chocolate Cake',  keywords: ['chocolate cake'] },
+          { key: 'cb_ds_ice_cream', name: 'Ice Creams',      keywords: ['ice cream'] },
+        ],
+      },
+    ],
+  },
+  {
+    cuisine: 'Luxury Canapés',
+    sections: [
+      {
+        name: 'Canapés', price: 4,
+        items: [
+          { key: 'cn_ackee_vol',     name: 'Ackee & Saltfish Vol au Vent',       keywords: ['vol au vent', 'ackee vol'] },
+          { key: 'cn_jerk_skewer',   name: 'Jerk Chicken Skewer & Plantain',     keywords: ['jerk skewer', 'chicken skewer'] },
+          { key: 'cn_yam_plantain',  name: 'Fried Yam and Plantain Mix',         keywords: ['fried yam plantain', 'yam plantain mix'] },
+          { key: 'cn_spring_rolls',  name: 'Spring Rolls with Sweet Chilli',     keywords: ['sweet chilli spring rolls', 'sweet chilli'] },
+          { key: 'cn_king_prawns',   name: 'Crispy Breaded King Prawns (Canapé)',keywords: ['crispy king prawns', 'canapé prawns'] },
+          { key: 'cn_fish_chips',    name: 'Mini British Fish and Chips',        keywords: ['fish and chips', 'mini fish'] },
+          { key: 'cn_prawns_lettuce',name: 'Cooked Prawns on Lettuce (Canapé)', keywords: ['canapé prawns lettuce'] },
+          { key: 'cn_wings_canape',  name: 'Chicken Wings BBQ (Canapé)',         keywords: ['canapé wings'] },
+          { key: 'cn_butter_chicken',name: 'Crispy Chicken in Butter Mayonnaise',keywords: ['butter mayonnaise', 'butter chicken crispy'] },
+          { key: 'cn_gizzard_plantain',name:'Spicy Gizzard & Diced Plantains',  keywords: ['gizzard plantain', 'gizzard diced'] },
+          { key: 'cn_mini_burgers',  name: 'Mini Burgers',                       keywords: ['mini burgers', 'sliders'] },
+          { key: 'cn_meat_pies',     name: 'Mini Mixed Meat Pies',               keywords: ['meat pies', 'mini pies'] },
+          { key: 'cn_patties',       name: 'Mini Mixed Patties',                 keywords: ['patties', 'mini patties'] },
+          { key: 'cn_puff_puff_bite',name: 'Puff Puff Bites (Canapé)',          keywords: ['puff puff bites'] },
+        ],
+      },
+    ],
+  },
+];
+
+// Flat array for fast lookup
+const DEOSA_ALL_ITEMS = DEOSA_MENU.flatMap(cg =>
+  cg.sections.flatMap(s =>
+    s.items.map(item => ({ ...item, cuisine: cg.cuisine, section: s.name, price: s.price }))
+  )
+);
+
+// Detect food items mentioned in a transcript line
+// Returns { toCheck: [key], toAmbiguous: [{id, label, candidates, minPrice, maxPrice}] }
+function detectFoodInText(text) {
+  const lower = text.toLowerCase();
+  // Map from keyword → array of matching items
+  const kwMatches = new Map();
+  for (const item of DEOSA_ALL_ITEMS) {
+    for (const kw of item.keywords) {
+      if (lower.includes(kw)) {
+        if (!kwMatches.has(kw)) kwMatches.set(kw, []);
+        kwMatches.get(kw).push(item);
+        break; // only match once per item per keyword
+      }
+    }
+  }
+  const toCheck = [];
+  const toAmbiguous = [];
+  const resolvedKeys = new Set();
+
+  // Sort by keyword length descending (longer = more specific = higher priority)
+  const entries = [...kwMatches.entries()].sort((a, b) => b[0].length - a[0].length);
+  for (const [kw, items] of entries) {
+    const fresh = items.filter(i => !resolvedKeys.has(i.key));
+    if (!fresh.length) continue;
+    if (fresh.length === 1) {
+      toCheck.push(fresh[0].key);
+      resolvedKeys.add(fresh[0].key);
+    } else {
+      const prices = fresh.map(i => i.price);
+      toAmbiguous.push({
+        id: `amb_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+        label: kw,
+        candidates: fresh,
+        minPrice: Math.min(...prices),
+        maxPrice: Math.max(...prices),
+      });
+      fresh.forEach(i => resolvedKeys.add(i.key));
+    }
+  }
+  return { toCheck, toAmbiguous };
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function generateCode() {
@@ -178,7 +385,7 @@ function dedupFields(newFields, existingLabels) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DemoPage({ onHome, onBookDemo }) {
+export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
   const watchCode = params.get('watch');
@@ -233,6 +440,10 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
   // ── Dialpad ──
   const [dialNumber, setDialNum] = useState('');
+
+  // ── Menu checklist (catering niche) ──
+  const [menuChecked, setMenuChecked]     = useState({}); // { itemKey: true }
+  const [menuAmbiguous, setMenuAmbiguous] = useState([]); // [{ id, label, candidates, minPrice, maxPrice }]
 
   // ── Post-call analysis ──
   const [analysis,  setAnalysis]  = useState(null);
@@ -451,6 +662,21 @@ export default function DemoPage({ onHome, onBookDemo }) {
           }
         } else {
           broadcast({ transcript: txRef.current });
+        }
+      }
+
+      // ── Live food detection for catering niche ────────────────────────────
+      if (speaker === 'Client' && nicheRef.current?.id === 'wedding-catering') {
+        const { toCheck, toAmbiguous } = detectFoodInText(text);
+        if (toCheck.length) {
+          setMenuChecked(prev => {
+            const next = { ...prev };
+            toCheck.forEach(k => { next[k] = true; });
+            return next;
+          });
+        }
+        if (toAmbiguous.length) {
+          setMenuAmbiguous(prev => [...prev, ...toAmbiguous]);
         }
       }
 
@@ -724,6 +950,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields(seed); fieldsRef.current = seed;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
+    setMenuChecked({}); setMenuAmbiguous([]);
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [] });
@@ -736,6 +963,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields(tpl); fieldsRef.current = tpl;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
+    setMenuChecked({}); setMenuAmbiguous([]);
     setDialNum('');
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [] });
@@ -806,6 +1034,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setCA(false); setCS(0); setRec(null);
     setMF([]); setML(''); setMT('text'); setAM(false);
     setSaveName(''); setFormSaved(false);
+    setMenuChecked({}); setMenuAmbiguous([]);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
@@ -821,8 +1050,145 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
+  // ── Menu checklist renderer (catering niche) ──────────────────────────────
+  const renderMenuChecklist = (f) => {
+    const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest'));
+    const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
+
+    // Compute running total
+    let minPP = 0, maxPP = 0;
+    Object.keys(menuChecked).forEach(key => {
+      const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
+      if (item) { minPP += item.price; maxPP += item.price; }
+    });
+    menuAmbiguous.forEach(amb => { minPP += amb.minPrice; maxPP += amb.maxPrice; });
+    const minTotal = minPP * guestCount;
+    const maxTotal = maxPP * guestCount;
+    const checkedCount = Object.keys(menuChecked).length;
+    const isRange = minTotal !== maxTotal;
+
+    return (
+      <div key={f.key} className="bg-white rounded-xl border border-slate-200 overflow-hidden" style={{ animation: 'slideUp 0.3s ease forwards' }}>
+        {/* Header */}
+        <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Menu Selection</label>
+          <div className="flex items-center gap-3">
+            {checkedCount > 0 && (
+              <span className="text-[10px] text-slate-400">{checkedCount} item{checkedCount !== 1 ? 's' : ''}</span>
+            )}
+            {(checkedCount > 0 || menuAmbiguous.length > 0) && guestCount > 0 && (
+              <div className={`text-sm font-black ${isRange ? 'text-amber-600' : 'text-green-600'}`}>
+                {isRange
+                  ? `£${minTotal.toLocaleString()} – £${maxTotal.toLocaleString()}`
+                  : `£${minTotal.toLocaleString()}`}
+                <span className="text-[10px] font-normal text-slate-400 ml-1">est.</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Ambiguous items needing clarification */}
+        {menuAmbiguous.length > 0 && (
+          <div className="px-4 py-3 bg-amber-50 border-b border-amber-100">
+            <div className="text-[10px] font-bold text-amber-600 uppercase tracking-wider mb-2">Needs clarification</div>
+            {menuAmbiguous.map(amb => (
+              <div key={amb.id} className="mb-2 last:mb-0">
+                <div className="text-xs font-semibold text-amber-800 mb-1.5">
+                  "{amb.label}"
+                  {amb.minPrice === amb.maxPrice
+                    ? ` — £${amb.minPrice}pp`
+                    : ` — £${amb.minPrice}–£${amb.maxPrice}pp`}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {amb.candidates.map(c => (
+                    <button
+                      key={c.key}
+                      onClick={() => {
+                        setMenuChecked(prev => ({ ...prev, [c.key]: true }));
+                        setMenuAmbiguous(prev => prev.filter(a => a.id !== amb.id));
+                      }}
+                      className="text-xs px-2.5 py-1 bg-white border border-amber-300 text-amber-800 rounded-lg hover:bg-amber-100 transition-colors font-medium"
+                    >
+                      {c.cuisine.split(' ')[0]}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setMenuAmbiguous(prev => prev.filter(a => a.id !== amb.id))}
+                    className="text-xs px-2 py-1 text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    dismiss
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Categorised checklist */}
+        <div className="max-h-72 overflow-y-auto divide-y divide-slate-100">
+          {DEOSA_MENU.map(cg => {
+            const cuisineChecked = cg.sections.some(s => s.items.some(i => menuChecked[i.key]));
+            return (
+              <details key={cg.cuisine} className="group" open={cuisineChecked}>
+                <summary className="px-4 py-2.5 flex items-center justify-between cursor-pointer hover:bg-slate-50 select-none list-none">
+                  <div className="flex items-center gap-2">
+                    {cuisineChecked && <div className="w-1.5 h-1.5 rounded-full bg-green-500" />}
+                    <span className="text-xs font-semibold text-slate-700">{cg.cuisine}</span>
+                  </div>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 transition-transform group-open:rotate-180 flex-shrink-0" />
+                </summary>
+                <div className="px-4 pb-3 space-y-3">
+                  {cg.sections.map(section => (
+                    <div key={section.name}>
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{section.name}</span>
+                        <span className="text-[10px] text-slate-300">£{section.price}pp</span>
+                      </div>
+                      <div className="space-y-1">
+                        {section.items.map(item => {
+                          const isChecked = !!menuChecked[item.key];
+                          return (
+                            <button
+                              key={item.key}
+                              onClick={() => setMenuChecked(prev => {
+                                const next = { ...prev };
+                                if (next[item.key]) delete next[item.key];
+                                else next[item.key] = true;
+                                return next;
+                              })}
+                              className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left transition-all duration-200 ${
+                                isChecked ? 'bg-green-50 border border-green-200' : 'hover:bg-slate-50'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded flex-shrink-0 flex items-center justify-center border transition-all ${
+                                isChecked ? 'bg-green-500 border-green-500' : 'border-slate-300'
+                              }`}>
+                                {isChecked && <Check className="w-2.5 h-2.5 text-white" />}
+                              </div>
+                              <span className={`flex-1 text-xs truncate ${isChecked ? 'text-green-800 font-medium' : 'text-slate-600'}`}>
+                                {item.name}
+                              </span>
+                              <span className={`text-[10px] flex-shrink-0 ${isChecked ? 'text-green-600 font-semibold' : 'text-slate-400'}`}>
+                                £{item.price}pp
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   // Field display for the call panel (used in both build + fill modes)
   const renderField = (f) => {
+    if (f.type === 'menu-checklist') return renderMenuChecklist(f);
     const val    = fieldValues[f.key];
     const filled = val !== undefined && val !== '' && val !== null && val !== false;
     const isHl   = lastFilled === f.key || lastAdded === f.label;
@@ -1463,7 +1829,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     };
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
         <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F7F5] px-4 py-10 gap-4">
 
           {/* Context card */}
@@ -1569,7 +1935,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     if (!callActive && !isViewer) {
       // Start call screen
       return (
-        <PageShell onHome={onHome} onBookDemo={onBookDemo}>
+        <PageShell onHome={onHome} onBookDemo={onBookDemo} onReset={reset}>
           <div className="flex-1 flex items-center justify-center bg-[#F7F7F5]">
             <div className="text-center">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-5">
@@ -1594,7 +1960,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     }
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
         {renderCallScreen()}
       </PageShell>
     );
@@ -1604,7 +1970,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     const filledCount = fields.filter(f => fieldValues[f.key] !== undefined && fieldValues[f.key] !== '').length;
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-2xl mx-auto">
 
@@ -1897,6 +2263,18 @@ export default function DemoPage({ onHome, onBookDemo }) {
               </div>
             )}
 
+            {/* Enter dashboard */}
+            {!isViewer && onEnterApp && (
+              <button
+                onClick={onEnterApp}
+                className="w-full flex items-center justify-center gap-2 bg-green-600 text-white py-4 rounded-2xl text-sm font-bold hover:bg-green-700 transition-colors mb-4 shadow-sm"
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Explore the full dashboard
+                <ArrowRight className="w-4 h-4" />
+              </button>
+            )}
+
             {/* CTA */}
             <div className="bg-slate-900 rounded-2xl p-6 text-center mb-4">
               <h3 className="text-white font-black text-lg mb-2">Want this in your business?</h3>
@@ -1912,7 +2290,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
             {!isViewer && (
               <div className="flex justify-center">
                 <button onClick={reset} className="text-sm text-slate-400 hover:text-slate-700 transition-colors underline underline-offset-2">
-                  Start over
+                  ↺ New demo
                 </button>
               </div>
             )}
@@ -1924,7 +2302,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
   // Fallback for viewer receiving partial state mid-session
   return (
-    <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode}>
+    <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
       <div className="flex-1 flex items-center justify-center bg-[#F7F7F5]">
         <Loader2 className="w-6 h-6 text-slate-400 animate-spin" />
       </div>
@@ -1934,7 +2312,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
 
 // ── Page shell (nav + viewer banner) ─────────────────────────────────────────
 
-function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode }) {
+function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Viewer banner */}
@@ -1959,6 +2337,14 @@ function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode }) {
           <img src="/logo.svg" alt="Show My Quote" className="h-12 w-auto" />
         </button>
         <div className="flex items-center gap-3">
+          {!isViewer && onReset && (
+            <button
+              onClick={onReset}
+              className="hidden md:flex items-center gap-1.5 px-4 py-2 text-sm text-slate-500 hover:text-slate-900 border border-slate-200 hover:border-slate-400 rounded-full transition-colors"
+            >
+              ↺ New demo
+            </button>
+          )}
           {!isViewer && (
             <button onClick={onHome} className="hidden md:inline-flex px-4 py-2 text-sm text-slate-500 hover:text-slate-900 transition-colors">
               Back to site

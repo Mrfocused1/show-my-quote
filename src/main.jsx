@@ -14,18 +14,20 @@ const initialPage = window.location.pathname === '/demo' ? 'demo' : 'home'
 function Root() {
   const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo'
   const [pendingSection, setPendingSection] = useState(null)
+  const [tourMode, setTourMode] = useState(false)
 
   const goHome = (sectionId) => {
     setPendingSection(sectionId || null)
+    setTourMode(false)
     setPage('home')
   }
 
-  if (page === 'app')       return <App onHome={() => goHome()} />
+  if (page === 'app')       return <App onHome={() => goHome()} tourMode={tourMode} />
   if (page === 'book-demo') return <BookDemo  onHome={goHome} onEnterApp={() => setPage('sign-in')} />
   if (page === 'sign-in')   return <SignIn    onHome={goHome} onEnterApp={() => setPage('app')} />
   if (page === 'terms')     return <TermsPage onHome={() => goHome()} />
   if (page === 'privacy')   return <PrivacyPage onHome={() => goHome()} />
-  if (page === 'demo')      return <DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} />
+  if (page === 'demo')      return <DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} />
   return (
     <Homepage
       scrollTo={pendingSection}
