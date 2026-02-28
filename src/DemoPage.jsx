@@ -2039,6 +2039,182 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
               </div>
             )}
 
+            {/* Quote / Invoice */}
+            {(() => {
+              // Build line items — for catering use exact menu data, for others use AI quote
+              let lineItems = [];
+              let isExact = false;
+
+              if (niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0) {
+                // Exact pricing from live menu checklist
+                isExact = true;
+                DEOSA_MENU.forEach(cg => {
+                  cg.sections.forEach(section => {
+                    section.items.filter(i => menuChecked[i.key]).forEach(item => {
+                      lineItems.push({
+                        description: item.name,
+                        note: `${cg.cuisine} · ${section.name}`,
+                        qty: 1,
+                        unitPrice: section.price,
+                        perPerson: true,
+                      });
+                    });
+                  });
+                });
+              } else if (analysis?.quote?.lineItems?.length > 0) {
+                lineItems = analysis.quote.lineItems.map(li => ({
+                  description: li.description,
+                  note: li.note || null,
+                  qty: li.qty || 1,
+                  unitPrice: li.unitPrice || 0,
+                  perPerson: false,
+                }));
+              }
+
+              if (!lineItems.length && !analysing) return null;
+              if (!lineItems.length && analysing) return null;
+
+              // Compute totals
+              const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest') && !fl.label.toLowerCase().includes('children'));
+              const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
+
+              let subtotal = 0;
+              lineItems.forEach(li => {
+                subtotal += li.perPerson
+                  ? li.unitPrice * (guestCount || 1)
+                  : li.qty * li.unitPrice;
+              });
+
+              // Grab event details from fieldValues
+              const eventDateField = fields.find(fl => fl.label.toLowerCase().includes('date'));
+              const venueField = fields.find(fl => fl.label.toLowerCase().includes('venue'));
+              const eventDate = eventDateField ? fieldValues[eventDateField.key] : null;
+              const venue = venueField ? fieldValues[venueField.key] : null;
+
+              // Quote ref — simple incrementing based on session code
+              const quoteRef = `SMQ-${(sessionCode || 'DEMO').slice(0, 6)}`;
+              const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+
+              return (
+                <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden mb-5">
+                  {/* Quote header */}
+                  <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <FileText className="w-4 h-4 text-green-600" />
+                        <h3 className="text-sm font-bold text-slate-700">
+                          {isExact ? 'Quote Estimate' : 'Quote Estimate'}
+                        </h3>
+                        {isExact && (
+                          <span className="text-[10px] font-semibold bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Exact pricing</span>
+                        )}
+                      </div>
+                      <div className="text-[10px] text-slate-400">{quoteRef} · {today}</div>
+                    </div>
+                    {subtotal > 0 && (
+                      <div className="text-right">
+                        <div className="text-xl font-black text-green-600">
+                          £{subtotal.toLocaleString()}
+                        </div>
+                        {isExact && guestCount > 0 && (
+                          <div className="text-[10px] text-slate-400">{guestCount} guests</div>
+                        )}
+                        {isExact && !guestCount && (
+                          <div className="text-[10px] text-slate-400">+ guest count for total</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Event details strip */}
+                  {(eventDate || venue || (guestCount > 0)) && (
+                    <div className="px-6 py-3 bg-slate-50 border-b border-slate-100 flex flex-wrap gap-4">
+                      {eventDate && (
+                        <div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Event date</div>
+                          <div className="text-xs font-semibold text-slate-700">{String(eventDate)}</div>
+                        </div>
+                      )}
+                      {venue && (
+                        <div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Venue</div>
+                          <div className="text-xs font-semibold text-slate-700">{String(venue)}</div>
+                        </div>
+                      )}
+                      {guestCount > 0 && (
+                        <div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Guests</div>
+                          <div className="text-xs font-semibold text-slate-700">{guestCount}</div>
+                        </div>
+                      )}
+                      {niche?.label && (
+                        <div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Service</div>
+                          <div className="text-xs font-semibold text-slate-700">{niche.label}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Line items */}
+                  <div className="divide-y divide-slate-100">
+                    {lineItems.map((li, i) => {
+                      const lineTotal = li.perPerson
+                        ? li.unitPrice * (guestCount || 1)
+                        : li.qty * li.unitPrice;
+                      return (
+                        <div key={i} className="px-6 py-3 flex items-center justify-between">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm text-slate-800">{li.description}</div>
+                            {li.note && <div className="text-[10px] text-slate-400 mt-0.5">{li.note}</div>}
+                            {!li.perPerson && li.qty > 1 && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                {li.qty} × £{li.unitPrice.toLocaleString()}
+                              </div>
+                            )}
+                            {li.perPerson && (
+                              <div className="text-[10px] text-slate-400 mt-0.5">
+                                £{li.unitPrice}pp{guestCount > 0 ? ` × ${guestCount} guests` : ''}
+                              </div>
+                            )}
+                          </div>
+                          <div className="text-sm font-bold text-slate-900 ml-4 flex-shrink-0">
+                            {guestCount > 0 || !li.perPerson
+                              ? `£${lineTotal.toLocaleString()}`
+                              : `£${li.unitPrice}pp`}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Total row */}
+                  {subtotal > 0 && (
+                    <div className="px-6 py-4 border-t-2 border-slate-900 flex items-center justify-between">
+                      <div className="text-sm font-bold text-slate-900">
+                        {isExact ? 'Total estimate' : 'Total estimate'}
+                      </div>
+                      <div className="text-lg font-black text-slate-900">£{subtotal.toLocaleString()}</div>
+                    </div>
+                  )}
+
+                  {/* Footer note */}
+                  <div className="px-6 py-3 bg-slate-50 border-t border-slate-100">
+                    <div className="text-[10px] text-slate-400">
+                      {isExact
+                        ? `Prices based on De'Osa catering menu. Final quote subject to full menu confirmation.`
+                        : `Estimate based on call discussion. Final quote subject to written confirmation.`}
+                    </div>
+                    {!guestCount && isExact && (
+                      <div className="text-[10px] text-amber-500 mt-1">
+                        Guest count not captured — totals shown per person. Edit captured data above to add guest count.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Captured form data */}
             {fields.length > 0 && (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
@@ -2215,94 +2391,6 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
               </div>
             )}
 
-            {/* Catering quote — built from live menu checklist */}
-            {niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0 && (() => {
-              const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest'));
-              const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
-
-              // Group checked items by section
-              const lineItems = [];
-              let grandMin = 0, grandMax = 0;
-              DEOSA_MENU.forEach(cg => {
-                cg.sections.forEach(section => {
-                  const checkedInSection = section.items.filter(i => menuChecked[i.key]);
-                  if (!checkedInSection.length) return;
-                  checkedInSection.forEach(item => {
-                    const lineTotal = section.price * guestCount;
-                    grandMin += section.price;
-                    grandMax += section.price;
-                    lineItems.push({
-                      name: item.name,
-                      cuisine: cg.cuisine,
-                      section: section.name,
-                      pricePerPerson: section.price,
-                      lineTotal: guestCount > 0 ? lineTotal : null,
-                    });
-                  });
-                });
-              });
-              const grandPP = grandMin;
-              const grandTotal = guestCount > 0 ? grandPP * guestCount : null;
-
-              return (
-                <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-4 h-4 text-green-600" />
-                      <h3 className="text-sm font-bold text-slate-700">Menu Quote</h3>
-                    </div>
-                    {grandTotal && (
-                      <div className="text-right">
-                        <div className="text-lg font-black text-green-600">£{grandTotal.toLocaleString()}</div>
-                        <div className="text-[10px] text-slate-400">
-                          {guestCount} guests × £{grandPP}pp
-                        </div>
-                      </div>
-                    )}
-                    {!grandTotal && (
-                      <div className="text-sm font-bold text-green-600">£{grandPP}pp</div>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    {lineItems.map((li, i) => (
-                      <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                        <div className="flex-1 min-w-0">
-                          <div className="text-sm text-slate-800">{li.name}</div>
-                          <div className="text-xs text-slate-400">{li.cuisine} · {li.section} · £{li.pricePerPerson}pp</div>
-                        </div>
-                        <div className="text-sm font-bold text-slate-900 ml-4 flex-shrink-0">
-                          {li.lineTotal != null ? `£${li.lineTotal.toLocaleString()}` : `£${li.pricePerPerson}pp`}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  {!guestCount && (
-                    <div className="mt-3 text-xs text-slate-400 italic">Add guest count to see total</div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {/* Invoice items */}
-            {analysis?.invoiceItems?.length > 0 && (
-              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
-                <div className="flex items-center gap-2 mb-4">
-                  <FileText className="w-4 h-4 text-slate-500" />
-                  <h3 className="text-sm font-bold text-slate-700">Suggested invoice items</h3>
-                </div>
-                <div className="space-y-2">
-                  {analysis.invoiceItems.map((item, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-slate-100 last:border-0">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm text-slate-800">{item.description}</div>
-                        <div className="text-xs text-slate-400">Qty: {item.qty}</div>
-                      </div>
-                      <div className="text-sm font-bold text-slate-900 ml-4 flex-shrink-0">{item.rate}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Recording — presenter */}
             {recordingUrl && !isViewer && (

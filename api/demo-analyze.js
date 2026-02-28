@@ -29,7 +29,7 @@ export default async function handler(req, res) {
 "summary": 2-3 sentence plain-English summary of the call, mentioning the key details captured.
 "sms": a warm, professional ready-to-send SMS (max 160 chars) referencing specific details from the call.
 "email": object with "subject" (short email subject line) and "body" (a 3-4 paragraph follow-up email, professional and personalised to the call details, ending with a clear next-step CTA).
-"invoiceItems": array of suggested invoice line items based on what was discussed. For catering, create one line item per food course/category ordered (e.g. starters, mains, desserts) with qty as guest count and rate as total cost. Each item: { "description": string, "qty": number, "rate": string (e.g. "£1,600 (200 × £8pp)") }.
+"quote": object with "lineItems" (array of objects, each with "description" string, "qty" number, "unitPrice" number in GBP) and "total" (number, the sum of all qty*unitPrice). Generate 2-5 realistic line items based on what was discussed. Use realistic UK market pricing. For catering, base line items on the selected menu items if provided.
 
 Use the actual names, dates, venues and details from the transcript in every message. Keep tone warm and professional.`,
           },
