@@ -388,7 +388,7 @@ function dedupFields(newFields, existingLabels) {
 export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
-  const watchCode = params.get('watch');
+  const watchCode = params.get('w') || params.get('watch'); // 'w' is the short form
   const isViewer = !!watchCode;
 
   // ── Pusher config ──
@@ -1113,7 +1113,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   };
 
   // ── Share URL ─────────────────────────────────────────────────────────────
-  const shareUrl = sessionCode ? `${window.location.origin}/demo?watch=${sessionCode}` : '';
+  const shareUrl = sessionCode ? `${window.location.origin}/demo?w=${sessionCode}` : '';
   const copyShare = () => {
     navigator.clipboard.writeText(shareUrl).then(() => {
       setCopied(true); setTimeout(() => setCopied(false), 2000);
