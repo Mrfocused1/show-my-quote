@@ -77,6 +77,30 @@ export async function fillFields(line, fields, recentContext = []) {
 }
 
 // ---------------------------------------------------------------------------
+// GPT-4o-mini — fill ALL fields from the full accumulated transcript (replace mode)
+// ---------------------------------------------------------------------------
+export async function fillFieldsFromTranscript(transcript, fields) {
+  if (!fields.length) return { fills: [] };
+
+  const res = await fetchWithTimeout('/api/fill-fields', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transcript, fields, replaceAll: true }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`fillFieldsFromTranscript ${res.status}: ${err}`);
+  }
+
+  try {
+    return await res.json();
+  } catch {
+    return { fills: [] };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // GPT-4o — P1 end: re-analyse full transcript, reconcile fields, return summary
 // ---------------------------------------------------------------------------
 export async function analyzeFullConversation(transcript, currentFields) {

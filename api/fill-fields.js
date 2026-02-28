@@ -1,14 +1,14 @@
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
 
-  const { line, fields = [], recentContext = [] } = req.body;
+  const { line, transcript, fields = [], recentContext = [], replaceAll = false } = req.body;
   if (!fields.length) return res.json({ fills: [] });
 
   const KEY = process.env.OPENAI_API_KEY;
   if (!KEY) return res.status(500).json({ error: 'OPENAI_API_KEY not configured' });
 
   // Formula and layout fields cannot be filled by AI
-  const SKIP_TYPES = ['formula','section-header','divider','instructions'];
+  const SKIP_TYPES = ['formula','section-header','divider','instructions','menu-checklist'];
   const fillable = fields.filter(f => !SKIP_TYPES.includes(f.type));
   if (!fillable.length) return res.json({ fills: [] });
 
@@ -18,17 +18,51 @@ export default async function handler(req, res) {
     (f.type === 'priced-item' ? ` price=£${f.price} ${f.priceUnit === 'per_head' ? 'per head' : 'flat'}` : '')
   ).join('\n');
 
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        response_format: { type: 'json_object' },
-        messages: [
-          {
-            role: 'system',
-            content: `You analyse a live intake call. Extract field values from what the client just said and return a valid JSON object:
+  // Build the conversation input
+  const isFullTranscript = Array.isArray(transcript) && transcript.length > 0;
+  const conversationText = isFullTranscript
+    ? transcript.map(l => `${l.speaker}: ${l.text}`).join('\n')
+    : (recentContext.length
+        ? `${recentContext.map(l => `${l.speaker}: ${l.text}`).join('\n')}\n\nLatest line:\n${line}`
+        : line);
+
+  const systemPrompt = replaceAll
+    ? `You analyse a full call transcript to extract form field values. Read the ENTIRE conversation and determine the best value for EACH field. Return a JSON object:
+{ "fills": [ { "key": "...", "value": ... } ] }
+
+For EVERY field in the list:
+- If the conversation clearly states a value → return it
+- If the value was mentioned then corrected → return the corrected value
+- If the field is explicitly not applicable (e.g. "no dietary requirements") → return "None" for text fields or false for toggles
+- If the field was never mentioned and cannot be inferred → omit it from fills (do NOT include it)
+
+Value format by type:
+- text / select → plain string
+- long-text → full multi-sentence text
+- email → valid email string
+- phone → formatted phone number
+- url → full URL with https://
+- address → full address as single string
+- toggle → true or false (boolean)
+- number → integer
+- decimal → numeric string with decimals
+- currency → numeric string
+- percentage → numeric string without % symbol
+- rating → integer 1–5
+- slider → integer within implied range
+- priced-item → integer quantity
+- multi-check → array of strings matching available options
+- date → "DD Mon YYYY" (e.g. "14 Sep 2026")
+- time → "HH:MM" 24h format
+- datetime → ISO 8601 "YYYY-MM-DDTHH:MM"
+- duration → { "hours": N, "minutes": N }
+
+Guest count handling: if someone says "90% adults, 10% children out of 200 guests", calculate: adults = 180, children = 20.
+Percentage handling: if guest counts are given as percentages, compute actual numbers from total.
+
+Available fields:
+${fieldList}`
+    : `You analyse a live intake call. Extract field values from what was just said and return a valid JSON object:
 { "fills": [ { "key": "...", "value": ... } ] }
 
 Value format by type:
@@ -54,17 +88,25 @@ Value format by type:
 
 Use the conversation context to resolve short answers like "yes", "120", "June" to the correct field.
 
-Available fields:\n${fieldList}
+Available fields:
+${fieldList}
 
-If nothing in this line answers any field, return { "fills": [] }.`,
-          },
+If nothing in this line answers any field, return { "fills": [] }.`;
+
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        response_format: { type: 'json_object' },
+        messages: [
+          { role: 'system', content: systemPrompt },
           {
             role: 'user',
-            content: `Analyse this transcript line and respond in json.${
-              recentContext.length
-                ? `\n\nRecent conversation:\n${recentContext.map(l => `${l.speaker}: ${l.text}`).join('\n')}`
-                : ''
-            }\n\nLatest line:\n${line}`,
+            content: isFullTranscript && replaceAll
+              ? `Analyse this full conversation transcript and extract ALL field values:\n\n${conversationText}`
+              : `Analyse this transcript line and respond in json.\n\n${conversationText}`,
           },
         ],
       }),

@@ -7,7 +7,7 @@ import {
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
   Bookmark, Edit2,
 } from 'lucide-react';
-import { suggestField, fillFields } from './openaiHelper.js';
+import { suggestField, fillFields, fillFieldsFromTranscript } from './openaiHelper.js';
 
 // ── Niche configuration ───────────────────────────────────────────────────────
 
@@ -472,6 +472,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const intentStopRef   = useRef(false);
   const speechBufRef    = useRef('');
   const bufTimerRef     = useRef(null);
+  const fillDebounceRef = useRef(null);
   const timerRef        = useRef(null);
   const mediaRecRef     = useRef(null);
   const recChunksRef    = useRef([]);
@@ -646,24 +647,34 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       }
 
       if (modeRef.current === 'fill') {
-        const ctx = txRef.current.slice(-4);
-        const res = await fillFields(text, fieldsRef.current, ctx);
-        if (res.fills?.length) {
-          setFVals(prev => {
-            const next = { ...prev };
-            res.fills.forEach(({ key, value }) => { next[key] = value; });
-            fvRef.current = next;
-            broadcast({ fieldValues: next, transcript: txRef.current });
-            return next;
-          });
-          const lastKey = res.fills[res.fills.length - 1]?.key;
-          if (lastKey) {
-            setLF(lastKey);
-            setTimeout(() => setLF(k => k === lastKey ? null : k), 1800);
+        // Debounce: wait 1.5s after last transcript line, then re-analyse the FULL transcript
+        clearTimeout(fillDebounceRef.current);
+        broadcast({ transcript: txRef.current });
+        fillDebounceRef.current = setTimeout(async () => {
+          if (!fieldsRef.current.length) return;
+          try {
+            const res = await fillFieldsFromTranscript(txRef.current, fieldsRef.current);
+            if (res.fills?.length) {
+              // REPLACE all field values (not merge) — gives full-comprehension semantics
+              const next = {};
+              res.fills.forEach(({ key, value }) => {
+                if (value !== null && value !== undefined && value !== '') {
+                  next[key] = value;
+                }
+              });
+              fvRef.current = next;
+              setFVals(next);
+              broadcast({ fieldValues: next, transcript: txRef.current });
+              const lastKey = res.fills[res.fills.length - 1]?.key;
+              if (lastKey) {
+                setLF(lastKey);
+                setTimeout(() => setLF(k => k === lastKey ? null : k), 1800);
+              }
+            }
+          } catch (err) {
+            console.error('Fill error:', err);
           }
-        } else {
-          broadcast({ transcript: txRef.current });
-        }
+        }, 1500);
       }
 
       // ── Live food detection for catering niche ────────────────────────────
@@ -849,6 +860,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const endCall = async () => {
     stopMic();
     clearTimeout(bufTimerRef.current);
+    clearTimeout(fillDebounceRef.current);
     clearTimeout(youWatchdogRef.current); youWatchdogRef.current = null;
     lastYouTxRef.current = false;
     clearInterval(heartbeatRef.current);
