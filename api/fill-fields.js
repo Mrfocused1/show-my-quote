@@ -37,6 +37,12 @@ For EVERY field in the list:
 - If the field is explicitly not applicable (e.g. "no dietary requirements") → return "None" for text fields or false for toggles
 - If the field was never mentioned and cannot be inferred → omit it from fills (do NOT include it)
 
+CRITICAL RULES — follow exactly:
+- SILENCE = OMIT. If a topic was never raised in the conversation, do NOT include that field in fills. Do NOT return "None", "N/A", or any placeholder.
+- "None" is ONLY valid when the speaker explicitly confirmed it — e.g. "I have no dietary requirements", "no bar needed". Silence is not "None".
+- A field with IMPORTANT instruction saying "Only fill if explicitly stated" is ABSOLUTE — never infer a value for it. Only include it if the speaker literally named a value.
+- When in doubt → OMIT the field.
+
 Value format by type:
 - text / select → plain string
 - long-text → full multi-sentence text
@@ -88,6 +94,11 @@ Value format by type:
 - duration → JSON object { "hours": N, "minutes": N }
 
 Use the conversation context to resolve short answers like "yes", "120", "June" to the correct field.
+
+CRITICAL RULES:
+- Only fill a field if a direct answer was given. Do NOT infer or guess.
+- Do NOT return "None" unless the speaker explicitly said there is none. If nothing was said for a field, omit it.
+- A field with IMPORTANT: "Only fill if explicitly stated" → only fill with direct words from the conversation, never infer.
 
 Available fields:
 ${fieldList}

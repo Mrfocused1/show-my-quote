@@ -313,9 +313,11 @@ const DEOSA_ALL_ITEMS = DEOSA_MENU.flatMap(cg =>
 // Detect food items mentioned in a transcript line
 // Returns { toCheck: [key], toUncheck: [key], toAmbiguous: [{id, label, candidates, minPrice, maxPrice}] }
 function detectFoodInText(text) {
-  const lower = text.toLowerCase();
+  // Split into clauses so "remove X, but leave Y" is handled per-clause.
+  // This prevents a removal phrase in one clause from unchecking items in another.
+  const clauses = text.split(/[.!?]+\s*|\s*,?\s+but\s+|\s*,?\s+however\s+|\s*,?\s+except\s+/i)
+    .map(c => c.trim()).filter(Boolean);
 
-  // Detect if this line is a removal/negation instruction
   const REMOVAL_PATTERNS = [
     /\b(remove|removing)\b/,
     /\bdon'?t want\b/,
@@ -326,53 +328,70 @@ function detectFoodInText(text) {
     /\bscratch that\b/,
     /\bno (more|longer)\b/,
   ];
-  const isRemoval = REMOVAL_PATTERNS.some(p => p.test(lower));
+  // A clause with preservation language is never treated as a removal,
+  // even if it also contains removal words from an adjacent clause.
+  const PRESERVATION_PATTERNS = [
+    /\bleave\b/,
+    /\bkeep\b/,
+    /\bstill want\b/,
+    /\bkeeping\b/,
+  ];
 
-  // Map from keyword → array of matching items
-  const kwMatches = new Map();
-  for (const item of DEOSA_ALL_ITEMS) {
-    for (const kw of item.keywords) {
-      if (lower.includes(kw)) {
-        if (!kwMatches.has(kw)) kwMatches.set(kw, []);
-        kwMatches.get(kw).push(item);
-        break; // only match once per item per keyword
+  const allToCheck = [];
+  const allToUncheck = [];
+  const allToAmbiguous = [];
+
+  for (const clause of clauses) {
+    const lower = clause.toLowerCase();
+    const isRemoval = REMOVAL_PATTERNS.some(p => p.test(lower));
+    const isPreservation = PRESERVATION_PATTERNS.some(p => p.test(lower));
+    const effectiveRemoval = isRemoval && !isPreservation;
+
+    // Map from keyword → matching items for THIS clause
+    const kwMatches = new Map();
+    for (const item of DEOSA_ALL_ITEMS) {
+      for (const kw of item.keywords) {
+        if (lower.includes(kw)) {
+          if (!kwMatches.has(kw)) kwMatches.set(kw, []);
+          kwMatches.get(kw).push(item);
+          break;
+        }
+      }
+    }
+
+    const clauseResolved = new Set();
+    // Sort by keyword length descending (longer = more specific = higher priority)
+    const entries = [...kwMatches.entries()].sort((a, b) => b[0].length - a[0].length);
+
+    for (const [kw, items] of entries) {
+      const fresh = items.filter(i => !clauseResolved.has(i.key));
+      if (!fresh.length) continue;
+      if (fresh.length === 1) {
+        if (effectiveRemoval) {
+          allToUncheck.push(fresh[0].key);
+        } else {
+          allToCheck.push(fresh[0].key);
+        }
+        clauseResolved.add(fresh[0].key);
+      } else {
+        if (!effectiveRemoval) {
+          const prices = fresh.map(i => i.price);
+          allToAmbiguous.push({
+            id: `amb_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
+            label: kw,
+            candidates: fresh,
+            minPrice: Math.min(...prices),
+            maxPrice: Math.max(...prices),
+          });
+        } else {
+          fresh.forEach(i => allToUncheck.push(i.key));
+        }
+        fresh.forEach(i => clauseResolved.add(i.key));
       }
     }
   }
-  const toCheck = [];
-  const toUncheck = [];
-  const toAmbiguous = [];
-  const resolvedKeys = new Set();
 
-  // Sort by keyword length descending (longer = more specific = higher priority)
-  const entries = [...kwMatches.entries()].sort((a, b) => b[0].length - a[0].length);
-  for (const [kw, items] of entries) {
-    const fresh = items.filter(i => !resolvedKeys.has(i.key));
-    if (!fresh.length) continue;
-    if (fresh.length === 1) {
-      if (isRemoval) {
-        toUncheck.push(fresh[0].key);
-      } else {
-        toCheck.push(fresh[0].key);
-      }
-      resolvedKeys.add(fresh[0].key);
-    } else {
-      if (!isRemoval) {
-        const prices = fresh.map(i => i.price);
-        toAmbiguous.push({
-          id: `amb_${Date.now()}_${Math.random().toString(36).slice(2, 5)}`,
-          label: kw,
-          candidates: fresh,
-          minPrice: Math.min(...prices),
-          maxPrice: Math.max(...prices),
-        });
-      } else {
-        fresh.forEach(i => toUncheck.push(i.key));
-      }
-      fresh.forEach(i => resolvedKeys.add(i.key));
-    }
-  }
-  return { toCheck, toUncheck, toAmbiguous };
+  return { toCheck: allToCheck, toUncheck: allToUncheck, toAmbiguous: allToAmbiguous };
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -900,6 +919,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           res.fills.forEach(({ key, value }) => {
             if (value !== null && value !== undefined && value !== '') next[key] = value;
           });
+          // Preserve menu-checklist value — it's set by food detection, not AI
+          const menuField = fieldsRef.current.find(f => f.type === 'menu-checklist');
+          if (menuField && fvRef.current[menuField.key]) {
+            next[menuField.key] = fvRef.current[menuField.key];
+          }
           fvRef.current = next;
           setFVals(next);
         }
