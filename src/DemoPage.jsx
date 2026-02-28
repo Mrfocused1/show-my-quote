@@ -557,26 +557,20 @@ export default function DemoPage({ onHome, onBookDemo }) {
           // Twilio 'both_tracks' handles inbound (You) + outbound (Client) via Pusher.
           // Give it 12s to produce a 'You' result; fall back to Web Speech API if silent.
           call.on('accept', () => {
-            // Capture the parent CallSid — needed to fetch server-side recording after call ends.
-            // For outbound calls, call.parameters.CallSid is available once the accept event fires.
+            // Capture CallSid — needed to fetch server-side recording after call ends.
             const sid = call.parameters?.CallSid;
             if (sid) {
               twilioCallSidRef.current = sid;
               console.log('[twilio] CallSid captured:', sid);
-              // Start real-time transcription via REST API now that the call is connected.
-              // This avoids <Start><Transcription> in TwiML which was blocking early media / ringback.
-              fetch('/api/start-transcription', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ callSid: sid, session: scRef.current || '' }),
-              })
-                .then(r => r.json())
-                .then(data => { console.log('[twilio] Transcription started via REST:', data); })
-                .catch(e => { console.warn('[twilio] Transcription start failed:', e.message); });
             } else {
               console.warn('[twilio] CallSid not available in call.parameters after accept');
             }
-            // Watchdog: if no 'You' transcription in 12s, fall back to Web Speech API
+            // Transcription is handled by <Start><Transcription> in the TwiML webhook —
+            // it taps both legs of the <Dial> at the Twilio media layer, including the
+            // outbound_track (phone person) once the bridge forms. A REST API call here
+            // would fire before the B-leg answers, missing the outbound_track entirely.
+            //
+            // Watchdog: if no 'You' transcription in 12s, fall back to Web Speech API.
             lastYouTxRef.current = false;
             const wd = setTimeout(() => {
               if (caRef.current && !lastYouTxRef.current) {

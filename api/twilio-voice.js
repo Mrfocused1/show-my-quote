@@ -10,18 +10,26 @@ export default async function handler(req, res) {
   const twilioNumber = process.env.TWILIO_PHONE_NUMBER;
 
   if (To && To !== twilioNumber) {
-    // Outbound call from browser SDK — dial the destination number directly.
-    //
-    // Previous issues fixed:
-    //   1. <Start><Transcription> before <Dial> was intercepting the early-media
-    //      stream, preventing ringback tones from reaching the browser client.
-    //   2. <Number url> (press-1 confirmation gate) blocked the audio bridge until
-    //      TwiML execution completed on the B-leg — causing no audio on either side
-    //      and a ~5s disconnect when the webhook timed out or callee couldn't respond.
-    //
-    // Transcription is now started via REST API (POST /api/start-transcription)
-    // from the browser after the call connects, avoiding early-media interference.
+    // Outbound call from browser SDK.
+    // <Start><Transcription> is non-blocking and must come before <Dial> so it can
+    // tap both legs of the bridged call. The outbound_track (phone person's voice)
+    // only exists after <Dial> bridges — the transcription engine waits for it.
+    // Previously this was replaced with a REST API call from call.on('accept'), but
+    // that approach missed the outbound_track because it fired before B-leg answered.
     const appUrl = process.env.APP_URL || 'https://www.showmyquote.com';
+    const Session = req.body?.Session || req.query?.Session || '';
+    const cbUrl = `${appUrl}/api/twilio-transcription${Session ? '?session=' + encodeURIComponent(Session) : ''}`;
+
+    const start = twiml.start();
+    start.transcription({
+      statusCallbackUrl: cbUrl,
+      track: 'both_tracks',
+      inboundTrackLabel: 'You',
+      outboundTrackLabel: 'Client',
+      languageCode: 'en-US',
+      partialResults: 'false',
+    });
+
     const dial = twiml.dial({
       callerId: twilioNumber,
       record: 'record-from-ringing',
