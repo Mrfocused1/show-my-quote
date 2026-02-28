@@ -5,6 +5,7 @@ import {
   Copy, Plus, Trash2, X, ArrowRight, ChevronRight, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
+  Bookmark,
 } from 'lucide-react';
 import { suggestField, fillFields } from './openaiHelper.js';
 
@@ -219,6 +220,13 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const [addingManual, setAM]  = useState(false);
   const [manualLabel,  setML]  = useState('');
   const [manualType,   setMT]  = useState('text');
+
+  // ── Saved forms ──
+  const [savedForms, setSavedForms] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('smq_saved_forms') || '[]'); } catch { return []; }
+  });
+  const [saveName,  setSaveName]  = useState('');
+  const [formSaved, setFormSaved] = useState(false);
 
   // ── Share ──
   const [copied, setCopied] = useState(false);
@@ -751,6 +759,39 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setML(''); setMT('text'); setAM(false);
   };
 
+  const saveForm = () => {
+    const name = saveName.trim() || (niche?.label ? `${niche.label} Form` : 'My Form');
+    const newForm = {
+      id: Date.now().toString(),
+      name,
+      niche: niche?.id || null,
+      fields: fields.map(f => ({ ...f })),
+      createdAt: Date.now(),
+      recordingUrl: recordingUrl?.startsWith('/api/') ? recordingUrl : null,
+    };
+    const updated = [...savedForms, newForm];
+    setSavedForms(updated);
+    try { localStorage.setItem('smq_saved_forms', JSON.stringify(updated)); } catch {}
+    setFormSaved(true);
+  };
+
+  const deleteSavedForm = (id) => {
+    const updated = savedForms.filter(f => f.id !== id);
+    setSavedForms(updated);
+    try { localStorage.setItem('smq_saved_forms', JSON.stringify(updated)); } catch {}
+  };
+
+  const selectSavedForm = (form) => {
+    const flds = form.fields.map(f => ({ ...f, key: `sv_${f.key}` }));
+    setFields(flds); fieldsRef.current = flds;
+    setFVals({}); fvRef.current = {};
+    setTx([]);    txRef.current  = [];
+    setDialNum('');
+    setNiche(null); nicheRef.current = null;
+    const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
+    broadcast({ phase: nextPhase, fields: flds, fieldValues: {}, transcript: [] });
+  };
+
   const reset = () => {
     stopMic();
     setPhase('landing'); phaseRef.current = 'landing';
@@ -758,6 +799,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
     setFields([]); setFVals({}); setTx([]);
     setCA(false); setCS(0); setRec(null);
     setMF([]); setML(''); setMT('text'); setAM(false);
+    setSaveName(''); setFormSaved(false);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
@@ -1091,7 +1133,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
                   Ask your client what questions they normally ask <em>their</em> customers. Our AI listens and builds an intake form — field by field — as they describe their process.
                 </p>
                 <ul className="space-y-2 text-sm text-slate-600">
-                  {['Pick your niche first', 'AI tailors its field detection', 'Form builds live in real time', 'Get an SMS template at the end'].map(t => (
+                  {['Pick your niche first', 'AI tailors its field detection', 'Form builds live in real time', 'Save created form at the end'].map(t => (
                     <li key={t} className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
                       {t}
@@ -1245,6 +1287,51 @@ export default function DemoPage({ onHome, onBookDemo }) {
               <h2 className="text-2xl font-black text-slate-900 mb-2">Choose a form</h2>
               <p className="text-slate-500 text-sm">Pick a ready-made template for your niche, or build your own form with the fields you need.</p>
             </div>
+
+            {/* Your saved forms */}
+            {savedForms.length > 0 && (
+              <div className="mb-8">
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Your saved forms</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {savedForms.map(form => (
+                    <div key={form.id} className="bg-white rounded-2xl border border-green-200 p-5">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="text-sm font-bold text-slate-900 truncate">{form.name}</div>
+                          <div className="text-xs text-slate-400 mt-0.5">
+                            {form.fields.length} fields · {new Date(form.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => deleteSavedForm(form.id)}
+                          className="text-slate-300 hover:text-red-400 transition-colors ml-2 flex-shrink-0"
+                          title="Delete"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="space-y-1 mb-4">
+                        {form.fields.slice(0, 4).map(f => (
+                          <div key={f.key} className="flex items-center gap-1.5 text-xs text-slate-400">
+                            <div className="w-1 h-1 bg-green-400 rounded-full flex-shrink-0" />
+                            {f.label}
+                          </div>
+                        ))}
+                        {form.fields.length > 4 && (
+                          <div className="text-xs text-slate-300">+{form.fields.length - 4} more fields</div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => selectSavedForm(form)}
+                        className="w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
+                      >
+                        Use this form →
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Templates */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
@@ -1662,6 +1749,40 @@ export default function DemoPage({ onHome, onBookDemo }) {
                   <div className="text-sm font-bold text-slate-700">Call recording</div>
                   <div className="text-xs text-slate-400 mt-0.5">Saved on presenter's device — ask them to share it with you</div>
                 </div>
+              </div>
+            )}
+
+            {/* Save form as template */}
+            {!isViewer && fields.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Bookmark className="w-4 h-4 text-slate-500" />
+                  <h3 className="text-sm font-bold text-slate-700">Save this form as a template</h3>
+                </div>
+                {formSaved ? (
+                  <div className="flex items-center gap-2 text-sm text-green-600 font-semibold">
+                    <Check className="w-4 h-4" />
+                    Saved! Select it next time from "Fill a Form" → your saved forms.
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2 mb-3">
+                      <input
+                        value={saveName}
+                        onChange={e => setSaveName(e.target.value)}
+                        placeholder={niche?.label ? `${niche.label} Form` : 'My Form'}
+                        className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900"
+                      />
+                      <button
+                        onClick={saveForm}
+                        className="px-4 py-2 bg-slate-900 text-white text-sm font-bold rounded-lg hover:bg-slate-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                    <p className="text-xs text-slate-400">Saves the field structure so you can reuse it on future calls.</p>
+                  </>
+                )}
               </div>
             )}
 
