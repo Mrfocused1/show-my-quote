@@ -1197,8 +1197,13 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                               <span className={`flex-1 text-xs truncate ${isChecked ? 'text-green-800 font-medium' : 'text-slate-600'}`}>
                                 {item.name}
                               </span>
-                              <span className={`text-[10px] flex-shrink-0 ${isChecked ? 'text-green-600 font-semibold' : 'text-slate-400'}`}>
-                                £{item.price}pp
+                              <span className={`text-[10px] flex-shrink-0 text-right ${isChecked ? 'text-green-600 font-semibold' : 'text-slate-400'}`}>
+                                £{section.price}pp
+                                {guestCount > 0 && (
+                                  <span className="block font-bold">
+                                    £{(section.price * guestCount).toLocaleString()}
+                                  </span>
+                                )}
                               </span>
                             </button>
                           );
