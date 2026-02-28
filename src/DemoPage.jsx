@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Pusher from 'pusher-js';
 import {
   Phone, PhoneCall, PhoneOff, Mic, MicOff, Radio, Check, CheckCircle2,
-  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, MessageSquare,
+  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
-  Bookmark,
+  Bookmark, Edit2,
 } from 'lucide-react';
 import { suggestField, fillFields } from './openaiHelper.js';
 
@@ -238,6 +238,12 @@ export default function DemoPage({ onHome, onBookDemo }) {
   const [analysis,  setAnalysis]  = useState(null);
   const [analysing, setAnalysing] = useState(false);
   const [hasRec,    setHasRec]    = useState(false);
+
+  // ── Done screen UI ──
+  const [showTranscript, setShowTx]  = useState(false);
+  const [editingData,    setEditData] = useState(false);
+  const [editFields,     setEF]       = useState([]);
+  const [editValues,     setEV]       = useState({});
 
   // ── Refs ──
   const phaseRef        = useRef(phase);
@@ -1643,29 +1649,134 @@ export default function DemoPage({ onHome, onBookDemo }) {
               <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-5">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-bold text-slate-700">Captured data</h3>
-                  <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
-                    {filledCount}/{fields.length} filled
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  {fields.map(f => (
-                    <div key={f.key} className="flex items-start gap-3">
-                      <div className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center ${
-                        fieldValues[f.key] ? 'bg-green-500' : 'bg-slate-200'
-                      }`}>
-                        {fieldValues[f.key] && <Check className="w-2.5 h-2.5 text-white" />}
+                  {!isViewer && (
+                    editingData ? (
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            setFields(editFields);
+                            const newFV = {};
+                            editFields.forEach(f => {
+                              if (editValues[f.key] !== undefined) newFV[f.key] = editValues[f.key];
+                            });
+                            setFVals(newFV);
+                            setEditData(false);
+                          }}
+                          className="text-xs bg-green-600 text-white px-3 py-1 rounded-lg font-semibold hover:bg-green-700 transition-colors"
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => setEditData(false)}
+                          className="text-xs text-slate-500 hover:text-slate-800 transition-colors"
+                        >
+                          Cancel
+                        </button>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
-                        <div className="text-sm text-slate-800 mt-0.5">
-                          {fieldValues[f.key] !== undefined && fieldValues[f.key] !== ''
-                            ? String(fieldValues[f.key])
-                            : <span className="text-slate-300 italic">Not captured</span>}
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
+                          {filledCount}/{fields.length} filled
+                        </span>
+                        <button
+                          onClick={() => { setEF(fields.map(f => ({ ...f }))); setEV({ ...fieldValues }); setEditData(true); }}
+                          className="text-xs text-slate-500 hover:text-slate-800 transition-colors flex items-center gap-1"
+                        >
+                          <Edit2 className="w-3 h-3" /> Edit
+                        </button>
+                      </div>
+                    )
+                  )}
+                  {isViewer && (
+                    <span className="text-xs text-green-600 font-semibold bg-green-50 px-2 py-0.5 rounded-full">
+                      {filledCount}/{fields.length} filled
+                    </span>
+                  )}
+                </div>
+
+                {editingData ? (
+                  <div className="space-y-2">
+                    {editFields.map((f, i) => (
+                      <div key={f.key} className="flex items-center gap-2">
+                        <input
+                          value={f.label}
+                          onChange={e => setEF(prev => prev.map((ef, j) => j === i ? { ...ef, label: e.target.value } : ef))}
+                          placeholder="Field name"
+                          className="w-32 flex-shrink-0 px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                        <input
+                          value={editValues[f.key] || ''}
+                          onChange={e => setEV(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder="Value"
+                          className="flex-1 px-2 py-1.5 rounded-lg border border-slate-200 text-xs outline-none focus:ring-2 focus:ring-slate-900"
+                        />
+                        <button
+                          onClick={() => { setEF(prev => prev.filter((_, j) => j !== i)); setEV(prev => { const n = { ...prev }; delete n[f.key]; return n; }); }}
+                          className="w-6 h-6 flex items-center justify-center text-slate-300 hover:text-red-500 transition-colors flex-shrink-0"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={() => { const key = `custom_${Date.now()}`; setEF(prev => [...prev, { key, label: '', type: 'text' }]); }}
+                      className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-green-600 transition-colors mt-2"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> Add field
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {fields.map(f => (
+                      <div key={f.key} className="flex items-start gap-3">
+                        <div className={`w-4 h-4 rounded-full flex-shrink-0 mt-0.5 flex items-center justify-center ${
+                          fieldValues[f.key] ? 'bg-green-500' : 'bg-slate-200'
+                        }`}>
+                          {fieldValues[f.key] && <Check className="w-2.5 h-2.5 text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{f.label}</div>
+                          <div className="text-sm text-slate-800 mt-0.5">
+                            {fieldValues[f.key] !== undefined && fieldValues[f.key] !== ''
+                              ? String(fieldValues[f.key])
+                              : <span className="text-slate-300 italic">Not captured</span>}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Full transcript */}
+            {transcript.length > 0 && (
+              <div className="bg-white rounded-2xl border border-slate-200 mb-5 overflow-hidden">
+                <button
+                  onClick={() => setShowTx(s => !s)}
+                  className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-slate-400" />
+                    <span className="text-sm font-bold text-slate-700">Full transcript</span>
+                    <span className="text-xs text-slate-400">({transcript.length} lines)</span>
+                  </div>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showTranscript ? 'rotate-180' : ''}`} />
+                </button>
+                {showTranscript && (
+                  <div className="border-t border-slate-100 px-6 py-4 max-h-80 overflow-y-auto space-y-2">
+                    {transcript.map((line, i) => (
+                      <div key={i} className={`flex items-start gap-2 ${line.speaker === 'You' ? 'flex-row-reverse' : ''}`}>
+                        <span className={`text-[10px] font-bold uppercase tracking-wider flex-shrink-0 mt-1.5 ${
+                          line.speaker === 'You' ? 'text-green-600' : 'text-slate-400'
+                        }`}>{line.speaker}</span>
+                        <p className={`text-xs leading-relaxed rounded-xl px-3 py-2 max-w-[80%] ${
+                          line.speaker === 'You' ? 'bg-green-50 text-green-900' : 'bg-slate-100 text-slate-700'
+                        }`}>{line.text}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
