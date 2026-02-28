@@ -1119,7 +1119,7 @@ export default function DemoPage({ onHome, onBookDemo }) {
           <div className="w-full max-w-3xl">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 bg-green-50 text-green-700 text-xs font-bold px-4 py-2 rounded-full border border-green-100 mb-5">
-                <Radio className="w-3.5 h-3.5" /> Live interactive demo tool
+                Live interactive demo tool
               </span>
               <h1 className="text-4xl md:text-5xl font-black text-slate-900 mb-4">Choose your demo</h1>
               <p className="text-slate-500 text-base max-w-lg mx-auto">
