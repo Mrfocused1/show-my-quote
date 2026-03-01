@@ -5,7 +5,7 @@ import {
   Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, ChevronUp, Minus, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
-  Bookmark, Edit2,
+  Bookmark, Edit2, Bell,
 } from 'lucide-react';
 import { suggestField, fillFields, fillFieldsFromTranscript } from './openaiHelper.js';
 
@@ -461,6 +461,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   // ── Inbound call ──
   const [incomingCall, setIncomingCall] = useState(null); // { call, from }
 
+  // ── Notification permission ──
+  const [notifPermission, setNotifPermission] = useState(
+    () => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+  );
+
   // ── Call controls ──
   const [micActive,   setMic]     = useState(false);
   const [txPusherActive, setTxPA] = useState(false); // true when Twilio transcription is live
@@ -905,6 +910,13 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
     const rawData = window.atob(base64);
     return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  };
+
+  const requestNotifPermission = async () => {
+    if (typeof Notification === 'undefined') return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+    if (result === 'granted') subscribeToPush();
   };
 
   const subscribeToPush = async () => {
@@ -1717,6 +1729,20 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     </div>
   );
 
+  // ── Notification permission banner (presenter only, until granted/dismissed) ─
+  const notifBanner = !isViewer && notifPermission === 'default' ? (
+    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-xl px-5 py-3 flex items-center gap-4 shadow-xl text-sm max-w-sm w-full mx-4">
+      <Bell className="w-4 h-4 text-green-400 flex-shrink-0" />
+      <span className="flex-1">Enable notifications to be alerted for incoming calls</span>
+      <button onClick={requestNotifPermission} className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg font-medium transition-colors flex-shrink-0">
+        Enable
+      </button>
+      <button onClick={() => setNotifPermission('dismissed')} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
+        <X className="w-4 h-4" />
+      </button>
+    </div>
+  ) : null;
+
   // ── Incoming call modal (shown over any phase when an inbound call arrives) ─
   const incomingCallModal = incomingCall ? (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
@@ -1772,7 +1798,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
   if (phase === 'landing') {
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} overlay={incomingCallModal}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} overlay={<>{incomingCallModal}{notifBanner}</>}>
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-[#F7F7F5]">
           <div className="w-full max-w-3xl">
             <div className="text-center mb-10">
@@ -2269,7 +2295,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     }
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} quoteTotal={callQuoteTotal} overlay={incomingCallModal}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} quoteTotal={callQuoteTotal} overlay={<>{incomingCallModal}{notifBanner}</>}>
         {renderCallScreen()}
       </PageShell>
     );
@@ -2279,7 +2305,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     const filledCount = fields.filter(f => fieldValues[f.key] !== undefined && fieldValues[f.key] !== '').length;
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} overlay={incomingCallModal}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} overlay={<>{incomingCallModal}{notifBanner}</>}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-2xl mx-auto">
 
