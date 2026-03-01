@@ -633,6 +633,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         device.on('incoming', call => {
           if (autoAnswerRef.current) {
             autoAnswerRef.current = false;
+            device.audio?.context?.resume().catch(() => {});
             call.accept();
             return;
           }
@@ -668,6 +669,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       const { type } = e.data || {};
       if (type === 'answer-call') {
         if (incomingCall) {
+          twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
           incomingCall.call.accept();
           dismissIncomingCall();
         } else {
@@ -1760,7 +1762,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             <PhoneOff className="w-4 h-4" /> Decline
           </button>
           <button
-            onClick={() => { incomingCall.call.accept(); dismissIncomingCall(); }}
+            onClick={() => { twilioDeviceRef.current?.audio?.context?.resume().catch(() => {}); incomingCall.call.accept(); dismissIncomingCall(); }}
             className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Phone className="w-4 h-4" /> Answer

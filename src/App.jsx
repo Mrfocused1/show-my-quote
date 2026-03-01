@@ -605,6 +605,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
           // If user tapped Answer in a push notification, auto-accept
           if (autoAnswerRef.current) {
             autoAnswerRef.current = false;
+            device.audio?.context?.resume().catch(() => {});
             call.accept();
             return;
           }
@@ -642,6 +643,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
       const { type } = e.data || {};
       if (type === 'answer-call') {
         if (incomingCall) {
+          twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
           incomingCall.call.accept();
           stopRingtone();
           stopTitleFlash();
@@ -767,7 +769,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
                 <PhoneOff className="w-4 h-4" /> Decline
               </button>
               <button
-                onClick={() => { incomingCall.call.accept(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
+                onClick={() => { twilioDeviceRef.current?.audio?.context?.resume().catch(() => {}); incomingCall.call.accept(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" /> Answer
