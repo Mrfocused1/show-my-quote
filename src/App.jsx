@@ -493,6 +493,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
   const [smsBadge, setSmsBadge] = useState(0);
   const [notifPermission, setNotifPermission] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [installPrompt, setInstallPrompt] = useState(null);
   const ringtoneRef = useRef(null);
   const titleFlashRef = useRef(null);
   const autoAnswerRef = useRef(false);
@@ -636,6 +637,15 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
     if (Notification.permission === 'granted') subscribeToPush();
   }, []);
 
+  // Capture PWA install prompt — Chrome fires this when app is installable
+  useEffect(() => {
+    const handler = e => { e.preventDefault(); setInstallPrompt(e); };
+    window.addEventListener('beforeinstallprompt', handler);
+    // Hide banner if already installed (standalone mode)
+    if (window.matchMedia('(display-mode: standalone)').matches) setInstallPrompt(null);
+    return () => window.removeEventListener('beforeinstallprompt', handler);
+  }, []);
+
   // Listen for answer/decline messages posted by the Service Worker
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
@@ -736,6 +746,23 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
       {/* Dashboard tour card */}
       {tourStep !== null && (
         <TourCard step={tourStep} onNext={handleTourNext} onClose={() => setTourStep(null)} />
+      )}
+
+      {/* PWA install banner — once installed, Chrome allows ringtone without any click */}
+      {installPrompt && notifPermission !== 'default' && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white rounded-xl px-5 py-3 flex items-center gap-4 shadow-xl text-sm max-w-sm w-full">
+          <span className="text-lg flex-shrink-0">📲</span>
+          <span className="flex-1">Install the app so calls ring without needing to click first</span>
+          <button
+            onClick={async () => { await installPrompt.prompt(); setInstallPrompt(null); }}
+            className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded-lg font-medium transition-colors flex-shrink-0"
+          >
+            Install
+          </button>
+          <button onClick={() => setInstallPrompt(null)} className="text-slate-400 hover:text-white transition-colors flex-shrink-0">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
       )}
 
       {/* Notification permission banner */}

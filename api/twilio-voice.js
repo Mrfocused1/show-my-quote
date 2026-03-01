@@ -74,9 +74,14 @@ export default async function handler(req, res) {
       ]);
     } catch {}
 
-    // timeout:45 gives the user time to open the app and register the Twilio Device
-    const dial = twiml.dial({ callerId: from === 'Unknown' ? twilioNumber : from, timeout: 45 });
+    // Simultaneous ring: browser client + owner's real phone (if configured).
+    // timeout:20 avoids connecting inbound caller to voicemail (voicemail picks up ~25-30s on UK networks).
+    // If OWNER_PHONE_NUMBER is not set, falls back to browser-only with longer timeout.
+    const ownerPhone = process.env.OWNER_PHONE_NUMBER;
+    const dialTimeout = ownerPhone ? 20 : 45;
+    const dial = twiml.dial({ callerId: from === 'Unknown' ? twilioNumber : from, timeout: dialTimeout });
     dial.client('demo-presenter');
+    if (ownerPhone) dial.number(ownerPhone);
   }
 
   res.send(twiml.toString());
