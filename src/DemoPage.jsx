@@ -656,23 +656,35 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     return () => { try { device?.destroy(); twilioDeviceRef.current = null; } catch {} };
   }, [isViewer]);
 
-  // ── Warm AudioContext on first user gesture so inbound ringtone can play ──
+  // ── Warm AudioContext without requiring user gesture ─────────────────────
+  // getUserMedia (mic already granted for outbound calls) lets Chrome start
+  // an AudioContext without an explicit user gesture. We stop the tracks
+  // immediately — we just need the permission signal to unlock audio.
   useEffect(() => {
     if (isViewer) return;
-    const warm = () => {
-      if (audioCtxRef.current) return;
-      try {
+    let cancelled = false;
+    navigator.mediaDevices?.getUserMedia({ audio: true, video: false })
+      .then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+        if (cancelled) return;
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         ctx.resume().catch(() => {});
         audioCtxRef.current = ctx;
-      } catch {}
-    };
-    document.addEventListener('click', warm, { once: true });
-    document.addEventListener('touchstart', warm, { once: true });
-    return () => {
-      document.removeEventListener('click', warm);
-      document.removeEventListener('touchstart', warm);
-    };
+      })
+      .catch(() => {
+        // Mic not granted yet — fall back to first-click warm-up
+        const warm = () => {
+          if (audioCtxRef.current) return;
+          try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            ctx.resume().catch(() => {});
+            audioCtxRef.current = ctx;
+          } catch {}
+        };
+        document.addEventListener('click', warm, { once: true });
+        document.addEventListener('touchstart', warm, { once: true });
+      });
+    return () => { cancelled = true; };
   }, [isViewer]);
 
   // ── Service Worker registration + push subscription (presenter only) ─────
