@@ -458,6 +458,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [callSeconds,  setCS]          = useState(0);
   const [recordingUrl, setRec]         = useState(null);
 
+  // ── Inbound call ──
+  const [incomingCall, setIncomingCall] = useState(null); // { call, from }
+
   // ── Call controls ──
   const [micActive,   setMic]     = useState(false);
   const [txPusherActive, setTxPA] = useState(false); // true when Twilio transcription is live
@@ -538,6 +541,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const lastYouTxRef    = useRef(false);   // unused — kept for cleanup safety
   const youWatchdogRef  = useRef(null);    // unused — kept for cleanup safety
   const remoteHungUpRef = useRef(false);   // true when disconnect was initiated by remote party
+  const inboundRingtoneRef = useRef(null); // ringtone for inbound calls
+  const inboundTitleRef    = useRef(null); // title flash interval for inbound calls
+  const autoAnswerRef      = useRef(false); // set when user tapped Answer in a push notification
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -605,6 +611,72 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     });
     return () => { ch.unbind_all(); pusher.unsubscribe(`demo-${sessionCode}`); pusher.disconnect(); };
   }, [sessionCode, isViewer, hasPusher]);
+
+  // ── Persistent inbound Device registration (presenter only) ─────────────
+  useEffect(() => {
+    if (isViewer) return;
+    let device;
+    (async () => {
+      try {
+        const res = await fetch('/api/twilio-token');
+        if (!res.ok) return;
+        const { token } = await res.json();
+        const { Device } = await import('@twilio/voice-sdk');
+        device = new Device(token, { logLevel: 1 });
+        twilioDeviceRef.current = device;
+        await device.register();
+        device.on('incoming', call => {
+          if (autoAnswerRef.current) {
+            autoAnswerRef.current = false;
+            call.accept();
+            return;
+          }
+          setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
+          startInboundRingtone();
+          startTitleFlash();
+          try { navigator.setAppBadge?.(1); } catch {}
+          const cleanup = () => {
+            stopInboundRingtone();
+            stopTitleFlash();
+            try { navigator.clearAppBadge?.(); } catch {}
+            setIncomingCall(null);
+          };
+          call.on('cancel', cleanup);
+          call.on('disconnect', cleanup);
+        });
+      } catch (e) { console.warn('Twilio inbound Device init:', e.message); }
+    })();
+    return () => { try { device?.destroy(); twilioDeviceRef.current = null; } catch {} };
+  }, [isViewer]);
+
+  // ── Service Worker registration + push subscription (presenter only) ─────
+  useEffect(() => {
+    if (isViewer || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW reg failed:', e));
+    if (Notification.permission === 'granted') subscribeToPush();
+  }, [isViewer]);
+
+  // ── SW message listener (answer/decline from push notification) ───────────
+  useEffect(() => {
+    if (isViewer || !('serviceWorker' in navigator)) return;
+    const handler = e => {
+      const { type } = e.data || {};
+      if (type === 'answer-call') {
+        if (incomingCall) {
+          incomingCall.call.accept();
+          dismissIncomingCall();
+        } else {
+          autoAnswerRef.current = true;
+        }
+      }
+      if (type === 'decline-call' && incomingCall) {
+        incomingCall.call.reject();
+        dismissIncomingCall();
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, [isViewer, incomingCall]);
 
   // ── Broadcast helper (presenter only) ────────────────────────────────────
   const broadcast = useCallback(async (extra = {}) => {
@@ -827,6 +899,72 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setInterim('');
   };
 
+  // ── Inbound call helpers ──────────────────────────────────────────────────
+  const urlB64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  };
+
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(vapidKey),
+      });
+      await fetch('/api/push-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'demo-presenter', subscription: sub.toJSON() }),
+      });
+    } catch (e) { console.warn('Push subscription failed:', e.message); }
+  };
+
+  const startInboundRingtone = () => {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const playBeep = (time) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = 480; osc.type = 'sine';
+        gain.gain.setValueAtTime(0.3, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+        osc.start(time); osc.stop(time + 0.4);
+      };
+      let t = ctx.currentTime;
+      const interval = setInterval(() => { playBeep(t); playBeep(t + 0.5); t += 2.5; }, 2500);
+      playBeep(t); playBeep(t + 0.5);
+      inboundRingtoneRef.current = { stop: () => { clearInterval(interval); ctx.close(); } };
+    } catch {}
+  };
+  const stopInboundRingtone = () => { inboundRingtoneRef.current?.stop(); inboundRingtoneRef.current = null; };
+
+  const startTitleFlash = () => {
+    const orig = document.title;
+    let on = true;
+    inboundTitleRef.current = setInterval(() => {
+      document.title = on ? '📞 Incoming Call' : orig;
+      on = !on;
+    }, 800);
+  };
+  const stopTitleFlash = () => {
+    clearInterval(inboundTitleRef.current);
+    document.title = 'Show My Quote';
+  };
+
+  const dismissIncomingCall = () => {
+    stopInboundRingtone();
+    stopTitleFlash();
+    try { navigator.clearAppBadge?.(); } catch {}
+    setIncomingCall(null);
+  };
+
   // ── Call lifecycle ────────────────────────────────────────────────────────
   const startCall = async (phoneNumber = '') => {
     // Transition to call phase
@@ -841,54 +979,57 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     // Connect via Twilio if a number was provided
     if (phoneNumber) {
       try {
-        const tokenRes = await fetch('/api/twilio-token');
-        if (tokenRes.ok) {
+        // Reuse the persistent inbound Device if already registered, otherwise create a new one
+        let device = twilioDeviceRef.current;
+        if (!device) {
+          const tokenRes = await fetch('/api/twilio-token');
+          if (!tokenRes.ok) throw new Error('Token fetch failed');
           const { token } = await tokenRes.json();
           const { Device } = await import('@twilio/voice-sdk');
-          const device = new Device(token, { logLevel: 1 });
+          device = new Device(token, { logLevel: 1 });
           twilioDeviceRef.current = device;
           await device.register();
-          // Mute local ringback — don't play until remote party's phone rings
-          try { device.audio.outgoing(false); } catch {}
-          const call = await device.connect({ params: { To: phoneNumber, Session: scRef.current || '' } });
-          twilioCallRef.current = call;
-
-          // Subscribe to tx channel for Twilio Real-Time Transcription events
-          if (PUSHER_KEY && PUSHER_CLUSTER && scRef.current) {
-            const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
-            const ch = p.subscribe(`tx-${scRef.current}`);
-            ch.bind('transcript', ({ speaker, text }) => {
-              if (onLineRef.current) onLineRef.current(speaker, text);
-            });
-            transcriptPusherRef.current = { pusher: p, channel: `tx-${scRef.current}` };
-            setTxPA(true);
-          }
-
-          // Auto-end when remote party hangs up
-          call.on('disconnect', () => {
-            remoteHungUpRef.current = true;
-            if (caRef.current) endCall();
-          });
-          // Capture CallSid on accept (needed for server-side recording after call ends).
-          call.on('accept', () => {
-            const sid = call.parameters?.CallSid;
-            if (sid) {
-              twilioCallSidRef.current = sid;
-              console.log('[twilio] CallSid captured:', sid);
-            } else {
-              console.warn('[twilio] CallSid not available in call.parameters after accept');
-            }
-          });
-
-          // 'ringing' fires when the remote party's phone starts ringing.
-          // Only now: enable local ringback, start the mic, and start the timer.
-          call.on('ringing', () => {
-            setCallStatus('ringing');
-            setTimerRunning(true);
-            try { twilioDeviceRef.current?.audio.outgoing(true); } catch {}
-            startMic();
-          });
         }
+        // Mute local ringback — don't play until remote party's phone rings
+        try { device.audio.outgoing(false); } catch {}
+        const call = await device.connect({ params: { To: phoneNumber, Session: scRef.current || '' } });
+        twilioCallRef.current = call;
+
+        // Subscribe to tx channel for Twilio Real-Time Transcription events
+        if (PUSHER_KEY && PUSHER_CLUSTER && scRef.current) {
+          const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+          const ch = p.subscribe(`tx-${scRef.current}`);
+          ch.bind('transcript', ({ speaker, text }) => {
+            if (onLineRef.current) onLineRef.current(speaker, text);
+          });
+          transcriptPusherRef.current = { pusher: p, channel: `tx-${scRef.current}` };
+          setTxPA(true);
+        }
+
+        // Auto-end when remote party hangs up
+        call.on('disconnect', () => {
+          remoteHungUpRef.current = true;
+          if (caRef.current) endCall();
+        });
+        // Capture CallSid on accept (needed for server-side recording after call ends).
+        call.on('accept', () => {
+          const sid = call.parameters?.CallSid;
+          if (sid) {
+            twilioCallSidRef.current = sid;
+            console.log('[twilio] CallSid captured:', sid);
+          } else {
+            console.warn('[twilio] CallSid not available in call.parameters after accept');
+          }
+        });
+
+        // 'ringing' fires when the remote party's phone starts ringing.
+        // Only now: enable local ringback, start the mic, and start the timer.
+        call.on('ringing', () => {
+          setCallStatus('ringing');
+          setTimerRunning(true);
+          try { twilioDeviceRef.current?.audio.outgoing(true); } catch {}
+          startMic();
+        });
       } catch (e) {
         console.warn('Twilio unavailable, mic-only mode:', e.message);
       }
@@ -1576,6 +1717,33 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     </div>
   );
 
+  // ── Incoming call modal (shown over any phase when an inbound call arrives) ─
+  const incomingCallModal = incomingCall ? (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-80 text-center">
+        <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4 animate-pulse">
+          <Phone className="w-8 h-8 text-green-600" />
+        </div>
+        <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Incoming call</p>
+        <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
+        <div className="flex gap-3 justify-center">
+          <button
+            onClick={() => { incomingCall.call.reject(); dismissIncomingCall(); }}
+            className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <PhoneOff className="w-4 h-4" /> Decline
+          </button>
+          <button
+            onClick={() => { incomingCall.call.accept(); dismissIncomingCall(); }}
+            className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Phone className="w-4 h-4" /> Answer
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null;
+
   // ── Phase renderers ───────────────────────────────────────────────────────
 
   if (phase === 'waiting') {
@@ -1604,7 +1772,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
   if (phase === 'landing') {
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} overlay={incomingCallModal}>
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-[#F7F7F5]">
           <div className="w-full max-w-3xl">
             <div className="text-center mb-10">
@@ -2101,7 +2269,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     }
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} quoteTotal={callQuoteTotal}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} quoteTotal={callQuoteTotal} overlay={incomingCallModal}>
         {renderCallScreen()}
       </PageShell>
     );
@@ -2111,7 +2279,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     const filledCount = fields.filter(f => fieldValues[f.key] !== undefined && fieldValues[f.key] !== '').length;
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} overlay={incomingCallModal}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-2xl mx-auto">
 
@@ -2641,7 +2809,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
 // ── Page shell (nav + viewer banner) ─────────────────────────────────────────
 
-function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal }) {
+function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal, overlay }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Viewer banner */}
@@ -2699,6 +2867,9 @@ function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onRese
       <div className="flex-1 flex flex-col overflow-hidden" style={{ minHeight: 0 }}>
         {children}
       </div>
+
+      {/* Overlay (e.g. incoming call modal) */}
+      {overlay}
     </div>
   );
 }

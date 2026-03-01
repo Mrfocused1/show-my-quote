@@ -1,7 +1,8 @@
 {
   "functions": {
     "api/analyze.js": { "maxDuration": 60 },
-    "api/twilio-recording.js": { "maxDuration": 30 }
+    "api/twilio-recording.js": { "maxDuration": 30 },
+    "api/twilio-voice.js": { "maxDuration": 15 }
   },
   "rewrites": [
     { "source": "/demo", "destination": "/index.html" }

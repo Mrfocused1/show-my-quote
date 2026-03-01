@@ -494,6 +494,8 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [smsBadge, setSmsBadge] = useState(0);
   const [notifPermission, setNotifPermission] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
   const ringtoneRef = useRef(null);
+  const titleFlashRef = useRef(null);
+  const autoAnswerRef = useRef(false);
   const twilioDeviceRef = useRef(null);
 
   const navigateTo = (view, record = null) => {
@@ -515,16 +517,51 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
     }
   };
 
+  // Convert VAPID public key from base64url to Uint8Array (required by PushManager.subscribe)
+  const urlB64ToUint8Array = (base64String) => {
+    const padding = '='.repeat((4 - base64String.length % 4) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map(c => c.charCodeAt(0)));
+  };
+
+  const subscribeToPush = async () => {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+    const vapidKey = import.meta.env.VITE_VAPID_PUBLIC_KEY;
+    if (!vapidKey) return;
+    try {
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlB64ToUint8Array(vapidKey),
+      });
+      await fetch('/api/push-register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ identity: 'demo-presenter', subscription: sub.toJSON() }),
+      });
+    } catch (e) { console.warn('Push subscription failed:', e.message); }
+  };
+
   const requestNotifPermission = async () => {
     if (typeof Notification === 'undefined') return;
     const result = await Notification.requestPermission();
     setNotifPermission(result);
+    if (result === 'granted') subscribeToPush();
   };
 
-  const showNotification = (title, body, onClick) => {
-    if (Notification.permission !== 'granted') return;
-    const n = new Notification(title, { body, icon: '/logo.png', badge: '/logo.png' });
-    if (onClick) n.onclick = () => { window.focus(); onClick(); n.close(); };
+  // Tab title flash helpers
+  const startTitleFlash = () => {
+    const orig = document.title;
+    let on = true;
+    titleFlashRef.current = setInterval(() => {
+      document.title = on ? '📞 Incoming Call' : orig;
+      on = !on;
+    }, 800);
+  };
+  const stopTitleFlash = () => {
+    clearInterval(titleFlashRef.current);
+    document.title = 'Show My Quote';
   };
 
   // Play ringtone using Web Audio API
@@ -565,17 +602,67 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
         twilioDeviceRef.current = device;
         await device.register();
         device.on('incoming', call => {
+          // If user tapped Answer in a push notification, auto-accept
+          if (autoAnswerRef.current) {
+            autoAnswerRef.current = false;
+            call.accept();
+            return;
+          }
           setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
           startRingtone();
-          showNotification('📞 Incoming Call', call.parameters?.From || 'Unknown number', () => {});
+          startTitleFlash();
+          try { navigator.setAppBadge?.(1); } catch {}
+          const cleanup = () => {
+            stopRingtone();
+            stopTitleFlash();
+            try { navigator.clearAppBadge?.(); } catch {}
+            setIncomingCall(null);
+          };
           // Auto-dismiss if caller hangs up before answer
-          call.on('cancel', () => { stopRingtone(); setIncomingCall(null); });
-          call.on('disconnect', () => { stopRingtone(); setIncomingCall(null); });
+          call.on('cancel', cleanup);
+          call.on('disconnect', cleanup);
         });
       } catch (e) { console.warn('Twilio Device init:', e.message); }
     })();
     return () => { try { device?.destroy(); } catch {} };
   }, []);
+
+  // Register Service Worker + subscribe to push on load
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW reg failed:', e));
+    // If permission already granted, re-subscribe (in case subscription was cleared)
+    if (Notification.permission === 'granted') subscribeToPush();
+  }, []);
+
+  // Listen for answer/decline messages posted by the Service Worker
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const handler = e => {
+      const { type } = e.data || {};
+      if (type === 'answer-call') {
+        if (incomingCall) {
+          incomingCall.call.accept();
+          stopRingtone();
+          stopTitleFlash();
+          try { navigator.clearAppBadge?.(); } catch {}
+          setIncomingCall(null);
+        } else {
+          // Tab was just opened — set flag so Device.on('incoming') auto-accepts
+          autoAnswerRef.current = true;
+        }
+      }
+      if (type === 'decline-call' && incomingCall) {
+        incomingCall.call.reject();
+        stopRingtone();
+        stopTitleFlash();
+        try { navigator.clearAppBadge?.(); } catch {}
+        setIncomingCall(null);
+      }
+    };
+    navigator.serviceWorker.addEventListener('message', handler);
+    return () => navigator.serviceWorker.removeEventListener('message', handler);
+  }, [incomingCall]);
 
   // Global Pusher listener for SMS badge + notifications
   useEffect(() => {
@@ -674,13 +761,13 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
             <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => { incomingCall.call.reject(); stopRingtone(); setIncomingCall(null); }}
+                onClick={() => { incomingCall.call.reject(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" /> Decline
               </button>
               <button
-                onClick={() => { incomingCall.call.accept(); stopRingtone(); setIncomingCall(null); }}
+                onClick={() => { incomingCall.call.accept(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" /> Answer

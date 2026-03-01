@@ -1,4 +1,5 @@
 import twilio from 'twilio';
+import { sendPushToIdentity } from './push-notify.js';
 
 export default async function handler(req, res) {
   // Twilio sends POST with URL-encoded body
@@ -63,8 +64,18 @@ export default async function handler(req, res) {
     dial.number(To);
     console.log('[twilio-voice] TwiML:', twiml.toString());
   } else {
-    // Inbound call to the Twilio number — ring the browser client
-    const dial = twiml.dial({ callerId: req.body?.From || twilioNumber });
+    // Inbound call to the Twilio number — send push notification then ring the browser client.
+    // Push is sent synchronously (capped at 3s) so it fires before the response is returned.
+    const from = req.body?.From || req.query?.From || 'Unknown';
+    try {
+      await Promise.race([
+        sendPushToIdentity('demo-presenter', { from }),
+        new Promise(r => setTimeout(r, 3000)),
+      ]);
+    } catch {}
+
+    // timeout:45 gives the user time to open the app and register the Twilio Device
+    const dial = twiml.dial({ callerId: from === 'Unknown' ? twilioNumber : from, timeout: 45 });
     dial.client('demo-presenter');
   }
 
