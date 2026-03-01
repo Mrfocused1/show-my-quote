@@ -1,11 +1,13 @@
 import webpush from 'web-push';
 import { put, list } from '@vercel/blob';
 
-webpush.setVapidDetails(
-  process.env.VAPID_SUBJECT || 'mailto:hello@showmyquote.com',
-  process.env.VAPID_PUBLIC_KEY,
-  process.env.VAPID_PRIVATE_KEY,
-);
+function initWebPush() {
+  webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT || 'mailto:hello@showmyquote.com',
+    process.env.VAPID_PUBLIC_KEY,
+    process.env.VAPID_PRIVATE_KEY,
+  );
+}
 
 const subsPath = identity => `push-subs/${identity}.json`;
 
@@ -31,7 +33,7 @@ async function writeSubs(identity, subs) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
-
+  initWebPush();
   const { identity = 'demo-presenter', from = 'Unknown number' } = req.body || {};
   const sent = await sendPushToIdentity(identity, { from });
   res.json({ sent });
@@ -41,6 +43,8 @@ export default async function handler(req, res) {
 export async function sendPushToIdentity(identity, payload) {
   const subscriptions = await readSubs(identity);
   if (!subscriptions.length) return 0;
+
+  initWebPush();
 
   const results = await Promise.allSettled(
     subscriptions.map(sub =>
