@@ -18,6 +18,7 @@ async function writeSubs(identity, subs) {
     access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
+    allowOverwrite: true,
   });
 }
 
