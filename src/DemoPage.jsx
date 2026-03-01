@@ -549,6 +549,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const inboundRingtoneRef = useRef(null); // ringtone for inbound calls
   const inboundTitleRef    = useRef(null); // title flash interval for inbound calls
   const autoAnswerRef      = useRef(false); // set when user tapped Answer in a push notification
+  const audioCtxRef        = useRef(null); // shared AudioContext, warmed on first user gesture
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -653,6 +654,25 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       } catch (e) { console.warn('Twilio inbound Device init:', e.message); }
     })();
     return () => { try { device?.destroy(); twilioDeviceRef.current = null; } catch {} };
+  }, [isViewer]);
+
+  // ── Warm AudioContext on first user gesture so inbound ringtone can play ──
+  useEffect(() => {
+    if (isViewer) return;
+    const warm = () => {
+      if (audioCtxRef.current) return;
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        ctx.resume().catch(() => {});
+        audioCtxRef.current = ctx;
+      } catch {}
+    };
+    document.addEventListener('click', warm, { once: true });
+    document.addEventListener('touchstart', warm, { once: true });
+    return () => {
+      document.removeEventListener('click', warm);
+      document.removeEventListener('touchstart', warm);
+    };
   }, [isViewer]);
 
   // ── Service Worker registration + push subscription (presenter only) ─────
@@ -941,7 +961,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
   const startInboundRingtone = () => {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
+      if (!audioCtxRef.current) audioCtxRef.current = ctx;
+      ctx.resume().catch(() => {});
       const playBeep = (time) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
