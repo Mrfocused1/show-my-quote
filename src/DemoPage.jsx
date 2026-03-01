@@ -462,9 +462,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [incomingCall, setIncomingCall] = useState(null); // { call, from }
 
   // ── Notification permission ──
-  const [notifPermission, setNotifPermission] = useState(
-    () => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
-  );
+  const [notifPermission, setNotifPermission] = useState(() => {
+    try { return Notification.permission; } catch { return 'unsupported'; }
+  });
 
   // ── Call controls ──
   const [micActive,   setMic]     = useState(false);
@@ -691,7 +691,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   useEffect(() => {
     if (isViewer || !('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW reg failed:', e));
-    if (Notification.permission === 'granted') subscribeToPush();
+    try { if (Notification.permission === 'granted') subscribeToPush(); } catch {}
   }, [isViewer]);
 
   // ── SW message listener (answer/decline from push notification) ───────────

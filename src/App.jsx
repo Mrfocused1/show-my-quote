@@ -492,7 +492,9 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
   const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
   const [smsBadge, setSmsBadge] = useState(0);
-  const [notifPermission, setNotifPermission] = useState(() => typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const [notifPermission, setNotifPermission] = useState(() => {
+    try { return Notification.permission; } catch { return 'unsupported'; }
+  });
   const [installPrompt, setInstallPrompt] = useState(null);
   const ringtoneRef = useRef(null);
   const titleFlashRef = useRef(null);
@@ -634,7 +636,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
     if (!('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW reg failed:', e));
     // If permission already granted, re-subscribe (in case subscription was cleared)
-    if (Notification.permission === 'granted') subscribeToPush();
+    try { if (Notification.permission === 'granted') subscribeToPush(); } catch {}
   }, []);
 
   // Capture PWA install prompt — Chrome fires this when app is installable
