@@ -14,7 +14,8 @@ import {
   Mic, MicOff, PhoneOff, Radio, Pause, Play, UserPlus,
   Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
   Hash, ToggleRight, CheckSquare, Type as TypeIcon,
-  AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal
+  AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal,
+  BookOpen, History
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -211,6 +212,52 @@ const MOCK_INQUIRIES_INITIAL = [
   { id: 'i3', name: 'Emma & David', status: 'Quote Sent', eventDate: 'Aug 2, 2026', source: 'Web Form', value: '£18,200', eventType: 'Wedding', guests: 180, phone: '+1 (555) 234-5678', notes: 'Outdoor venue, may need weather contingency plan.' },
 ];
 
+const MOCK_CONTACTS = [
+  {
+    id: 'c1', name: 'Sarah Jenkins', phone: '+44 7700 900123', email: 'sarah.jenkins@gmail.com',
+    eventType: 'Wedding', initials: 'SJ', color: 'bg-purple-100 text-purple-700',
+    calls: [
+      { id: 'cl-1', date: 'Today, 2:30 PM', duration: '4m 12s', eventType: 'Wedding', status: 'transcribed', quote: '£12,400', quoteStatus: 'draft' },
+    ],
+  },
+  {
+    id: 'c2', name: 'Michael Chen', phone: '+44 7700 900456', email: 'michael.chen@techcorp.com',
+    eventType: 'Corporate', initials: 'MC', color: 'bg-blue-100 text-blue-700',
+    calls: [
+      { id: 'cl-2', date: 'Today, 11:15 AM', duration: '2m 45s', eventType: 'Corporate', status: 'transcribed', quote: '£3,100', quoteStatus: 'draft' },
+    ],
+  },
+  {
+    id: 'c3', name: 'Emma & David Harper', phone: '+44 7700 900789', email: 'emma.harper@gmail.com',
+    eventType: 'Wedding', initials: 'EH', color: 'bg-pink-100 text-pink-700',
+    calls: [
+      { id: 'cl-3', date: 'Yesterday, 4:20 PM', duration: '6m 30s', eventType: 'Wedding', status: 'transcribed', quote: '£18,200', quoteStatus: 'sent' },
+    ],
+  },
+  {
+    id: 'c4', name: 'Rivera Family', phone: '+44 7700 900321', email: 'rivera.family@gmail.com',
+    eventType: 'Birthday', initials: 'RF', color: 'bg-orange-100 text-orange-700',
+    calls: [
+      { id: 'cl-4', date: 'Oct 22, 10:00 AM', duration: '—', eventType: 'Birthday', status: 'missed', quote: '£7,800', quoteStatus: 'viewed' },
+    ],
+  },
+  {
+    id: 'c5', name: 'TechCorp Inc.', phone: '+44 7700 900654', email: 'events@techcorp.com',
+    eventType: 'Corporate', initials: 'TC', color: 'bg-green-100 text-green-700',
+    calls: [
+      { id: 'cl-5a', date: 'Oct 18, 9:00 AM', duration: '3m 20s', eventType: 'Corporate', status: 'transcribed', quote: '£4,200', quoteStatus: 'won' },
+      { id: 'cl-5b', date: 'Sep 5, 2:00 PM',  duration: '1m 50s', eventType: 'Corporate', status: 'transcribed', quote: '£2,800', quoteStatus: 'won' },
+    ],
+  },
+  {
+    id: 'c6', name: 'Aisha Okafor', phone: '+44 7700 900987', email: 'aisha.okafor@gmail.com',
+    eventType: 'Birthday', initials: 'AO', color: 'bg-yellow-100 text-yellow-700',
+    calls: [
+      { id: 'cl-6', date: 'Oct 15, 1:45 PM', duration: '5m 10s', eventType: 'Birthday', status: 'transcribed', quote: '£5,600', quoteStatus: 'lost' },
+    ],
+  },
+];
+
 const STATUS_STYLES = {
   draft: 'bg-slate-100 text-slate-700',
   sent: 'bg-blue-100 text-blue-800',
@@ -265,6 +312,8 @@ function PhoneDialer({ onClose, navigateTo }) {
   const [muted, setMuted] = useState(false);
   const [held, setHeld] = useState(false);
   const [transcript, setTranscript] = useState([]);
+  const [contactsOpen, setContactsOpen] = useState(false);
+  const [contactSearch, setContactSearch] = useState('');
 
   const KEYS = [
     { digit: '1', sub: '' },    { digit: '2', sub: 'ABC' }, { digit: '3', sub: 'DEF' },
@@ -337,10 +386,17 @@ function PhoneDialer({ onClose, navigateTo }) {
           </div>
 
           {/* Number display */}
-          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] flex items-center justify-center">
-            <span className={`font-mono text-xl tracking-widest font-bold ${number ? 'text-white' : 'text-slate-600'}`}>
+          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] flex items-center justify-between">
+            <span className={`font-mono text-xl tracking-widest font-bold flex-1 text-center ${number ? 'text-white' : 'text-slate-600'}`}>
               {number || 'Enter number'}
             </span>
+            <button
+              onClick={() => setContactsOpen(true)}
+              className="text-slate-400 hover:text-white transition-colors p-1 ml-2 flex-shrink-0"
+              title="Contacts"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Keypad */}
@@ -480,6 +536,77 @@ function PhoneDialer({ onClose, navigateTo }) {
           </div>
         )}
       </div>
+
+      {/* ── Contacts bottom sheet ── */}
+      {contactsOpen && (() => {
+        const filtered = MOCK_CONTACTS.filter(c =>
+          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+          c.phone.includes(contactSearch) ||
+          c.eventType.toLowerCase().includes(contactSearch.toLowerCase())
+        );
+        return (
+          <>
+            {/* Backdrop */}
+            <div
+              className="fixed inset-0 z-[60] bg-black/50"
+              onClick={() => { setContactsOpen(false); setContactSearch(''); }}
+            />
+            {/* Sheet */}
+            <div className="fixed bottom-0 left-0 right-0 z-[61] bg-slate-900 rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: '70vh' }}>
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-8 h-1 bg-slate-700 rounded-full" />
+              </div>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 flex-shrink-0">
+                <span className="text-white font-semibold text-sm">Contacts</span>
+                <button onClick={() => { setContactsOpen(false); setContactSearch(''); }} className="text-slate-500 hover:text-white transition-colors">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Search */}
+              <div className="px-4 py-3 flex-shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
+                  <input
+                    autoFocus
+                    value={contactSearch}
+                    onChange={e => setContactSearch(e.target.value)}
+                    placeholder="Search contacts…"
+                    className="w-full pl-8 pr-3 py-2 bg-slate-800 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-green-500 transition-all"
+                  />
+                </div>
+              </div>
+              {/* Contact list */}
+              <div className="overflow-y-auto flex-1 px-3 pb-6">
+                {filtered.length === 0 && (
+                  <p className="text-slate-500 text-sm text-center py-8">No contacts found</p>
+                )}
+                {filtered.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setNumber(c.phone);
+                      setContactsOpen(false);
+                      setContactSearch('');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-800 active:bg-slate-700 transition-colors text-left"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${c.color}`}>
+                      {c.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-white truncate">{c.name}</div>
+                      <div className="text-xs text-slate-400 truncate">{c.phone} · {c.eventType}</div>
+                    </div>
+                    <Phone className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
@@ -728,6 +855,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
           {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => navigateTo('calls')} />}
+          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} />}
           {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
@@ -1567,102 +1695,289 @@ function WorkspaceView({ navigateTo }) {
 }
 
 function DashboardView({ navigateTo, onNewCall }) {
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   return (
-    <div className="max-w-5xl mx-auto p-4 md:p-8 space-y-6 md:space-y-8 pb-20">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3 mb-4 md:mb-6">
+    <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-6 pb-20">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-end gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-slate-900">Good morning, Team</h1>
-          <p className="text-slate-500 mt-1">Here is what's happening today.</p>
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-slate-900">{greeting}</h1>
+          <p className="text-slate-500 mt-1 text-sm">Here's what's happening today.</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onNewCall}
-            className="bg-green-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-green-500 transition shadow-sm flex items-center gap-2"
-          >
-            <Phone className="w-4 h-4" /> New Call +
-          </button>
-          <button
-            onClick={() => navigateTo('quote-builder')}
-            className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm flex items-center"
-          >
-            <Plus className="w-4 h-4 mr-2" /> New Quote
-          </button>
-        </div>
+        <button
+          onClick={onNewCall}
+          className="bg-green-600 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-green-500 transition shadow-sm flex items-center gap-2 self-start sm:self-auto"
+        >
+          <Phone className="w-4 h-4" /> New Call
+        </button>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      {/* 3 stat cards */}
+      <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'Open Inquiries', value: '14', icon: Inbox, trend: '+2 this week', view: 'inquiries' },
-          { label: 'Draft Quotes', value: '8', icon: FileEdit, trend: 'Needs review', view: 'quotes' },
-          { label: 'Sent (Awaiting)', value: '12', icon: Clock, trend: '£45k pipeline', view: 'quotes' },
-          { label: 'Won This Month', value: '5', icon: CheckCircle2, trend: '£22k revenue', view: 'quotes' }
-        ].map((metric, i) => (
+          { label: 'New This Week', value: '6', icon: Inbox, sub: '+2 today', view: 'inquiries' },
+          { label: 'Awaiting Reply', value: '4', icon: Clock, sub: '£32k pipeline', view: 'inquiries' },
+          { label: 'Won This Month', value: '3', icon: CheckCircle2, sub: '£22k revenue', view: 'inquiries' },
+        ].map((m, i) => (
           <div
             key={i}
-            onClick={() => navigateTo(metric.view)}
-            className="border border-slate-200 rounded-lg p-5 hover:border-slate-300 transition-colors group bg-white shadow-sm cursor-pointer"
+            onClick={() => navigateTo(m.view)}
+            className="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group"
           >
-            <div className="flex items-center text-slate-500 mb-3">
-              <metric.icon className="w-4 h-4 mr-2 group-hover:text-slate-800 transition-colors" />
-              <span className="text-sm font-medium">{metric.label}</span>
+            <div className="flex items-center gap-1.5 text-slate-400 mb-2">
+              <m.icon className="w-3.5 h-3.5" />
+              <span className="text-xs font-medium">{m.label}</span>
             </div>
-            <div className="text-3xl font-semibold text-slate-900">{metric.value}</div>
-            <div className="text-xs text-slate-400 mt-2">{metric.trend}</div>
+            <div className="text-2xl font-bold text-slate-900">{m.value}</div>
+            <div className="text-xs text-slate-400 mt-1">{m.sub}</div>
           </div>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
-        <div className="border border-slate-200 rounded-lg p-6 bg-white shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold flex items-center">
-              <PhoneCall className="w-5 h-5 mr-2 text-slate-400" /> Recent Calls
-            </h3>
-            <button onClick={() => navigateTo('calls')} className="text-sm text-slate-500 hover:text-slate-900">View all</button>
-          </div>
-          <div className="space-y-3">
-            {MOCK_CALLS.map(call => (
-              <div
-                key={call.id}
-                onClick={() => navigateTo('calls', call.id)}
-                className="group flex items-center justify-between p-3 -mx-3 rounded-md hover:bg-slate-50 cursor-pointer transition-colors"
-              >
-                <div>
-                  <div className="font-medium text-slate-900 group-hover:text-blue-600">{call.caller}</div>
-                  <div className="text-sm text-slate-500 mt-0.5">{call.extracted.eventType} • {call.duration}</div>
+      {/* Recent enquiries — full width */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+            <PhoneCall className="w-4 h-4 text-slate-400" /> Recent Enquiries
+          </h3>
+          <button onClick={() => navigateTo('calls')} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">View all</button>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {MOCK_CALL_LOGS.map(call => (
+            <div
+              key={call.id}
+              onClick={() => navigateTo('calls', call.id)}
+              className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
+                  call.extracted?.eventType === 'Wedding' ? 'bg-purple-100 text-purple-700' :
+                  call.extracted?.eventType === 'Corporate' ? 'bg-blue-100 text-blue-700' :
+                  'bg-orange-100 text-orange-700'
+                }`}>
+                  {call.caller.split(' ').map(w => w[0]).slice(0,2).join('')}
                 </div>
-                {call.status === 'transcribed' && (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                    Extracted
-                  </span>
-                )}
+                <div>
+                  <div className="text-sm font-medium text-slate-900 group-hover:text-green-700 transition-colors">{call.caller}</div>
+                  <div className="text-xs text-slate-400">{call.extracted?.eventType} · {call.date}</div>
+                </div>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                {call.quote && (
+                  <span className="text-xs font-medium text-slate-600">£{call.quote.amount.toLocaleString()}</span>
+                )}
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  call.status === 'missed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}>
+                  {call.status === 'missed' ? 'Missed' : 'Transcribed'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Quick links */}
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigateTo('contacts')}
+          className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all group"
+        >
+          <BookOpen className="w-5 h-5 text-slate-400 mb-2 group-hover:text-green-600 transition-colors" />
+          <div className="text-sm font-semibold text-slate-800">Contacts</div>
+          <div className="text-xs text-slate-400 mt-0.5">{MOCK_CONTACTS.length} clients</div>
+        </button>
+        <button
+          onClick={() => navigateTo('inquiries')}
+          className="bg-white border border-slate-200 rounded-xl p-4 text-left hover:border-slate-300 hover:shadow-sm transition-all group"
+        >
+          <FileText className="w-5 h-5 text-slate-400 mb-2 group-hover:text-green-600 transition-colors" />
+          <div className="text-sm font-semibold text-slate-800">Enquiries</div>
+          <div className="text-xs text-slate-400 mt-0.5">Manage your pipeline</div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Contacts ─────────────────────────────────────────────────────────────────
+const QUOTE_STATUS_PILL = {
+  draft:   'bg-slate-100 text-slate-600',
+  sent:    'bg-blue-100 text-blue-700',
+  viewed:  'bg-purple-100 text-purple-700',
+  won:     'bg-green-100 text-green-700',
+  lost:    'bg-red-100 text-red-600',
+};
+
+function ContactsView({ navigateTo }) {
+  const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState(null);
+
+  const filtered = MOCK_CONTACTS.filter(c =>
+    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    c.eventType.toLowerCase().includes(search.toLowerCase()) ||
+    c.email.toLowerCase().includes(search.toLowerCase())
+  );
+
+  const contact = selected ? MOCK_CONTACTS.find(c => c.id === selected) : null;
+
+  return (
+    <div className="flex h-full overflow-hidden">
+      {/* Contact list panel */}
+      <div className={`${contact ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex-shrink-0`}>
+        {/* Search */}
+        <div className="p-4 border-b border-slate-100">
+          <h2 className="text-base font-bold text-slate-900 mb-3">Contacts</h2>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by name or event type…"
+              className="w-full pl-9 pr-3 py-2 bg-slate-100 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
+            />
           </div>
         </div>
 
-        <div className="border border-slate-200 rounded-lg p-6 bg-white shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 flex items-center">
-            <Calendar className="w-5 h-5 mr-2 text-slate-400" /> Upcoming Tastings
-          </h3>
-          <div className="space-y-4 text-sm">
-            <div className="flex border-l-2 border-slate-800 pl-3 py-1">
-              <div className="w-16 font-medium text-slate-500">Oct 26</div>
-              <div>
-                <div className="font-semibold text-slate-900">Jenkins Wedding Tasting</div>
-                <div className="text-slate-500">2:00 PM • Plated Menu</div>
+        {/* List */}
+        <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+          {filtered.length === 0 && (
+            <div className="p-8 text-center text-slate-400 text-sm">No contacts found</div>
+          )}
+          {filtered.map(c => (
+            <button
+              key={c.id}
+              onClick={() => setSelected(c.id)}
+              className={`w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-slate-50 transition-colors ${selected === c.id ? 'bg-green-50' : ''}`}
+            >
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${c.color}`}>
+                {c.initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-900 truncate">{c.name}</div>
+                <div className="text-xs text-slate-400 truncate">{c.eventType} · {c.calls[c.calls.length - 1]?.date}</div>
+              </div>
+              <div className="flex-shrink-0">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${QUOTE_STATUS_PILL[c.calls[c.calls.length - 1]?.quoteStatus] || 'bg-slate-100 text-slate-500'}`}>
+                  {c.calls[c.calls.length - 1]?.quoteStatus}
+                </span>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Contact profile panel */}
+      {contact ? (
+        <div className="flex-1 overflow-y-auto bg-[#F7F7F5]">
+          {/* Mobile back */}
+          <div className="md:hidden px-4 pt-4">
+            <button onClick={() => setSelected(null)} className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-800 mb-4">
+              <ChevronLeft className="w-4 h-4" /> Back
+            </button>
+          </div>
+
+          <div className="max-w-xl mx-auto p-4 md:p-8 space-y-5">
+            {/* Profile header */}
+            <div className="bg-white border border-slate-200 rounded-xl p-6 flex items-start gap-4 shadow-sm">
+              <div className={`w-14 h-14 rounded-full flex items-center justify-center text-lg font-bold flex-shrink-0 ${contact.color}`}>
+                {contact.initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-xl font-bold text-slate-900">{contact.name}</h2>
+                <div className="text-sm text-slate-500 mt-0.5">{contact.eventType} · {contact.calls.length} call{contact.calls.length !== 1 ? 's' : ''}</div>
+                <div className="flex flex-wrap gap-2 mt-3">
+                  <button className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+                    <Phone className="w-3.5 h-3.5" /> Call Now
+                  </button>
+                  <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                    <Mail className="w-3.5 h-3.5" /> Email
+                  </a>
+                  <button onClick={() => navigateTo('quote-builder')} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                    <Plus className="w-3.5 h-3.5" /> New Quote
+                  </button>
+                </div>
               </div>
             </div>
-            <div className="flex border-l-2 border-slate-300 pl-3 py-1">
-              <div className="w-16 font-medium text-slate-500">Oct 28</div>
-              <div>
-                <div className="font-semibold text-slate-900">Corporate Retreat Preview</div>
-                <div className="text-slate-500">11:00 AM • Buffet</div>
+
+            {/* Contact details */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+                <Users className="w-4 h-4 text-slate-400" />
+                <span className="text-sm font-semibold text-slate-800">Contact Details</span>
               </div>
+              <div className="divide-y divide-slate-100 text-sm">
+                <div className="flex items-center gap-3 px-5 py-3">
+                  <Phone className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                  <a href={`tel:${contact.phone}`} className="text-slate-700 hover:text-green-600 transition-colors">{contact.phone}</a>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-3">
+                  <Mail className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                  <a href={`mailto:${contact.email}`} className="text-slate-700 hover:text-green-600 transition-colors">{contact.email}</a>
+                </div>
+                <div className="flex items-center gap-3 px-5 py-3">
+                  <Tag className="w-4 h-4 text-slate-300 flex-shrink-0" />
+                  <span className="text-slate-700">{contact.eventType}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Call history */}
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center gap-2">
+                <History className="w-4 h-4 text-slate-400" />
+                <span className="text-sm font-semibold text-slate-800">Call History</span>
+              </div>
+              {contact.calls.length === 0 ? (
+                <p className="text-sm text-slate-400 px-5 py-4">No calls yet.</p>
+              ) : (
+                <div className="divide-y divide-slate-100">
+                  {contact.calls.map((call, i) => (
+                    <div key={call.id} className="px-5 py-4 flex items-start gap-3">
+                      {/* Timeline dot */}
+                      <div className="flex flex-col items-center mt-1 flex-shrink-0">
+                        <div className={`w-2.5 h-2.5 rounded-full ${call.status === 'missed' ? 'bg-red-400' : 'bg-green-500'}`} />
+                        {i < contact.calls.length - 1 && <div className="w-px flex-1 bg-slate-200 mt-1" style={{minHeight: 24}} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium text-slate-900">{call.eventType}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${QUOTE_STATUS_PILL[call.quoteStatus] || 'bg-slate-100 text-slate-500'}`}>
+                            {call.quoteStatus}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-400 mt-0.5">{call.date} · {call.duration}</div>
+                        {call.quote && call.status !== 'missed' && (
+                          <div className="flex items-center gap-3 mt-2">
+                            <span className="text-xs font-semibold text-slate-700">Quote: {call.quote}</span>
+                            <button
+                              onClick={() => navigateTo('calls', call.id)}
+                              className="text-xs text-green-600 hover:text-green-700 font-medium"
+                            >
+                              View details →
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      ) : (
+        /* Empty state on desktop when nothing selected */
+        <div className="hidden md:flex flex-1 items-center justify-center bg-[#F7F7F5]">
+          <div className="text-center">
+            <div className="w-14 h-14 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+              <BookOpen className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="text-sm font-medium text-slate-500">Select a contact to view their profile</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -6181,24 +6496,13 @@ function SmsInboxView() {
 function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0, tourStep = null }) {
   const navGroups = [
     {
-      title: 'Workspace',
+      title: null,
       items: [
-        { id: 'dashboard', icon: Home, label: 'Dashboard' },
-        { id: 'inquiries', icon: Inbox, label: 'Inquiries' },
-        { id: 'quotes', icon: FileText, label: 'Quotes' },
-        { id: 'calls', icon: Phone, label: 'Call Log', badge: '2' },
-        { id: 'sms-inbox', icon: MessageSquare, label: 'Messages', badge: smsBadge > 0 ? String(smsBadge) : null },
-      ]
-    },
-    {
-      title: 'Admin',
-      items: [
-        { id: 'onboarding', icon: UserPlus, label: 'Onboarding' },
-        { id: 'templates', icon: LayoutGrid, label: 'Templates' },
-        { id: 'price-list', icon: Tag, label: 'Price List' },
-        { id: 'menus', icon: Package, label: 'Menus & Packages' },
-        { id: 'pricing-rules', icon: Sliders, label: 'Pricing Rules' },
-        { id: 'settings', icon: Settings, label: 'Settings' },
+        { id: 'dashboard', icon: Home,     label: 'Dashboard' },
+        { id: 'inquiries', icon: Inbox,    label: 'Enquiries' },
+        { id: 'contacts',  icon: BookOpen, label: 'Contacts' },
+        { id: 'calls',     icon: History,  label: 'Call History', badge: smsBadge > 0 ? String(smsBadge) : null },
+        { id: 'settings',  icon: Settings, label: 'Settings' },
       ]
     }
   ];
@@ -6214,7 +6518,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
       <div className="flex-1 py-4 overflow-y-auto">
         {navGroups.map((group, i) => (
           <div key={i} className="mb-6 px-2">
-            <div className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{group.title}</div>
+            {group.title && <div className="px-3 text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{group.title}</div>}
             <div className="space-y-0.5">
               {group.items.map(item => {
                 const isTourItem = tourStep !== null && TOUR_STEPS[tourStep]?.view === item.id;

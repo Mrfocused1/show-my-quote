@@ -550,6 +550,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const inboundTitleRef    = useRef(null); // title flash interval for inbound calls
   const autoAnswerRef      = useRef(false); // set when user tapped Answer in a push notification
   const audioCtxRef        = useRef(null); // shared AudioContext, warmed on first user gesture
+  const ringtoneAudioRef   = useRef(null); // <Audio> element for ringtone (primed on first gesture)
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -685,6 +686,46 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         document.addEventListener('touchstart', warm, { once: true });
       });
     return () => { cancelled = true; };
+  }, [isViewer]);
+
+  // ── Silent audio loop — keeps iOS audio session alive after first gesture ──
+  // iOS Safari blocks all audio without a prior user gesture. Once ANY audio is
+  // actively playing (even inaudible silence), the audio session stays alive and
+  // we can swap the src to a ringtone at any time — no new gesture required.
+  // This is the only reliable PWA workaround for backgrounded/locked iOS devices.
+  useEffect(() => {
+    if (isViewer) return;
+
+    // Shared audio element: silence while idle, ringtone when a call arrives.
+    const audio = new Audio('/silence.wav');
+    audio.loop = true;
+    audio.volume = 0;       // inaudible silence
+    audio.preload = 'auto';
+    ringtoneAudioRef.current = audio;
+
+    // Also preload the ringtone so the swap is instant
+    const preload = new Audio('/ringtone.wav');
+    preload.preload = 'auto';
+
+    let primed = false;
+    const prime = () => {
+      if (primed) return;
+      primed = true;
+      // Start the silent loop — from this point on the audio session is always alive
+      audio.play().catch(() => {});
+      document.removeEventListener('touchstart', prime);
+      document.removeEventListener('click', prime);
+    };
+    // touchstart fires on any scroll or tap — almost always fires before a call arrives
+    document.addEventListener('touchstart', prime, { passive: true });
+    document.addEventListener('click', prime);
+
+    return () => {
+      audio.pause();
+      ringtoneAudioRef.current = null;
+      document.removeEventListener('touchstart', prime);
+      document.removeEventListener('click', prime);
+    };
   }, [isViewer]);
 
   // ── Service Worker registration + push subscription (presenter only) ─────
@@ -972,6 +1013,34 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   };
 
   const startInboundRingtone = () => {
+    const audio = ringtoneAudioRef.current;
+    if (audio) {
+      // Swap the always-running silent loop to the ringtone.
+      // Because the audio session is already active, iOS allows this without a gesture.
+      audio.pause();
+      audio.src = '/ringtone.wav';
+      audio.volume = 1;
+      audio.loop = true;
+      audio.currentTime = 0;
+      audio.play().catch(() => {
+        // Session wasn't active (call arrived before any gesture) — try oscillator fallback
+        startOscillatorRingtone();
+      });
+      inboundRingtoneRef.current = {
+        stop: () => {
+          audio.pause();
+          // Restore silent loop so session stays alive for next call
+          audio.src = '/silence.wav';
+          audio.volume = 0;
+          audio.loop = true;
+          audio.play().catch(() => {});
+        },
+      };
+      return;
+    }
+    startOscillatorRingtone();
+  };
+  const startOscillatorRingtone = () => {
     try {
       const ctx = audioCtxRef.current || new (window.AudioContext || window.webkitAudioContext)();
       if (!audioCtxRef.current) audioCtxRef.current = ctx;
@@ -988,7 +1057,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       let t = ctx.currentTime;
       const interval = setInterval(() => { playBeep(t); playBeep(t + 0.5); t += 2.5; }, 2500);
       playBeep(t); playBeep(t + 0.5);
-      inboundRingtoneRef.current = { stop: () => { clearInterval(interval); ctx.close(); } };
+      inboundRingtoneRef.current = { stop: () => { clearInterval(interval); try { ctx.close(); } catch {} } };
     } catch {}
   };
   const stopInboundRingtone = () => { inboundRingtoneRef.current?.stop(); inboundRingtoneRef.current = null; };
