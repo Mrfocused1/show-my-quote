@@ -66,6 +66,14 @@ export default async function handler(req, res) {
   } else {
     // Inbound call — push notification + transcription + simultaneous ring.
     const from = req.body?.From || req.query?.From || 'Unknown';
+
+    // Loop detection: if GiffGaff (or any carrier) forwards Twilio's own callback back,
+    // the From will be our Twilio number. Kill it immediately to break the loop.
+    if (from === twilioNumber) {
+      twiml.hangup();
+      return res.send(twiml.toString());
+    }
+
     const CallSid = req.body?.CallSid || req.query?.CallSid || '';
     const appUrl = process.env.APP_URL || 'https://www.showmyquote.com';
 
@@ -82,13 +90,14 @@ export default async function handler(req, res) {
       ]);
     } catch {}
 
-    // Transcribe caller's voice (inbound_track = audio Twilio receives from the PSTN caller).
-    // Presenter's voice is handled by Web Speech API in the browser.
+    // both_tracks: inbound = caller's voice, outbound = presenter's voice.
+    // Works whether the presenter answers in the browser OR on a physical phone.
     const start = twiml.start();
     start.transcription({
       statusCallbackUrl: cbUrl,
-      track: 'inbound_track',
+      track: 'both_tracks',
       inboundTrackLabel: 'Client',
+      outboundTrackLabel: 'You',
       languageCode: 'en-US',
       partialResults: 'false',
       speechModel: 'long',
