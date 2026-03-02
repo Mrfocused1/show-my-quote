@@ -553,6 +553,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const autoAnswerRef      = useRef(false); // set when user tapped Answer in a push notification
   const audioCtxRef        = useRef(null); // shared AudioContext, warmed on first user gesture
   const ringtoneAudioRef   = useRef(null); // <Audio> element for ringtone (primed on first gesture)
+  const acceptInboundRef   = useRef(null); // updated each render to avoid stale closures in useEffect
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -635,13 +636,15 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         twilioDeviceRef.current = device;
         await device.register();
         device.on('incoming', call => {
+          const session = call.customParameters?.get('session') || null;
           if (autoAnswerRef.current) {
             autoAnswerRef.current = false;
             device.audio?.context?.resume().catch(() => {});
             call.accept();
+            if (acceptInboundRef.current) acceptInboundRef.current(call, call.parameters?.From || 'Unknown', session);
             return;
           }
-          setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
+          setIncomingCall({ call, from: call.parameters?.From || 'Unknown', session });
           startInboundRingtone();
           startTitleFlash();
           try { navigator.setAppBadge?.(1); } catch {}
@@ -744,8 +747,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       if (type === 'answer-call') {
         if (incomingCall) {
           twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
-          incomingCall.call.accept();
+          const { call, from, session } = incomingCall;
+          call.accept();
           dismissIncomingCall();
+          if (acceptInboundRef.current) acceptInboundRef.current(call, from, session);
         } else {
           autoAnswerRef.current = true;
         }
@@ -1083,6 +1088,42 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     try { navigator.clearAppBadge?.(); } catch {}
     setIncomingCall(null);
   };
+
+  // ── Accept an inbound call: transition to call phase + wire transcription ─
+  // Called from the Answer button, SW message handler, and auto-answer path.
+  const acceptInboundCallSetup = (call, from, session) => {
+    const cp = 'call';
+    setPhase(cp); phaseRef.current = cp;
+    broadcast({ phase: cp });
+    setCA(true); caRef.current = true;
+    setCS(0);
+    setCallStatus('active');
+    setTimerRunning(true);
+    heartbeatRef.current = setInterval(() => broadcast({}), 2500);
+    twilioCallRef.current = call;
+
+    // Subscribe to Pusher tx-{session} for Twilio transcription of caller's voice ('Client')
+    if (PUSHER_KEY && PUSHER_CLUSTER && session) {
+      const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const ch = p.subscribe(`tx-${session}`);
+      ch.bind('transcript', ({ speaker, text }) => {
+        if (onLineRef.current) onLineRef.current(speaker, text);
+      });
+      transcriptPusherRef.current = { pusher: p, channel: `tx-${session}` };
+      setTxPA(true);
+    }
+
+    // Start browser mic + Web Speech API for presenter's voice ('You' track)
+    startMic();
+
+    // Auto-end when remote party hangs up
+    call.on('disconnect', () => {
+      remoteHungUpRef.current = true;
+      if (caRef.current) endCall();
+    });
+  };
+  // Keep ref up-to-date so the persistent Device useEffect always calls the latest version
+  acceptInboundRef.current = acceptInboundCallSetup;
 
   // ── Call lifecycle ────────────────────────────────────────────────────────
   const startCall = async (phoneNumber = '') => {
@@ -1867,7 +1908,13 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             <PhoneOff className="w-4 h-4" /> Decline
           </button>
           <button
-            onClick={() => { twilioDeviceRef.current?.audio?.context?.resume().catch(() => {}); incomingCall.call.accept(); dismissIncomingCall(); }}
+            onClick={() => {
+              twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
+              const { call, from, session } = incomingCall;
+              call.accept();
+              dismissIncomingCall();
+              acceptInboundCallSetup(call, from, session);
+            }}
             className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
           >
             <Phone className="w-4 h-4" /> Answer

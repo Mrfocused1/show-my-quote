@@ -64,23 +64,59 @@ export default async function handler(req, res) {
     dial.number(To);
     console.log('[twilio-voice] TwiML:', twiml.toString());
   } else {
-    // Inbound call to the Twilio number — send push notification then ring the browser client.
-    // Push is sent synchronously (capped at 3s) so it fires before the response is returned.
+    // Inbound call — push notification + transcription + simultaneous ring.
     const from = req.body?.From || req.query?.From || 'Unknown';
+    const CallSid = req.body?.CallSid || req.query?.CallSid || '';
+    const appUrl = process.env.APP_URL || 'https://www.showmyquote.com';
+
+    // Short session derived from CallSid — routes transcription to the right Pusher channel.
+    // Browser receives this via <Parameter> and subscribes to tx-{session}.
+    const session = 'in' + (CallSid.slice(-6) || Date.now().toString(36));
+    const cbUrl = `${appUrl}/api/twilio-transcription?session=${encodeURIComponent(session)}`;
+
+    // Push notification (include session so app can subscribe to the right channel)
     try {
       await Promise.race([
-        sendPushToIdentity('demo-presenter', { from }),
+        sendPushToIdentity('demo-presenter', { from, session }),
         new Promise(r => setTimeout(r, 3000)),
       ]);
     } catch {}
 
+    // Transcribe caller's voice (inbound_track = audio Twilio receives from the PSTN caller).
+    // Presenter's voice is handled by Web Speech API in the browser.
+    const start = twiml.start();
+    start.transcription({
+      statusCallbackUrl: cbUrl,
+      track: 'inbound_track',
+      inboundTrackLabel: 'Client',
+      languageCode: 'en-US',
+      partialResults: 'false',
+      speechModel: 'long',
+      hints: [
+        'Egusi', 'Eforiro', 'Ewedu', 'Ogbono', 'Edikaikong', 'Banga',
+        'Moyin Moyin', 'Moin Moin', 'Moimoi', 'Puff Puff',
+        'Jollof', 'Suya', 'Akara', 'Amala', 'Eba', 'Garri', 'Semolina',
+        'Asaro', 'Dodo', 'Ugba',
+        'Banku', 'Kelewele', 'Fufu', 'Waakye', 'Kenkey', 'Omo Tuo', 'Ampesi',
+        'Shito', 'Kontomire',
+        'Crain Crain', 'Salone', 'Cassava leaves', 'Groundnut soup',
+        'Callaloo', 'Escovitch', 'Ackee', 'Oxtail', 'Jerk chicken',
+        'Jerk pork', 'Curry goat', 'Plantain',
+        'Gizzard', 'Kebab', 'Spring rolls',
+      ].join(', '),
+    });
+
     // Simultaneous ring: browser client + owner's real phone (if configured).
-    // timeout:20 avoids connecting inbound caller to voicemail (voicemail picks up ~25-30s on UK networks).
-    // If OWNER_PHONE_NUMBER is not set, falls back to browser-only with longer timeout.
+    // timeout:20 avoids connecting inbound caller to voicemail (~25-30s on UK networks).
     const ownerPhone = process.env.OWNER_PHONE_NUMBER;
     const dialTimeout = ownerPhone ? 20 : 45;
     const dial = twiml.dial({ callerId: from === 'Unknown' ? twilioNumber : from, timeout: dialTimeout });
-    dial.client('demo-presenter');
+
+    // Pass session to browser via <Parameter> so it subscribes to the right Pusher channel.
+    const clientNoun = dial.client();
+    clientNoun.identity('demo-presenter');
+    clientNoun.parameter({ name: 'session', value: session });
+
     if (ownerPhone) dial.number(ownerPhone);
   }
 
