@@ -3067,18 +3067,11 @@ function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onRese
               Back to site
             </button>
           )}
-          {quoteTotal ? (
+          {quoteTotal && (
             <div className="flex flex-col items-end px-5 py-2 bg-green-600 text-white rounded-full shadow-md transition-all duration-300">
               <span className="text-lg font-black leading-tight">{quoteTotal.text}</span>
               <span className="text-[10px] font-medium opacity-75 leading-tight">{quoteTotal.sub}</span>
             </div>
-          ) : (
-            <button
-              onClick={onBookDemo}
-              className="px-5 py-2.5 bg-slate-900 text-white text-sm font-semibold rounded-full hover:bg-slate-700 transition-colors shadow-md"
-            >
-              Book a demo
-            </button>
           )}
         </div>
       </nav>
