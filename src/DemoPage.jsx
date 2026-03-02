@@ -690,43 +690,42 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     return () => { cancelled = true; };
   }, [isViewer]);
 
-  // ── Silent audio loop — keeps iOS audio session alive after first gesture ──
-  // iOS Safari blocks all audio without a prior user gesture. Once ANY audio is
-  // actively playing (even inaudible silence), the audio session stays alive and
-  // we can swap the src to a ringtone at any time — no new gesture required.
-  // This is the only reliable PWA workaround for backgrounded/locked iOS devices.
+  // ── Silent audio loop — keeps iOS audio session alive ────────────────────
+  // iOS Safari blocks unmuted audio without a prior user gesture, BUT allows
+  // muted autoplay immediately. We start a muted silence loop on mount so the
+  // audio element is already "active" when a call arrives — then we just unmute
+  // and swap src, which iOS permits on an already-active element.
   useEffect(() => {
     if (isViewer) return;
 
-    // Shared audio element: silence while idle, ringtone when a call arrives.
     const audio = new Audio('/silence.wav');
     audio.loop = true;
-    audio.volume = 0;       // inaudible silence
+    audio.volume = 0;
+    audio.muted = true;     // muted = iOS allows autoplay without any gesture
     audio.preload = 'auto';
     ringtoneAudioRef.current = audio;
 
-    // Also preload the ringtone so the swap is instant
+    // Preload ringtone so the swap is instant
     const preload = new Audio('/ringtone.wav');
     preload.preload = 'auto';
 
-    let primed = false;
-    const prime = () => {
-      if (primed) return;
-      primed = true;
-      // Start the silent loop — from this point on the audio session is always alive
-      audio.play().catch(() => {});
-      document.removeEventListener('touchstart', prime);
-      document.removeEventListener('click', prime);
+    // Start immediately — muted autoplay works on iOS without a user gesture
+    audio.play().catch(() => {});
+
+    // On first gesture: unmute so the audio session is fully active
+    const unlock = () => {
+      audio.muted = false;
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
     };
-    // touchstart fires on any scroll or tap — almost always fires before a call arrives
-    document.addEventListener('touchstart', prime, { passive: true });
-    document.addEventListener('click', prime);
+    document.addEventListener('touchstart', unlock, { passive: true });
+    document.addEventListener('click', unlock);
 
     return () => {
       audio.pause();
       ringtoneAudioRef.current = null;
-      document.removeEventListener('touchstart', prime);
-      document.removeEventListener('click', prime);
+      document.removeEventListener('touchstart', unlock);
+      document.removeEventListener('click', unlock);
     };
   }, [isViewer]);
 
@@ -1017,23 +1016,24 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const startInboundRingtone = () => {
     const audio = ringtoneAudioRef.current;
     if (audio) {
-      // Swap the always-running silent loop to the ringtone.
-      // Because the audio session is already active, iOS allows this without a gesture.
+      // Unmute first (element already active from muted autoplay), then swap src.
+      // iOS permits this on an already-active element — no new gesture needed.
+      audio.muted = false;
       audio.pause();
       audio.src = '/ringtone.wav';
       audio.volume = 1;
       audio.loop = true;
       audio.currentTime = 0;
       audio.play().catch(() => {
-        // Session wasn't active (call arrived before any gesture) — try oscillator fallback
         startOscillatorRingtone();
       });
       inboundRingtoneRef.current = {
         stop: () => {
           audio.pause();
-          // Restore silent loop so session stays alive for next call
+          // Restore muted silence so session stays alive for next call
           audio.src = '/silence.wav';
           audio.volume = 0;
+          audio.muted = true;
           audio.loop = true;
           audio.play().catch(() => {});
         },
