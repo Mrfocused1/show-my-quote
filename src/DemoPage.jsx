@@ -2285,12 +2285,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             <h2 className="text-center text-sm font-bold text-slate-500 uppercase tracking-wider mb-4">Dial</h2>
 
             {/* Number display */}
-            <div className="flex items-center justify-center gap-2 min-h-[52px] mb-2">
-              <span className="text-3xl font-light tracking-widest text-slate-900 text-center break-all">
+            <div className="relative flex items-center justify-center min-h-[52px] mb-2">
+              <span className="text-3xl font-light tracking-widest text-slate-900 text-center break-all px-8">
                 {dialNumber || <span className="text-slate-300 text-lg font-normal">+44 xxx xxx xxxx</span>}
               </span>
               {dialNumber && (
-                <button onClick={del} className="text-slate-400 hover:text-slate-700 text-xl transition-colors flex-shrink-0">⌫</button>
+                <button onClick={del} className="absolute right-0 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 text-xl transition-colors p-1">⌫</button>
               )}
             </div>
 
