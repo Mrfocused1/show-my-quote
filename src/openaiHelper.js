@@ -1,11 +1,16 @@
 // All OpenAI calls go through /api/* serverless functions.
 // The API key lives server-side only — never in the browser bundle.
 
-function fetchWithTimeout(url, options, ms = 20000) {
+const SMQ_KEY = import.meta.env.VITE_SMQ_API_KEY || '';
+
+function fetchWithTimeout(url, options = {}, ms = 20000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
-  return fetch(url, { ...options, signal: controller.signal })
-    .finally(() => clearTimeout(timer));
+  return fetch(url, {
+    ...options,
+    headers: { ...options.headers, 'x-smq-key': SMQ_KEY },
+    signal: controller.signal,
+  }).finally(() => clearTimeout(timer));
 }
 
 // ---------------------------------------------------------------------------

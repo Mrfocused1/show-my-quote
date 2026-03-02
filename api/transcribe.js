@@ -1,5 +1,8 @@
+import { requireApiKey } from './_lib/auth.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
 
   const { audio, filename = 'audio.webm' } = req.body;
   const KEY = process.env.OPENAI_API_KEY;

@@ -2,6 +2,12 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { TemplatesView, TemplateBuilderView } from './TemplateBuilder.jsx';
 import PriceListView from './PriceList.jsx';
 import { transcribeAudio, suggestField, fillFields, analyzeFullConversation } from './openaiHelper.js';
+
+const SMQ_KEY = import.meta.env.VITE_SMQ_API_KEY || '';
+function apiFetch(url, options = {}) {
+  const { headers, ...rest } = options;
+  return fetch(url, { ...rest, headers: { 'x-smq-key': SMQ_KEY, ...headers } });
+}
 import {
   Home, Inbox, Phone, FileText, Settings,
   Menu as MenuIcon, Package, Sliders, Calendar,
@@ -18,145 +24,42 @@ import {
   BookOpen, History, Upload, Printer, Image as ImageIcon
 } from 'lucide-react';
 
-// --- MOCK DATA ---
-const MOCK_CALLS = [
-  {
-    id: 'call-101',
-    caller: 'Sarah Jenkins',
-    phone: '+1 (555) 019-8372',
-    date: 'Oct 24, 2:30 PM',
-    duration: '04:12',
-    status: 'transcribed',
-    transcript: [
-      { speaker: 'Agent', text: 'Thanks for calling Elite Catering. How can I help you today?' },
-      { speaker: 'Sarah', text: "Hi, I'm planning my wedding for next summer and wanted to get a rough idea of pricing." },
-      { speaker: 'Agent', text: 'Congratulations! I can certainly help. Do you have a date and venue in mind?' },
-      { speaker: 'Sarah', text: "Yes, we are looking at June 15th at the River Grove Estate. We're expecting around 120 guests." },
-      { speaker: 'Agent', text: 'Perfect. River Grove is lovely. Were you thinking a seated dinner or something more casual?' },
-      { speaker: 'Sarah', text: 'Probably a plated dinner. Oh, and my sister is severely allergic to nuts, so we need to be careful with that. Also need a few vegan options.' }
-    ],
-    extracted: {
-      name: 'Sarah Jenkins',
-      eventType: 'Wedding',
-      date: '2027-06-15',
-      venue: 'River Grove Estate',
-      guestCount: 120,
-      serviceStyle: 'Plated',
-      dietary: ['Nut Allergy', 'Vegan']
-    }
-  },
-  {
-    id: 'call-102',
-    caller: 'Michael Chen',
-    phone: '+1 (555) 992-1102',
-    date: 'Oct 24, 11:15 AM',
-    duration: '02:45',
-    status: 'transcribed',
-    transcript: [
-      { speaker: 'Agent', text: 'Elite Catering, speaking.' },
-      { speaker: 'Michael', text: 'Hey, I need a caterer for a corporate retreat next month. About 50 people. Just a simple buffet lunch.' }
-    ],
-    extracted: {
-      name: 'Michael Chen',
-      eventType: 'Corporate',
-      date: 'Next Month',
-      guestCount: 50,
-      serviceStyle: 'Buffet',
-      dietary: []
-    }
-  }
+// ─── DB → UI shape helpers ────────────────────────────────────────────────────
+const CONTACT_COLORS = [
+  'bg-purple-100 text-purple-700', 'bg-blue-100 text-blue-700',
+  'bg-pink-100 text-pink-700',    'bg-orange-100 text-orange-700',
+  'bg-green-100 text-green-700',  'bg-yellow-100 text-yellow-700',
+  'bg-teal-100 text-teal-700',    'bg-indigo-100 text-indigo-700',
 ];
-
-const MOCK_CALL_LOGS = [
-  {
-    id: 'cl-1',
-    caller: 'Sarah Jenkins',
-    phone: '+44 7700 900123',
-    email: 'sarah.jenkins@gmail.com',
-    date: 'Today, 2:30 PM',
-    duration: '4m 12s',
-    status: 'transcribed',
-    hasRecording: true,
-    transcript: [
-      { speaker: 'You',   text: "Thanks for calling Elite Catering. How can I help you today?" },
-      { speaker: 'Sarah', text: "Hi, I'm looking to organise catering for my wedding next year." },
-      { speaker: 'You',   text: "Congratulations! Do you have a date and venue in mind?" },
-      { speaker: 'Sarah', text: "Yes — June 15th 2027 at River Grove Estate, in Berkshire." },
-      { speaker: 'You',   text: "Lovely! How many guests are you expecting?" },
-      { speaker: 'Sarah', text: "Around 120 guests — plated sit-down for the wedding breakfast." },
-      { speaker: 'You',   text: "Any dietary requirements we should know about?" },
-      { speaker: 'Sarah', text: "Yes — my sister has a severe nut allergy and we'd love a few vegan options." },
-    ],
-    extracted: { name: 'Sarah Jenkins', eventType: 'Wedding', date: 'Jun 15, 2027', venue: 'River Grove Estate', guestCount: 120, serviceStyle: 'Plated', dietary: ['Nut allergy (severe)', 'Vegan options'] },
-    quote: { id: 'q1', amount: 12400, status: 'draft' },
-    messages: [
-      { type: 'email', direction: 'sent', subject: 'Your wedding catering quote', time: 'Today, 3:15 PM', body: 'Hi Sarah, please find your draft quote for June 15, 2027 at River Grove Estate. Let me know if you have any questions or would like to discuss further.' },
-    ],
-    invoice: null,
-  },
-  {
-    id: 'cl-2',
-    caller: 'Michael Chen',
-    phone: '+44 7700 900456',
-    email: 'michael.chen@techcorp.com',
-    date: 'Today, 11:15 AM',
-    duration: '2m 45s',
-    status: 'transcribed',
-    hasRecording: true,
-    transcript: [
-      { speaker: 'You',     text: "Elite Catering, speaking." },
-      { speaker: 'Michael', text: "Hey, I need a caterer for a corporate retreat next month — about 50 people, simple buffet lunch." },
-      { speaker: 'You',     text: "We'd be happy to help. Do you have a venue in mind?" },
-      { speaker: 'Michael', text: "Yes, it's at our office in central London. Flexible on date within the next 3–4 weeks." },
-    ],
-    extracted: { name: 'Michael Chen', eventType: 'Corporate', date: 'Next Month', guestCount: 50, serviceStyle: 'Buffet', dietary: [] },
-    quote: { id: 'q4', amount: 3100, status: 'draft' },
+function makeContactUi(c) {
+  const initials = (c.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase();
+  const color = CONTACT_COLORS[(c.name || '').length % CONTACT_COLORS.length];
+  return { ...c, initials, color, calls: [], eventType: c.event_type || '' };
+}
+function makeCallUi(c) {
+  const d = c.created_at ? new Date(c.created_at) : null;
+  const date = d ? d.toLocaleString('en-GB', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
+  const mins = c.duration ? Math.floor(c.duration / 60) : 0;
+  const secs = c.duration ? c.duration % 60 : 0;
+  const duration = c.duration ? `${mins}m ${secs}s` : '—';
+  const tx = Array.isArray(c.transcript) ? c.transcript : [];
+  return {
+    id: c.id,
+    caller: c.from_number || 'Unknown',
+    phone: c.from_number || '',
+    email: '',
+    date,
+    duration,
+    status: tx.length > 0 ? 'transcribed' : (c.status === 'missed' ? 'missed' : 'new'),
+    hasRecording: false,
+    transcript: tx,
+    extracted: {},
+    quote: null,
     messages: [],
     invoice: null,
-  },
-  {
-    id: 'cl-3',
-    caller: 'Emma & David',
-    phone: '+44 7700 900789',
-    email: 'emma.harper@gmail.com',
-    date: 'Yesterday, 4:20 PM',
-    duration: '6m 30s',
-    status: 'transcribed',
-    hasRecording: true,
-    transcript: [
-      { speaker: 'You',  text: "Elite Catering Co., how can I help?" },
-      { speaker: 'Emma', text: "Hello! We're planning our wedding for August 2nd and would love to discuss catering." },
-      { speaker: 'You',  text: "Wonderful! Tell me about the event — venue and guest numbers?" },
-      { speaker: 'Emma', text: "About 180 guests at Elmwood Manor — it's an outdoor venue." },
-      { speaker: 'You',  text: "Lovely. What style of service were you thinking?" },
-      { speaker: 'Emma', text: "Family-style platters — very relaxed and sociable." },
-    ],
-    extracted: { name: 'Emma & David', eventType: 'Wedding', date: 'Aug 2, 2026', venue: 'Elmwood Manor', guestCount: 180, serviceStyle: 'Family Style', dietary: [] },
-    quote: { id: 'q2', amount: 18200, status: 'sent' },
-    messages: [
-      { type: 'email', direction: 'sent', subject: 'Wedding catering proposal — Elmwood Manor', time: 'Yesterday, 5:30 PM', body: 'Dear Emma & David, we are delighted to present our proposal for your special day at Elmwood Manor. Please find the full quote at the link below.' },
-      { type: 'sms',   direction: 'sent', text: "Hi Emma! Your quote has been sent to your email. Let us know if you have any questions 😊", time: 'Yesterday, 5:32 PM' },
-    ],
-    invoice: null,
-  },
-  {
-    id: 'cl-4',
-    caller: 'Rivera Family',
-    phone: '+44 7700 900321',
-    email: 'rivera.family@gmail.com',
-    date: 'Oct 22, 10:00 AM',
-    duration: '—',
-    status: 'missed',
-    hasRecording: false,
-    transcript: [],
-    extracted: { name: 'Rivera Family', eventType: 'Birthday', guestCount: 90, serviceStyle: 'Family Style', dietary: ['Gluten Free'] },
-    quote: { id: 'q5', amount: 7800, status: 'viewed' },
-    messages: [
-      { type: 'email', direction: 'sent', subject: 'Sorry we missed your call', time: 'Oct 22, 11:00 AM', body: 'Hi, apologies for missing your call this morning. Please feel free to reply here with any questions, or call us back at your convenience.' },
-    ],
-    invoice: { id: 'INV-001', amount: 7800, status: 'unpaid', dueDate: 'Nov 15, 2025', items: [{ desc: 'Birthday Party Catering — 90 guests (Family Style)', amount: 7800 }] },
-  },
-];
+  };
+}
+
 
 const MOCK_MENUS = [
   {
@@ -198,13 +101,6 @@ const MOCK_RULES_INITIAL = [
   { id: 'r4', condition: 'venueZone = Outside Metro',    action: 'Add flat travel fee £150',     expression: 'total += £150',              raw: 'add £150 travel fee for outside metro venues' },
 ];
 
-const MOCK_QUOTES = [
-  { id: 'q1', client: 'Sarah Jenkins', eventType: 'Wedding', eventDate: 'Jun 15, 2027', amount: 12400, status: 'draft', menu: 'Classic Elegance', guests: 120, serviceStyle: 'Plated', dietary: ['Nut Allergy', 'Vegan'] },
-  { id: 'q2', client: 'Emma & David', eventType: 'Wedding', eventDate: 'Aug 2, 2026', amount: 18200, status: 'sent', menu: 'Rustic Italian Feast', guests: 180, serviceStyle: 'Family Style', dietary: [] },
-  { id: 'q3', client: 'TechCorp Inc.', eventType: 'Corporate', eventDate: 'Nov 5, 2025', amount: 4200, status: 'won', menu: 'Modern Mediterranean', guests: 60, serviceStyle: 'Buffet', dietary: [] },
-  { id: 'q4', client: 'Michael Chen', eventType: 'Corporate', eventDate: 'Next Month', amount: 3100, status: 'draft', menu: 'Modern Mediterranean', guests: 50, serviceStyle: 'Buffet', dietary: [] },
-  { id: 'q5', client: 'Rivera Family', eventType: 'Birthday', eventDate: 'Dec 20, 2025', amount: 7800, status: 'viewed', menu: 'Rustic Italian Feast', guests: 90, serviceStyle: 'Family Style', dietary: ['Gluten Free'] },
-];
 
 const MOCK_INQUIRIES_INITIAL = [
   { id: 'i1', name: 'Sarah Jenkins', status: 'Drafting', eventDate: 'June 15, 2027', source: 'OpenPhone', value: '£12,400', eventType: 'Wedding', guests: 120, phone: '+1 (555) 019-8372', notes: 'Nut allergy, vegan options needed. Venue: River Grove Estate.' },
@@ -212,51 +108,6 @@ const MOCK_INQUIRIES_INITIAL = [
   { id: 'i3', name: 'Emma & David', status: 'Quote Sent', eventDate: 'Aug 2, 2026', source: 'Web Form', value: '£18,200', eventType: 'Wedding', guests: 180, phone: '+1 (555) 234-5678', notes: 'Outdoor venue, may need weather contingency plan.' },
 ];
 
-const MOCK_CONTACTS = [
-  {
-    id: 'c1', name: 'Sarah Jenkins', phone: '+44 7700 900123', email: 'sarah.jenkins@gmail.com',
-    eventType: 'Wedding', initials: 'SJ', color: 'bg-purple-100 text-purple-700',
-    calls: [
-      { id: 'cl-1', date: 'Today, 2:30 PM', duration: '4m 12s', eventType: 'Wedding', status: 'transcribed', quote: '£12,400', quoteStatus: 'draft' },
-    ],
-  },
-  {
-    id: 'c2', name: 'Michael Chen', phone: '+44 7700 900456', email: 'michael.chen@techcorp.com',
-    eventType: 'Corporate', initials: 'MC', color: 'bg-blue-100 text-blue-700',
-    calls: [
-      { id: 'cl-2', date: 'Today, 11:15 AM', duration: '2m 45s', eventType: 'Corporate', status: 'transcribed', quote: '£3,100', quoteStatus: 'draft' },
-    ],
-  },
-  {
-    id: 'c3', name: 'Emma & David Harper', phone: '+44 7700 900789', email: 'emma.harper@gmail.com',
-    eventType: 'Wedding', initials: 'EH', color: 'bg-pink-100 text-pink-700',
-    calls: [
-      { id: 'cl-3', date: 'Yesterday, 4:20 PM', duration: '6m 30s', eventType: 'Wedding', status: 'transcribed', quote: '£18,200', quoteStatus: 'sent' },
-    ],
-  },
-  {
-    id: 'c4', name: 'Rivera Family', phone: '+44 7700 900321', email: 'rivera.family@gmail.com',
-    eventType: 'Birthday', initials: 'RF', color: 'bg-orange-100 text-orange-700',
-    calls: [
-      { id: 'cl-4', date: 'Oct 22, 10:00 AM', duration: '—', eventType: 'Birthday', status: 'missed', quote: '£7,800', quoteStatus: 'viewed' },
-    ],
-  },
-  {
-    id: 'c5', name: 'TechCorp Inc.', phone: '+44 7700 900654', email: 'events@techcorp.com',
-    eventType: 'Corporate', initials: 'TC', color: 'bg-green-100 text-green-700',
-    calls: [
-      { id: 'cl-5a', date: 'Oct 18, 9:00 AM', duration: '3m 20s', eventType: 'Corporate', status: 'transcribed', quote: '£4,200', quoteStatus: 'won' },
-      { id: 'cl-5b', date: 'Sep 5, 2:00 PM',  duration: '1m 50s', eventType: 'Corporate', status: 'transcribed', quote: '£2,800', quoteStatus: 'won' },
-    ],
-  },
-  {
-    id: 'c6', name: 'Aisha Okafor', phone: '+44 7700 900987', email: 'aisha.okafor@gmail.com',
-    eventType: 'Birthday', initials: 'AO', color: 'bg-yellow-100 text-yellow-700',
-    calls: [
-      { id: 'cl-6', date: 'Oct 15, 1:45 PM', duration: '5m 10s', eventType: 'Birthday', status: 'transcribed', quote: '£5,600', quoteStatus: 'lost' },
-    ],
-  },
-];
 
 const STATUS_STYLES = {
   draft: 'bg-slate-100 text-slate-700',
@@ -271,10 +122,11 @@ const STATUS_STYLES = {
 
 // --- TOUR ---
 const TOUR_STEPS = [
-  { view: 'dashboard', title: 'Your dashboard',   desc: "At a glance — today's calls, pipeline value, and open quotes. Updates every time a call ends." },
-  { view: 'calls',     title: 'Call log',         desc: 'Every call, recorded and transcribed. Tap any entry to read the full conversation and the quote it generated.' },
-  { view: 'quotes',    title: 'Quotes',           desc: 'Your full enquiry pipeline. Every call creates a quote automatically — no typing, no follow-up admin.' },
-  { view: 'templates', title: 'Templates',        desc: "Your intake form, built for your business. We configure this for you — every question you'd normally ask on a call." },
+  { view: 'dashboard',  title: 'Your dashboard',  desc: "At a glance — today's calls, pipeline value, and open enquiries. Updates every time a call ends." },
+  { view: 'inquiries',  title: 'Enquiries',        desc: 'Your full pipeline. Every call creates an enquiry automatically — no typing, no follow-up admin.' },
+  { view: 'contacts',   title: 'Contacts',         desc: 'All your clients in one place. Call, SMS, or email them directly — and see every quote and call in their history.' },
+  { view: 'calls',      title: 'Call History',     desc: 'Every call, recorded and transcribed. Tap any entry to read the full conversation and the quote it generated.' },
+  { view: 'settings',   title: 'Settings',         desc: 'Configure your business details, notification preferences, and integrations.' },
 ];
 
 function TourCard({ step, onNext, onClose }) {
@@ -305,7 +157,7 @@ function TourCard({ step, onNext, onClose }) {
 
 // --- MAIN APP ---
 // ─── Phone Dialer ─────────────────────────────────────────────────────────────
-function PhoneDialer({ onClose, navigateTo }) {
+function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
   const [number, setNumber] = useState('');
   const [status, setStatus] = useState('idle'); // idle | dialing | connected | ended
   const [timer, setTimer] = useState(0);
@@ -539,10 +391,10 @@ function PhoneDialer({ onClose, navigateTo }) {
 
       {/* ── Contacts bottom sheet ── */}
       {contactsOpen && (() => {
-        const filtered = MOCK_CONTACTS.filter(c =>
+        const filtered = contacts.filter(c =>
           c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-          c.phone.includes(contactSearch) ||
-          c.eventType.toLowerCase().includes(contactSearch.toLowerCase())
+          (c.phone || '').includes(contactSearch) ||
+          (c.eventType || '').toLowerCase().includes(contactSearch.toLowerCase())
         );
         return (
           <>
@@ -616,9 +468,13 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [activeRecord, setActiveRecord] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [dialerOpen, setDialerOpen] = useState(false);
   const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
-  const [incomingCall, setIncomingCall] = useState(null);   // { call, from }
+  const [incomingCall, setIncomingCall] = useState(null);   // { invite, from }
   const [smsBadge, setSmsBadge] = useState(0);
+  const [callLogs, setCallLogs] = useState([]);
+  const [contacts, setContacts] = useState([]);
+  const [quotes, setQuotes] = useState([]);
   const [notifPermission, setNotifPermission] = useState(() => {
     try { return Notification.permission; } catch { return 'unsupported'; }
   });
@@ -626,7 +482,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const ringtoneRef = useRef(null);
   const titleFlashRef = useRef(null);
   const autoAnswerRef = useRef(false);
-  const twilioDeviceRef = useRef(null);
+  const swDeviceRef = useRef(null);
 
   const navigateTo = (view, record = null) => {
     setCurrentView(view);
@@ -665,7 +521,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
         userVisibleOnly: true,
         applicationServerKey: urlB64ToUint8Array(vapidKey),
       });
-      await fetch('/api/push-register', {
+      await apiFetch('/api/push-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identity: 'demo-presenter', subscription: sub.toJSON() }),
@@ -719,43 +575,59 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   };
   const stopRingtone = () => { ringtoneRef.current?.stop(); ringtoneRef.current = null; };
 
-  // Register Twilio Device for inbound calls
+  // Register SignalWire client for inbound calls
   useEffect(() => {
-    let device;
+    let client;
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/twilio-token');
+        const res = await apiFetch('/api/signalwire-token');
         if (!res.ok) return;
         const { token } = await res.json();
-        const { Device } = await import('@twilio/voice-sdk');
-        device = new Device(token, { logLevel: 1 });
-        twilioDeviceRef.current = device;
-        await device.register();
-        device.on('incoming', call => {
-          // If user tapped Answer in a push notification, auto-accept
-          if (autoAnswerRef.current) {
-            autoAnswerRef.current = false;
-            device.audio?.context?.resume().catch(() => {});
-            call.accept();
-            return;
-          }
-          setIncomingCall({ call, from: call.parameters?.From || 'Unknown' });
-          startRingtone();
-          startTitleFlash();
-          try { navigator.setAppBadge?.(1); } catch {}
-          const cleanup = () => {
-            stopRingtone();
-            stopTitleFlash();
-            try { navigator.clearAppBadge?.(); } catch {}
-            setIncomingCall(null);
-          };
-          // Auto-dismiss if caller hangs up before answer
-          call.on('cancel', cleanup);
-          call.on('disconnect', cleanup);
+        const { SignalWire } = await import('@signalwire/js');
+        if (cancelled) return;
+        client = await SignalWire({ token });
+        swDeviceRef.current = client;
+
+        await client.online({
+          incomingCallHandlers: {
+            all: (notification) => {
+              const details = notification.invite.details;
+              const callerFrom = details.caller_id_number || details.callerIdNumber || 'Unknown';
+              console.log('[signalwire] App inbound call from:', callerFrom, 'details:', JSON.stringify(details));
+
+              if (autoAnswerRef.current) {
+                autoAnswerRef.current = false;
+                (async () => {
+                  try {
+                    await notification.invite.accept({
+                      rootElement: document.getElementById('sw-media'),
+                      audio: true, video: false,
+                    });
+                  } catch (e) { console.warn('[signalwire] Auto-answer failed:', e.message); }
+                })();
+                return;
+              }
+
+              setIncomingCall({ invite: notification.invite, from: callerFrom });
+              startRingtone();
+              startTitleFlash();
+              try { navigator.setAppBadge?.(1); } catch {}
+            },
+          },
         });
-      } catch (e) { console.warn('Twilio Device init:', e.message); }
+        console.log('[signalwire] App client online, listening for inbound calls');
+      } catch (e) { console.warn('SignalWire client init:', e.message); }
     })();
-    return () => { try { device?.destroy(); } catch {} };
+    return () => {
+      cancelled = true;
+      (async () => {
+        try {
+          if (client) { await client.offline(); await client.disconnect(); }
+          swDeviceRef.current = null;
+        } catch {}
+      })();
+    };
   }, []);
 
   // Register Service Worker + subscribe to push on load
@@ -782,19 +654,25 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
       const { type } = e.data || {};
       if (type === 'answer-call') {
         if (incomingCall) {
-          twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
-          incomingCall.call.accept();
-          stopRingtone();
-          stopTitleFlash();
-          try { navigator.clearAppBadge?.(); } catch {}
-          setIncomingCall(null);
+          (async () => {
+            try {
+              await incomingCall.invite.accept({
+                rootElement: document.getElementById('sw-media'),
+                audio: true, video: false,
+              });
+              stopRingtone();
+              stopTitleFlash();
+              try { navigator.clearAppBadge?.(); } catch {}
+              setIncomingCall(null);
+            } catch (e) { console.warn('[signalwire] Answer failed:', e.message); }
+          })();
         } else {
-          // Tab was just opened — set flag so Device.on('incoming') auto-accepts
+          // Tab was just opened — set flag so client.online handler auto-accepts
           autoAnswerRef.current = true;
         }
       }
       if (type === 'decline-call' && incomingCall) {
-        incomingCall.call.reject();
+        incomingCall.invite.reject();
         stopRingtone();
         stopTitleFlash();
         try { navigator.clearAppBadge?.(); } catch {}
@@ -822,8 +700,23 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
     return () => { try { pusher?.unsubscribe('sms-inbox'); } catch {} };
   }, []);
 
+  // Load real data from Supabase
+  useEffect(() => {
+    apiFetch('/api/calls-list').then(r => r.json()).then(d => {
+      if (d.calls) setCallLogs(d.calls.map(makeCallUi));
+    }).catch(() => {});
+    apiFetch('/api/contacts').then(r => r.json()).then(d => {
+      if (d.contacts) setContacts(d.contacts.map(makeContactUi));
+    }).catch(() => {});
+    apiFetch('/api/quotes-list').then(r => r.json()).then(d => {
+      if (d.quotes) setQuotes(d.quotes);
+    }).catch(() => {});
+  }, []);
+
   return (
     <div className="flex h-screen bg-white text-slate-800 font-sans antialiased overflow-hidden">
+      {/* Hidden container for SignalWire audio-only WebRTC calls */}
+      <div id="sw-media" style={{ display: 'none' }} />
       <Sidebar currentView={currentView} navigateTo={navigateTo} onHome={onHome} isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} smsBadge={smsBadge} tourStep={tourStep} />
 
       <div className="flex-1 flex flex-col h-full overflow-hidden bg-white relative">
@@ -854,12 +747,12 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
 
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
-          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => navigateTo('calls')} />}
-          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} />}
-          {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} />}
+          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => setDialerOpen(true)} callLogs={callLogs} contacts={contacts} />}
+          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} />}
+          {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} callLogs={callLogs} />}
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
-          {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} />}
+          {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} quotes={quotes} />}
           {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} />}
           {currentView === 'sms-inbox'     && <SmsInboxView />}
           {currentView === 'menus'         && <MenusView />}
@@ -871,7 +764,8 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
         </main>
       </div>
 
-      {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} />}
+      {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} callLogs={callLogs} quotes={quotes} />}
+      {dialerOpen && <PhoneDialer onClose={() => setDialerOpen(false)} navigateTo={navigateTo} contacts={contacts} />}
 
       {/* Dashboard tour card */}
       {tourStep !== null && (
@@ -920,13 +814,13 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
             <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
             <div className="flex gap-3 justify-center">
               <button
-                onClick={() => { incomingCall.call.reject(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
+                onClick={() => { incomingCall.invite.reject(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
                 className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <PhoneOff className="w-4 h-4" /> Decline
               </button>
               <button
-                onClick={() => { twilioDeviceRef.current?.audio?.context?.resume().catch(() => {}); incomingCall.call.accept(); stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
+                onClick={async () => { try { await incomingCall.invite.accept({ rootElement: document.getElementById('sw-media'), audio: true, video: false }); } catch (e) { console.warn('[signalwire] Answer failed:', e.message); } stopRingtone(); stopTitleFlash(); try { navigator.clearAppBadge?.(); } catch {} setIncomingCall(null); }}
                 className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <Phone className="w-4 h-4" /> Answer
@@ -1694,7 +1588,77 @@ function WorkspaceView({ navigateTo }) {
   );
 }
 
-function DashboardView({ navigateTo, onNewCall }) {
+function SmsQuickCompose() {
+  const [to,      setTo]      = useState('');
+  const [body,    setBody]    = useState('');
+  const [sending, setSending] = useState(false);
+  const [sent,    setSent]    = useState(false);
+
+  const send = async () => {
+    if (!to.trim() || !body.trim() || sending || sent) return;
+    setSending(true);
+    try {
+      const res = await apiFetch('/api/sms-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: to.trim(), body: body.trim() }),
+      });
+      if (res.ok) {
+        setSent(true);
+        setTimeout(() => { setSent(false); setTo(''); setBody(''); }, 3000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert('Failed to send: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed to send: ' + e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <MessageSquare className="w-4 h-4 text-green-600" />
+        <h3 className="text-sm font-semibold text-slate-900">Send a text</h3>
+      </div>
+      <div className="flex flex-col sm:flex-row gap-2">
+        <input
+          type="tel"
+          value={to}
+          onChange={e => setTo(e.target.value)}
+          placeholder="Phone number"
+          className="w-full sm:w-40 flex-shrink-0 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+        />
+        <input
+          type="text"
+          value={body}
+          onChange={e => setBody(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && send()}
+          placeholder="Type your message…"
+          className="flex-1 text-sm border border-slate-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+        />
+        <button
+          onClick={send}
+          disabled={!to.trim() || !body.trim() || sending || sent}
+          className={`flex-shrink-0 px-4 py-2 rounded-lg text-sm font-semibold flex items-center gap-2 transition-colors ${
+            sent    ? 'bg-green-100 text-green-700 border border-green-200' :
+            sending ? 'bg-slate-100 text-slate-500 cursor-wait' :
+            !to.trim() || !body.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+            'bg-green-600 hover:bg-green-500 text-white shadow-sm'
+          }`}
+        >
+          {sent ? <><Check className="w-3.5 h-3.5" /> Sent</> :
+           sending ? 'Sending…' :
+           <><Send className="w-3.5 h-3.5" /> Send</>}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function DashboardView({ navigateTo, onNewCall, callLogs = [], contacts = [] }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
   return (
@@ -1735,50 +1699,7 @@ function DashboardView({ navigateTo, onNewCall }) {
         ))}
       </div>
 
-      {/* Recent enquiries — full width */}
-      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
-          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
-            <PhoneCall className="w-4 h-4 text-slate-400" /> Recent Enquiries
-          </h3>
-          <button onClick={() => navigateTo('calls')} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">View all</button>
-        </div>
-        <div className="divide-y divide-slate-100">
-          {MOCK_CALL_LOGS.map(call => (
-            <div
-              key={call.id}
-              onClick={() => navigateTo('calls', call.id)}
-              className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
-            >
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${
-                  call.extracted?.eventType === 'Wedding' ? 'bg-purple-100 text-purple-700' :
-                  call.extracted?.eventType === 'Corporate' ? 'bg-blue-100 text-blue-700' :
-                  'bg-orange-100 text-orange-700'
-                }`}>
-                  {call.caller.split(' ').map(w => w[0]).slice(0,2).join('')}
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-slate-900 group-hover:text-green-700 transition-colors">{call.caller}</div>
-                  <div className="text-xs text-slate-400">{call.extracted?.eventType} · {call.date}</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {call.quote && (
-                  <span className="text-xs font-medium text-slate-600">£{call.quote.amount.toLocaleString()}</span>
-                )}
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                  call.status === 'missed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                }`}>
-                  {call.status === 'missed' ? 'Missed' : 'Transcribed'}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Quick links */}
+      {/* Quick links + SMS */}
       <div className="grid grid-cols-2 gap-3">
         <button
           onClick={() => navigateTo('contacts')}
@@ -1786,7 +1707,7 @@ function DashboardView({ navigateTo, onNewCall }) {
         >
           <BookOpen className="w-5 h-5 text-slate-400 mb-2 group-hover:text-green-600 transition-colors" />
           <div className="text-sm font-semibold text-slate-800">Contacts</div>
-          <div className="text-xs text-slate-400 mt-0.5">{MOCK_CONTACTS.length} clients</div>
+          <div className="text-xs text-slate-400 mt-0.5">{contacts.length} clients</div>
         </button>
         <button
           onClick={() => navigateTo('inquiries')}
@@ -1796,6 +1717,48 @@ function DashboardView({ navigateTo, onNewCall }) {
           <div className="text-sm font-semibold text-slate-800">Enquiries</div>
           <div className="text-xs text-slate-400 mt-0.5">Manage your pipeline</div>
         </button>
+      </div>
+
+      {/* SMS Compose */}
+      <SmsQuickCompose />
+
+      {/* Recent enquiries — full width */}
+      <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h3 className="font-semibold text-slate-900 flex items-center gap-2">
+            <PhoneCall className="w-4 h-4 text-slate-400" /> Recent Enquiries
+          </h3>
+          <button onClick={() => navigateTo('calls')} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">View all</button>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {callLogs.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-8">No calls yet</p>
+          )}
+          {callLogs.map(call => (
+            <div
+              key={call.id}
+              onClick={() => navigateTo('calls', call.id)}
+              className="flex items-center justify-between px-5 py-3.5 hover:bg-slate-50 cursor-pointer transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold flex-shrink-0 text-slate-700">
+                  {call.caller.charAt(0)}
+                </div>
+                <div>
+                  <div className="text-sm font-medium text-slate-900 group-hover:text-green-700 transition-colors">{call.caller}</div>
+                  <div className="text-xs text-slate-400">{call.date}</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                  call.status === 'missed' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
+                }`}>
+                  {call.status === 'missed' ? 'Missed' : 'Transcribed'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );
@@ -1810,17 +1773,46 @@ const QUOTE_STATUS_PILL = {
   lost:    'bg-red-100 text-red-600',
 };
 
-function ContactsView({ navigateTo }) {
+function ContactsView({ navigateTo, contacts = [] }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
+  const [smsOpen, setSmsOpen]     = useState(false);
+  const [smsBody, setSmsBody]     = useState('');
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsSent, setSmsSent]     = useState(false);
 
-  const filtered = MOCK_CONTACTS.filter(c =>
+  const openSms = () => { setSmsOpen(true); setSmsBody(''); setSmsSent(false); };
+  const closeSms = () => { setSmsOpen(false); setSmsBody(''); setSmsSent(false); };
+  const sendContactSms = async (phone) => {
+    if (!phone || !smsBody.trim() || smsSending || smsSent) return;
+    setSmsSending(true);
+    try {
+      const res = await apiFetch('/api/sms-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: phone, body: smsBody.trim() }),
+      });
+      if (res.ok) {
+        setSmsSent(true);
+        setTimeout(closeSms, 2000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert('Failed: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed: ' + e.message);
+    } finally {
+      setSmsSending(false);
+    }
+  };
+
+  const filtered = contacts.filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.eventType.toLowerCase().includes(search.toLowerCase()) ||
-    c.email.toLowerCase().includes(search.toLowerCase())
+    (c.eventType || '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.email || '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const contact = selected ? MOCK_CONTACTS.find(c => c.id === selected) : null;
+  const contact = selected ? contacts.find(c => c.id === selected) : null;
 
   return (
     <div className="flex h-full overflow-hidden">
@@ -1891,6 +1883,9 @@ function ContactsView({ navigateTo }) {
                   <button className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
                     <Phone className="w-3.5 h-3.5" /> Call Now
                   </button>
+                  <button onClick={openSms} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                    <MessageSquare className="w-3.5 h-3.5" /> SMS
+                  </button>
                   <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
                     <Mail className="w-3.5 h-3.5" /> Email
                   </a>
@@ -1898,6 +1893,40 @@ function ContactsView({ navigateTo }) {
                     <Plus className="w-3.5 h-3.5" /> New Quote
                   </button>
                 </div>
+
+                {/* SMS compose — expands when SMS button is clicked */}
+                {smsOpen && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500">To: {contact.phone}</span>
+                      <button onClick={closeSms} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <textarea
+                      autoFocus
+                      value={smsBody}
+                      onChange={e => setSmsBody(e.target.value)}
+                      placeholder="Type your message…"
+                      rows={3}
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                    />
+                    <button
+                      onClick={() => sendContactSms(contact.phone)}
+                      disabled={!smsBody.trim() || smsSending || smsSent}
+                      className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                        smsSent    ? 'bg-green-100 text-green-700' :
+                        smsSending ? 'bg-slate-100 text-slate-500 cursor-wait' :
+                        !smsBody.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+                        'bg-green-600 hover:bg-green-500 text-white'
+                      }`}
+                    >
+                      {smsSent ? <><Check className="w-3.5 h-3.5" /> Sent!</> :
+                       smsSending ? 'Sending…' :
+                       <><Send className="w-3.5 h-3.5" /> Send SMS</>}
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -2388,10 +2417,10 @@ function ClientPreviewModal({ quoteState, menu, total, subtotal, adminFee, staff
   );
 }
 
-function QuotesView({ navigateTo }) {
+function QuotesView({ navigateTo, quotes = [] }) {
   const [filter, setFilter] = useState('all');
   const tabs = ['all', 'draft', 'sent', 'viewed', 'won', 'lost'];
-  const filtered = filter === 'all' ? MOCK_QUOTES : MOCK_QUOTES.filter(q => q.status === filter);
+  const filtered = filter === 'all' ? quotes : quotes.filter(q => q.status === filter);
 
   return (
     <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -2421,7 +2450,7 @@ function QuotesView({ navigateTo }) {
           >
             {tab}
             <span className="ml-2 text-xs text-slate-400">
-              {tab === 'all' ? MOCK_QUOTES.length : MOCK_QUOTES.filter(q => q.status === tab).length}
+              {tab === 'all' ? quotes.length : quotes.filter(q => q.status === tab).length}
             </span>
           </button>
         ))}
@@ -3491,13 +3520,18 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 }
 
 // ─── Call Log View ────────────────────────────────────────────────────────────
-function CallLogView({ initialId, navigateTo }) {
+function CallLogView({ initialId, navigateTo, callLogs = [] }) {
   const [selectedId, setSelectedId] = useState(
-    (typeof initialId === 'string' ? initialId : null) || MOCK_CALL_LOGS[0].id
+    (typeof initialId === 'string' ? initialId : null) || null
   );
   const [activeTab, setActiveTab]   = useState('transcript');
   const [fabState, setFabState]     = useState('icon'); // icon | keypad | active
+  const [fabMode,  setFabMode]      = useState('call'); // 'call' | 'text'
   const [dialNumber, setDialNumber] = useState('');
+  const [fabSmsTo,   setFabSmsTo]   = useState('');
+  const [fabSmsBody, setFabSmsBody] = useState('');
+  const [fabSmsSent, setFabSmsSent] = useState(false);
+  const [fabSmsSending, setFabSmsSending] = useState(false);
   const [callSeconds, setCallSeconds] = useState(0);
   const [callMuted, setCallMuted]   = useState(false);
   const [callHeld,  setCallHeld]    = useState(false);
@@ -3506,7 +3540,7 @@ function CallLogView({ initialId, navigateTo }) {
   const timerRef   = useRef(null);
   const timeoutIds = useRef([]);
 
-  const selected = MOCK_CALL_LOGS.find(c => c.id === selectedId) || MOCK_CALL_LOGS[0];
+  const selected = callLogs.find(c => c.id === selectedId) || callLogs[0] || null;
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 
   const LIVE_DEMO = [
@@ -3550,6 +3584,29 @@ function CallLogView({ initialId, navigateTo }) {
     setFabState('keypad');
   };
 
+  const fabSendSms = async () => {
+    if (!fabSmsTo.trim() || !fabSmsBody.trim() || fabSmsSending || fabSmsSent) return;
+    setFabSmsSending(true);
+    try {
+      const res = await apiFetch('/api/sms-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: fabSmsTo.trim(), body: fabSmsBody.trim() }),
+      });
+      if (res.ok) {
+        setFabSmsSent(true);
+        setTimeout(() => { setFabSmsSent(false); setFabSmsTo(''); setFabSmsBody(''); setFabState('icon'); }, 2000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert('Failed: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed: ' + e.message);
+    } finally {
+      setFabSmsSending(false);
+    }
+  };
+
   const selectCall = id => {
     setSelectedId(id);
     setActiveTab('transcript');
@@ -3573,7 +3630,7 @@ function CallLogView({ initialId, navigateTo }) {
   const tabs = [
     { id: 'transcript', label: 'Transcript' },
     { id: 'quote',      label: 'Quote' },
-    { id: 'messages',   label: `Messages${selected.messages.length > 0 ? ` (${selected.messages.length})` : ''}` },
+    { id: 'messages',   label: `Messages${(selected?.messages?.length ?? 0) > 0 ? ` (${selected.messages.length})` : ''}` },
     { id: 'invoice',    label: 'Invoice' },
   ];
 
@@ -3585,7 +3642,7 @@ function CallLogView({ initialId, navigateTo }) {
         <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="font-semibold text-slate-900 text-sm">Call Log</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{MOCK_CALL_LOGS.length} calls</p>
+            <p className="text-xs text-slate-400 mt-0.5">{callLogs.length} calls</p>
           </div>
           <button
             onClick={() => setFabState(fabState === 'keypad' ? 'icon' : 'keypad')}
@@ -3597,7 +3654,10 @@ function CallLogView({ initialId, navigateTo }) {
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-          {MOCK_CALL_LOGS.map(call => {
+          {callLogs.length === 0 && (
+            <p className="text-sm text-slate-400 text-center py-8">No calls yet</p>
+          )}
+          {callLogs.map(call => {
             const st = CALL_STATUS[call.status] || CALL_STATUS.new;
             const isSel = selectedId === call.id;
             return (
@@ -3935,43 +3995,91 @@ function CallLogView({ initialId, navigateTo }) {
       {/* ── FAB Dialer: keypad state ── */}
       {fabState === 'keypad' && (
         <div className="fixed bottom-6 right-6 bg-slate-900 rounded-2xl shadow-2xl z-20 w-64 overflow-hidden anim-pop-in">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-slate-700/50">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">New Call</span>
+          {/* Header with tabs */}
+          <div className="flex items-center justify-between px-4 pt-3 pb-0">
+            <div className="flex gap-1 bg-slate-800 rounded-lg p-0.5">
+              <button
+                onClick={() => setFabMode('call')}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${fabMode === 'call' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <Phone className="w-3 h-3" /> Call
+              </button>
+              <button
+                onClick={() => { setFabMode('text'); setFabSmsTo(dialNumber); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${fabMode === 'text' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-slate-300'}`}
+              >
+                <MessageSquare className="w-3 h-3" /> Text
+              </button>
+            </div>
             <button onClick={() => setFabState('icon')} className="text-slate-500 hover:text-white p-1 transition-colors">
               <X className="w-4 h-4" />
             </button>
           </div>
-          <div className="px-4 py-3">
-            <div className="mb-3 bg-slate-800 rounded-lg px-3 py-2.5 min-h-[42px] flex items-center justify-center">
-              <span className={`font-mono text-lg tracking-widest font-bold ${dialNumber ? 'text-white' : 'text-slate-600'}`}>
-                {dialNumber || '—'}
-              </span>
-            </div>
-            <div className="grid grid-cols-3 gap-1.5 mb-3">
-              {['1','2','3','4','5','6','7','8','9','*','0','#'].map(k => (
+
+          {fabMode === 'call' ? (
+            <div className="px-4 py-3">
+              <div className="mb-3 bg-slate-800 rounded-lg px-3 py-2.5 min-h-[42px] flex items-center justify-center">
+                <span className={`font-mono text-lg tracking-widest font-bold ${dialNumber ? 'text-white' : 'text-slate-600'}`}>
+                  {dialNumber || '—'}
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 mb-3">
+                {['1','2','3','4','5','6','7','8','9','*','0','#'].map(k => (
+                  <button
+                    key={k}
+                    onClick={() => setDialNumber(n => n.length < 15 ? n + k : n)}
+                    className="h-10 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-semibold text-base transition-colors select-none"
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1.5">
                 <button
-                  key={k}
-                  onClick={() => setDialNumber(n => n.length < 15 ? n + k : n)}
-                  className="h-10 rounded-lg bg-slate-800 hover:bg-slate-700 active:bg-slate-600 text-white font-semibold text-base transition-colors select-none"
+                  onClick={() => setDialNumber(n => n.slice(0, -1))}
+                  className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-lg transition-colors"
+                >⌫</button>
+                <button
+                  onClick={() => { if (dialNumber) startLiveCall(); }}
+                  disabled={!dialNumber}
+                  className="flex-[2] h-10 bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
                 >
-                  {k}
+                  <Phone className="w-3.5 h-3.5" /> Call
                 </button>
-              ))}
+              </div>
             </div>
-            <div className="flex gap-1.5">
+          ) : (
+            <div className="px-4 py-3 space-y-2">
+              <input
+                type="tel"
+                value={fabSmsTo}
+                onChange={e => setFabSmsTo(e.target.value)}
+                placeholder="Phone number"
+                className="w-full bg-slate-800 text-white placeholder-slate-500 text-sm rounded-lg px-3 py-2.5 focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
+              <textarea
+                value={fabSmsBody}
+                onChange={e => setFabSmsBody(e.target.value)}
+                placeholder="Type your message…"
+                rows={3}
+                className="w-full bg-slate-800 text-white placeholder-slate-500 text-sm rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-1 focus:ring-green-500"
+              />
               <button
-                onClick={() => setDialNumber(n => n.slice(0, -1))}
-                className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-lg transition-colors"
-              >⌫</button>
-              <button
-                onClick={() => { if (dialNumber) startLiveCall(); }}
-                disabled={!dialNumber}
-                className="flex-[2] h-10 bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
+                onClick={fabSendSms}
+                disabled={!fabSmsTo.trim() || !fabSmsBody.trim() || fabSmsSending || fabSmsSent}
+                className={`w-full h-10 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                  fabSmsSent    ? 'bg-green-700 text-green-200' :
+                  fabSmsSending ? 'bg-slate-700 text-slate-400 cursor-wait' :
+                  !fabSmsTo.trim() || !fabSmsBody.trim() ? 'bg-slate-700 text-slate-500 cursor-not-allowed' :
+                  'bg-green-500 hover:bg-green-400 text-white'
+                }`}
               >
-                <Phone className="w-3.5 h-3.5" /> Call
+                {fabSmsSent ? <><Check className="w-3.5 h-3.5" /> Sent!</> :
+                 fabSmsSending ? 'Sending…' :
+                 <><Send className="w-3.5 h-3.5" /> Send text</>}
               </button>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -4014,16 +4122,15 @@ function CallLogView({ initialId, navigateTo }) {
 }
 
 // --- SEARCH OVERLAY ---
-function SearchOverlay({ onClose, navigateTo }) {
+function SearchOverlay({ onClose, navigateTo, callLogs = [], quotes = [] }) {
   const [query, setQuery] = useState('');
   const inputRef = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   const allItems = [
-    ...MOCK_CALL_LOGS.map(c => ({ type: 'Call', label: c.caller, sub: `${c.extracted.eventType} • ${c.date}`, action: () => navigateTo('calls', c.id) })),
-    ...MOCK_QUOTES.map(q => ({ type: 'Quote', label: q.client, sub: `${q.eventType} • £${q.amount.toLocaleString()} • ${q.status}`, action: () => navigateTo('quotes') })),
-    ...MOCK_INQUIRIES_INITIAL.map(i => ({ type: 'Inquiry', label: i.name, sub: `${i.eventType} • ${i.status}`, action: () => navigateTo('inquiries') })),
+    ...callLogs.map(c => ({ type: 'Call', label: c.caller, sub: `${c.date}`, action: () => navigateTo('calls', c.id) })),
+    ...quotes.map(q => ({ type: 'Quote', label: q.client || q.id, sub: `${q.status}`, action: () => navigateTo('quotes') })),
     ...MOCK_MENUS.map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • £${m.basePrice}/pp`, action: () => navigateTo('menus') })),
   ];
 
@@ -5989,7 +6096,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
     setGenerating(true);
     setGenerated(''); setEdited('');
     try {
-      const res = await fetch('/api/generate-message', {
+      const res = await apiFetch('/api/generate-message', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type, sessionName, transcript, fields, fieldValues }),
@@ -6699,7 +6806,7 @@ function SmsInboxView() {
 
   // Load recent messages on mount
   useEffect(() => {
-    fetch('/api/sms-inbox').then(r => r.json()).then(d => {
+    apiFetch('/api/sms-inbox').then(r => r.json()).then(d => {
       if (d.messages) setMessages(d.messages);
     }).catch(() => {});
   }, []);
@@ -6731,7 +6838,7 @@ function SmsInboxView() {
             <span className="bg-green-600 text-white text-xs px-2 py-0.5 rounded-full">{unread} new</span>
           )}
         </h2>
-        <span className="text-xs text-slate-400">Messages to your Twilio number — live</span>
+        <span className="text-xs text-slate-400">Messages to your SignalWire number — live</span>
       </div>
 
       {messages.length === 0 ? (

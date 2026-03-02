@@ -1,5 +1,6 @@
 import webpush from 'web-push';
 import { put, list } from '@vercel/blob';
+import { requireApiKey } from './_lib/auth.js';
 
 function initWebPush() {
   webpush.setVapidDetails(
@@ -15,7 +16,10 @@ async function readSubs(identity) {
   const { blobs } = await list({ prefix: subsPath(identity), limit: 1 });
   if (!blobs.length) return [];
   try {
-    const res = await fetch(blobs[0].url);
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    const res = await fetch(blobs[0].url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
     return await res.json();
   } catch {
     return [];
@@ -24,7 +28,7 @@ async function readSubs(identity) {
 
 async function writeSubs(identity, subs) {
   await put(subsPath(identity), JSON.stringify(subs), {
-    access: 'public',
+    access: 'private',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -33,6 +37,7 @@ async function writeSubs(identity, subs) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
   initWebPush();
   const { identity = 'demo-presenter', from = 'Unknown number' } = req.body || {};
   const sent = await sendPushToIdentity(identity, { from });

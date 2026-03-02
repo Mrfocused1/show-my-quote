@@ -1,7 +1,10 @@
+import { requireApiKey } from './_lib/auth.js';
+
 export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
 
   const { type, sessionName, transcript = [], fields = [], fieldValues = {} } = req.body;
   const KEY = process.env.OPENAI_API_KEY;

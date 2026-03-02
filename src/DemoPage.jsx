@@ -2,12 +2,18 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Pusher from 'pusher-js';
 import {
   Phone, PhoneCall, PhoneOff, Mic, MicOff, Radio, Check, CheckCircle2,
-  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, ChevronUp, Minus, MessageSquare,
+  Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, ChevronUp, Minus, MessageSquare, Send,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
   Bookmark, Edit2, Bell, Search, Users,
 } from 'lucide-react';
 import { suggestField, fillFields, fillFieldsFromTranscript } from './openaiHelper.js';
+
+const SMQ_KEY = import.meta.env.VITE_SMQ_API_KEY || '';
+function apiFetch(url, options = {}) {
+  const { headers, ...rest } = options;
+  return fetch(url, { ...rest, headers: { 'x-smq-key': SMQ_KEY, ...headers } });
+}
 
 // ── Niche configuration ───────────────────────────────────────────────────────
 
@@ -459,7 +465,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [recordingUrl, setRec]         = useState(null);
 
   // ── Inbound call ──
-  const [incomingCall, setIncomingCall] = useState(null); // { call, from }
+  const [incomingCall, setIncomingCall] = useState(null); // { invite, from, session }
+  const [activeCallPhone, setActiveCallPhone] = useState(''); // phone number of current/last call
+  const [smsSent,    setSmsSent]    = useState(false);
+  const [smsSending, setSmsSending] = useState(false);
 
   // ── Notification permission ──
   const [notifPermission, setNotifPermission] = useState(() => {
@@ -539,9 +548,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const txDivRef        = useRef(null);
   const onLineRef       = useRef(null);
   const heartbeatRef    = useRef(null);
-  const twilioDeviceRef   = useRef(null);
-  const twilioCallRef     = useRef(null);
-  const twilioCallSidRef  = useRef(null);  // stored CallSid for fetching server-side recording
+  const swDeviceRef   = useRef(null);  // SignalWire Call Fabric client
+  const swCallRef     = useRef(null);  // active SignalWire call object
+  const twilioCallSidRef  = useRef(null);  // SignalWire call ID for fetching recording
+  const swCallerNumberRef = useRef('');    // SignalWire phone number for outbound caller ID
+  const swEndCallRef      = useRef(null);  // ref to endCall for notification handler
   const whisperIntervalRef  = useRef(null);
   const whisperHeaderRef    = useRef(null);
   const transcriptPusherRef = useRef(null); // Twilio Real-Time Transcription Pusher subscription
@@ -625,42 +636,69 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   // ── Persistent inbound Device registration (presenter only) ─────────────
   useEffect(() => {
     if (isViewer) return;
-    let device;
+    let client;
+    let cancelled = false;
     (async () => {
       try {
-        const res = await fetch('/api/twilio-token');
+        const res = await apiFetch('/api/signalwire-token');
         if (!res.ok) return;
-        const { token } = await res.json();
-        const { Device } = await import('@twilio/voice-sdk');
-        device = new Device(token, { logLevel: 1 });
-        twilioDeviceRef.current = device;
-        await device.register();
-        device.on('incoming', call => {
-          const session = call.customParameters?.get('session') || null;
-          if (autoAnswerRef.current) {
-            autoAnswerRef.current = false;
-            device.audio?.context?.resume().catch(() => {});
-            call.accept();
-            if (acceptInboundRef.current) acceptInboundRef.current(call, call.parameters?.From || 'Unknown', session);
-            return;
-          }
-          const callerFrom = call.customParameters?.get('from') || call.parameters?.From || 'Unknown';
-          setIncomingCall({ call, from: callerFrom, session });
-          startInboundRingtone();
-          startTitleFlash();
-          try { navigator.setAppBadge?.(1); } catch {}
-          const cleanup = () => {
-            stopInboundRingtone();
-            stopTitleFlash();
-            try { navigator.clearAppBadge?.(); } catch {}
-            setIncomingCall(null);
-          };
-          call.on('cancel', cleanup);
-          call.on('disconnect', cleanup);
+        const { token, callerNumber } = await res.json();
+        swCallerNumberRef.current = callerNumber;
+        const { SignalWire } = await import('@signalwire/js');
+        if (cancelled) return;
+        client = await SignalWire({ token });
+        swDeviceRef.current = client;
+
+        await client.online({
+          incomingCallHandlers: {
+            all: (notification) => {
+              const details = notification.invite.details;
+              const callerFrom = details.caller_id_number || details.callerIdNumber || 'Unknown';
+              // Session is passed via <Parameter name="session"> in twilio-voice.js
+              const session = details.session || details.custom_data_session || null;
+              console.log('[signalwire] Inbound call from:', callerFrom, 'session:', session, 'details:', JSON.stringify(details));
+
+              if (autoAnswerRef.current) {
+                autoAnswerRef.current = false;
+                (async () => {
+                  try {
+                    const call = await notification.invite.accept({
+                      rootElement: document.getElementById('sw-media'),
+                      audio: true, video: false,
+                    });
+                    swCallRef.current = call;
+                    // Listen for remote hangup
+                    call.on('destroy', () => {
+                      console.log('[signalwire] Inbound call destroyed');
+                      remoteHungUpRef.current = true;
+                      if (caRef.current) swEndCallRef.current?.();
+                    });
+                    if (acceptInboundRef.current) acceptInboundRef.current(call, callerFrom, session);
+                  } catch (e) { console.warn('[signalwire] Auto-answer failed:', e.message); }
+                })();
+                return;
+              }
+
+              // Store the invite for manual answer
+              setIncomingCall({ invite: notification.invite, from: callerFrom, session });
+              startInboundRingtone();
+              startTitleFlash();
+              try { navigator.setAppBadge?.(1); } catch {}
+            },
+          },
         });
-      } catch (e) { console.warn('Twilio inbound Device init:', e.message); }
+        console.log('[signalwire] Client online, listening for inbound calls');
+      } catch (e) { console.warn('SignalWire inbound client init:', e.message); }
     })();
-    return () => { try { device?.destroy(); twilioDeviceRef.current = null; } catch {} };
+    return () => {
+      cancelled = true;
+      (async () => {
+        try {
+          if (client) { await client.offline(); await client.disconnect(); }
+          swDeviceRef.current = null;
+        } catch {}
+      })();
+    };
   }, [isViewer]);
 
   // ── Warm AudioContext without requiring user gesture ─────────────────────
@@ -747,17 +785,28 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       const { type } = e.data || {};
       if (type === 'answer-call') {
         if (incomingCall) {
-          twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
-          const { call, from, session } = incomingCall;
-          call.accept();
-          dismissIncomingCall();
-          if (acceptInboundRef.current) acceptInboundRef.current(call, from, session);
+          const { invite, from, session } = incomingCall;
+          (async () => {
+            try {
+              const call = await invite.accept({
+                rootElement: document.getElementById('sw-media'),
+                audio: true, video: false,
+              });
+              swCallRef.current = call;
+              call.on('destroy', () => {
+                remoteHungUpRef.current = true;
+                if (caRef.current) swEndCallRef.current?.();
+              });
+              dismissIncomingCall();
+              if (acceptInboundRef.current) acceptInboundRef.current(call, from, session);
+            } catch (e) { console.warn('[signalwire] Answer failed:', e.message); }
+          })();
         } else {
           autoAnswerRef.current = true;
         }
       }
       if (type === 'decline-call' && incomingCall) {
-        incomingCall.call.reject();
+        incomingCall.invite.reject();
         dismissIncomingCall();
       }
     };
@@ -779,7 +828,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       ...extra,
     };
     try {
-      await fetch('/api/demo-broadcast', {
+      await apiFetch('/api/demo-broadcast', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ sessionCode: scRef.current, event: 'state-update', data }),
@@ -1011,7 +1060,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         userVisibleOnly: true,
         applicationServerKey: urlB64ToUint8Array(vapidKey),
       });
-      await fetch('/api/push-register', {
+      await apiFetch('/api/push-register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ identity: 'demo-presenter', subscription: sub.toJSON() }),
@@ -1099,29 +1148,27 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setCA(true); caRef.current = true;
     setCS(0);
     setCallStatus('active');
+    if (from && from !== 'Unknown') setActiveCallPhone(from);
     setTimerRunning(true);
     heartbeatRef.current = setInterval(() => broadcast({}), 2500);
-    twilioCallRef.current = call;
-
-    // Subscribe to Pusher tx-{session} for Twilio transcription of caller's voice ('Client')
-    if (PUSHER_KEY && PUSHER_CLUSTER && session) {
-      const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
-      const ch = p.subscribe(`tx-${session}`);
-      ch.bind('transcript', ({ speaker, text }) => {
-        if (onLineRef.current) onLineRef.current(speaker, text);
-      });
-      transcriptPusherRef.current = { pusher: p, channel: `tx-${session}` };
-      setTxPA(true);
-    }
+    swCallRef.current = call;
 
     // Start browser mic + Web Speech API for presenter's voice ('You' track)
     startMic();
 
-    // Auto-end when remote party hangs up
-    call.on('disconnect', () => {
-      remoteHungUpRef.current = true;
-      if (caRef.current) endCall();
-    });
+    // Subscribe to Pusher tx-{session} channel for AssemblyAI transcription (Client voice)
+    if (session && hasPusher) {
+      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
+      const channel = `tx-${session}`;
+      const ch = pusher.subscribe(channel);
+      ch.bind('transcript', ({ text, speaker }) => {
+        if (text) onTranscriptLine(speaker || 'Client', text);
+      });
+      transcriptPusherRef.current = { pusher, channel };
+      setTxPA(true);
+      console.log('[smq] Subscribed to Pusher channel:', channel);
+    }
+    // Note: remote hangup is detected via the SignalWire notification handler
   };
   // Keep ref up-to-date so the persistent Device useEffect always calls the latest version
   acceptInboundRef.current = acceptInboundCallSetup;
@@ -1137,62 +1184,53 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     // Heartbeat — keeps viewer in sync every 2.5s
     heartbeatRef.current = setInterval(() => broadcast({}), 2500);
 
-    // Connect via Twilio if a number was provided
+    // Connect via SignalWire if a number was provided
     if (phoneNumber) {
+      setActiveCallPhone(phoneNumber);
       try {
-        // Reuse the persistent inbound Device if already registered, otherwise create a new one
-        let device = twilioDeviceRef.current;
-        if (!device) {
-          const tokenRes = await fetch('/api/twilio-token');
+        // Reuse the persistent inbound client if already registered, otherwise create a new one
+        let client = swDeviceRef.current;
+        if (!client) {
+          const tokenRes = await apiFetch('/api/signalwire-token');
           if (!tokenRes.ok) throw new Error('Token fetch failed');
-          const { token } = await tokenRes.json();
-          const { Device } = await import('@twilio/voice-sdk');
-          device = new Device(token, { logLevel: 1 });
-          twilioDeviceRef.current = device;
-          await device.register();
-        }
-        // Mute local ringback — don't play until remote party's phone rings
-        try { device.audio.outgoing(false); } catch {}
-        const call = await device.connect({ params: { To: phoneNumber, Session: scRef.current || '' } });
-        twilioCallRef.current = call;
-
-        // Subscribe to tx channel for Twilio Real-Time Transcription events
-        if (PUSHER_KEY && PUSHER_CLUSTER && scRef.current) {
-          const p = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
-          const ch = p.subscribe(`tx-${scRef.current}`);
-          ch.bind('transcript', ({ speaker, text }) => {
-            if (onLineRef.current) onLineRef.current(speaker, text);
-          });
-          transcriptPusherRef.current = { pusher: p, channel: `tx-${scRef.current}` };
-          setTxPA(true);
+          const { token, callerNumber } = await tokenRes.json();
+          swCallerNumberRef.current = callerNumber;
+          const { SignalWire } = await import('@signalwire/js');
+          client = await SignalWire({ token });
+          swDeviceRef.current = client;
         }
 
-        // Auto-end when remote party hangs up
-        call.on('disconnect', () => {
-          remoteHungUpRef.current = true;
-          if (caRef.current) endCall();
+        const call = await client.dial({
+          to: phoneNumber,
+          rootElement: document.getElementById('sw-media'),
+          audio: true,
+          video: false,
         });
-        // Capture CallSid on accept (needed for server-side recording after call ends).
-        call.on('accept', () => {
-          const sid = call.parameters?.CallSid;
-          if (sid) {
-            twilioCallSidRef.current = sid;
-            console.log('[twilio] CallSid captured:', sid);
-          } else {
-            console.warn('[twilio] CallSid not available in call.parameters after accept');
+        swCallRef.current = call;
+
+        // Register events BEFORE call.start() so none are missed
+        call.on('call.state', (params) => {
+          console.log('[signalwire] call.state:', params?.call_state);
+          if (params?.call_state === 'answered') {
+            setCallStatus('active');
+            twilioCallSidRef.current = call.id || null;
           }
         });
-
-        // 'ringing' fires when the remote party's phone starts ringing.
-        // Only now: enable local ringback, start the mic, and start the timer.
-        call.on('ringing', () => {
-          setCallStatus('ringing');
-          setTimerRunning(true);
-          try { twilioDeviceRef.current?.audio.outgoing(true); } catch {}
-          startMic();
+        call.on('destroy', () => {
+          console.log('[signalwire] Outbound call destroyed');
+          remoteHungUpRef.current = true;
+          if (caRef.current) swEndCallRef.current?.();
         });
+
+        // Start timer and mic immediately — don't wait for call.start()
+        setCallStatus('ringing');
+        setTimerRunning(true);
+        startMic();
+
+        // Start WebRTC (non-blocking — call may already be connecting)
+        call.start().catch(e => console.warn('[signalwire] call.start:', e.message));
       } catch (e) {
-        console.warn('Twilio unavailable, mic-only mode:', e.message);
+        console.warn('SignalWire unavailable, mic-only mode:', e.message);
       }
     }
 
@@ -1283,17 +1321,15 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     lastYouTxRef.current = false;
     clearInterval(heartbeatRef.current);
     clearInterval(whisperIntervalRef.current); whisperIntervalRef.current = null;
-    // Capture callSid before clearing refs (needed to fetch server-side recording)
+    // Capture call ID before clearing refs (needed to fetch server-side recording)
     const endedCallSid = twilioCallSidRef.current;
-    // Disconnect Twilio — only call disconnect() if the call is still open
-    // (remote hangup already tears down the WebSocket; calling disconnect() again
-    // causes "WebSocket is already in CLOSING or CLOSED state" error)
+    // Hang up — safe to call even if already disconnected
     try {
-      const call = twilioCallRef.current;
-      if (call && call.status() !== 'closed') call.disconnect();
+      const call = swCallRef.current;
+      if (call && call.state !== 'destroy') call.hangup();
     } catch {}
-    try { twilioDeviceRef.current?.destroy(); } catch {}
-    twilioCallRef.current = null; twilioDeviceRef.current = null;
+    // Keep the SignalWire client alive (swDeviceRef) for future inbound calls
+    swCallRef.current = null;
     twilioCallSidRef.current = null;
     remoteHungUpRef.current = false;
     // Unsubscribe from Real-Time Transcription channel
@@ -1318,7 +1354,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       const pollRecording = async (attempts = 0) => {
         if (attempts > 15) return; // give up after ~30s
         try {
-          const r = await fetch(`/api/twilio-recording?callSid=${endedCallSid}`);
+          const r = await apiFetch(`/api/twilio-recording?callSid=${endedCallSid}`);
           if (r.ok) {
             const data = await r.json();
             if (data.ready && data.recordingSid) {
@@ -1338,7 +1374,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     if (!txRef.current.length) return;
     setAnalysing(true);
     try {
-      const r = await fetch('/api/demo-analyze', {
+      const r = await apiFetch('/api/demo-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         // Build menu summary for catering niche
@@ -1364,6 +1400,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     } catch (e) { console.error('Demo analysis error:', e); }
     finally { setAnalysing(false); }
   };
+  // Keep ref current so the persistent notification handler always calls the latest version
+  swEndCallRef.current = endCall;
+
 
   // ── Phase transitions ─────────────────────────────────────────────────────
   const goToMode = (m) => {
@@ -1483,6 +1522,30 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
+    setActiveCallPhone(''); setSmsSent(false); setSmsSending(false);
+  };
+
+  // ── Send SMS ──────────────────────────────────────────────────────────────
+  const sendSms = async (text) => {
+    if (!activeCallPhone || smsSending || smsSent) return;
+    setSmsSending(true);
+    try {
+      const res = await apiFetch('/api/sms-send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: activeCallPhone, body: text }),
+      });
+      if (res.ok) {
+        setSmsSent(true);
+      } else {
+        const { error } = await res.json().catch(() => ({}));
+        alert('Failed to send SMS: ' + (error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed to send SMS: ' + e.message);
+    } finally {
+      setSmsSending(false);
+    }
   };
 
   // ── Share URL ─────────────────────────────────────────────────────────────
@@ -1903,18 +1966,27 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         <p className="text-xl font-semibold text-slate-800 mb-6">{incomingCall.from}</p>
         <div className="flex gap-3 justify-center">
           <button
-            onClick={() => { incomingCall.call.reject(); dismissIncomingCall(); }}
+            onClick={() => { incomingCall.invite.reject(); dismissIncomingCall(); }}
             className="flex-1 bg-red-500 hover:bg-red-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
           >
             <PhoneOff className="w-4 h-4" /> Decline
           </button>
           <button
-            onClick={() => {
-              twilioDeviceRef.current?.audio?.context?.resume().catch(() => {});
-              const { call, from, session } = incomingCall;
-              call.accept();
-              dismissIncomingCall();
-              acceptInboundCallSetup(call, from, session);
+            onClick={async () => {
+              const { invite, from, session } = incomingCall;
+              try {
+                const call = await invite.accept({
+                  rootElement: document.getElementById('sw-media'),
+                  audio: true, video: false,
+                });
+                swCallRef.current = call;
+                call.on('destroy', () => {
+                  remoteHungUpRef.current = true;
+                  if (caRef.current) swEndCallRef.current?.();
+                });
+                dismissIncomingCall();
+                acceptInboundCallSetup(call, from, session);
+              } catch (e) { console.warn('[signalwire] Answer failed:', e.message); }
             }}
             className="flex-1 bg-green-500 hover:bg-green-600 text-white rounded-xl py-3 font-medium transition-colors flex items-center justify-center gap-2"
           >
@@ -1966,41 +2038,17 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Build a Form */}
-              <button
-                onClick={() => goToMode('build')}
-                className="text-left bg-white rounded-2xl border border-slate-200 p-7 hover:border-slate-400 hover:shadow-md transition-all group"
-              >
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Option 1</div>
-                <h2 className="text-xl font-black text-slate-900 mb-3">Build a Form</h2>
-                <p className="text-slate-500 text-sm leading-relaxed mb-5">
-                  Ask your client what questions they normally ask <em>their</em> customers. Our AI listens and builds an intake form — field by field — as they describe their process.
-                </p>
-                <ul className="space-y-2 text-sm text-slate-600">
-                  {['Pick your niche first', 'AI tailors its field detection', 'Form builds live in real time', 'Save created form at the end'].map(t => (
-                    <li key={t} className="flex items-center gap-2">
-                      <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
-                      {t}
-                    </li>
-                  ))}
-                </ul>
-                <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                  Start <ArrowRight className="w-4 h-4" />
-                </div>
-              </button>
-
-              {/* Fill a Form */}
+            <div className="flex flex-col gap-4">
+              {/* Fill a Form — primary */}
               <button
                 onClick={() => goToMode('fill')}
                 className="text-left bg-white rounded-2xl border border-slate-200 p-7 hover:border-slate-400 hover:shadow-md transition-all group"
               >
-                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Option 2</div>
                 <h2 className="text-xl font-black text-slate-900 mb-3">Fill a Form</h2>
                 <p className="text-slate-500 text-sm leading-relaxed mb-5">
                   Choose from a ready-made template or build your own form manually. Then roleplay a customer call — watch every field fill itself as you speak.
                 </p>
-                <ul className="space-y-2 text-sm text-slate-600">
+                <ul className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm text-slate-600">
                   {['Pre-built templates per niche', 'Or build your own form', 'Live call fills all fields', 'Client sees it happening in real time'].map(t => (
                     <li key={t} className="flex items-center gap-2">
                       <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
@@ -2008,9 +2056,21 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                     </li>
                   ))}
                 </ul>
-                <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                <div className="mt-6 flex items-center gap-2 text-sm font-semibold text-slate-900 group-hover:text-green-700 transition-colors">
                   Start <ArrowRight className="w-4 h-4" />
                 </div>
+              </button>
+
+              {/* Build a Form — secondary */}
+              <button
+                onClick={() => goToMode('build')}
+                className="text-left px-5 py-3.5 rounded-xl border border-slate-200 hover:border-slate-300 hover:bg-white transition-all flex items-center justify-between group"
+              >
+                <div>
+                  <span className="text-sm font-semibold text-slate-500 group-hover:text-slate-700 transition-colors">Build a Form</span>
+                  <span className="text-xs text-slate-400 ml-2">AI builds your intake form live from the call</span>
+                </div>
+                <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors flex-shrink-0" />
               </button>
             </div>
           </div>
@@ -2025,9 +2085,6 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         <div className="flex-1 flex items-center justify-center px-6 py-10 bg-[#F7F7F5]">
           <div className="w-full max-w-md">
             <div className="text-center mb-8">
-              <div className="w-14 h-14 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Link2 className="w-7 h-7 text-green-600" />
-              </div>
               <h2 className="text-2xl font-black text-slate-900 mb-2">Share the link first</h2>
               <p className="text-slate-500 text-sm">Send this link to your client so they can watch the demo live from their browser.</p>
             </div>
@@ -2066,7 +2123,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                 ← Back
               </button>
               <button
-                onClick={afterSessionSetup}
+                onClick={onEnterApp}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
               >
                 Continue <ArrowRight className="w-4 h-4" />
@@ -2941,12 +2998,35 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                 <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-sm text-slate-700 leading-relaxed mb-3">
                   {analysis.sms}
                 </div>
-                <button
-                  onClick={() => navigator.clipboard.writeText(analysis.sms)}
-                  className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors"
-                >
-                  <Copy className="w-3.5 h-3.5" /> Copy SMS
-                </button>
+                <div className="flex items-center gap-4">
+                  <button
+                    onClick={() => navigator.clipboard.writeText(analysis.sms)}
+                    className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-900 transition-colors"
+                  >
+                    <Copy className="w-3.5 h-3.5" /> Copy SMS
+                  </button>
+                  {activeCallPhone && (
+                    <button
+                      onClick={() => sendSms(analysis.sms)}
+                      disabled={smsSending || smsSent}
+                      className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
+                        smsSent
+                          ? 'text-green-600'
+                          : smsSending
+                          ? 'text-slate-400 cursor-wait'
+                          : 'text-green-700 hover:text-green-900'
+                      }`}
+                    >
+                      {smsSent ? (
+                        <><CheckCircle2 className="w-3.5 h-3.5" /> Sent</>
+                      ) : smsSending ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Sending…</>
+                      ) : (
+                        <><Send className="w-3.5 h-3.5" /> Send to {activeCallPhone}</>
+                      )}
+                    </button>
+                  )}
+                </div>
               </div>
             )}
 
@@ -3080,6 +3160,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal, overlay }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
+      {/* Hidden container for SignalWire audio-only WebRTC calls */}
+      <div id="sw-media" style={{ display: 'none' }} />
       {/* Viewer banner */}
       {isViewer && (
         <div className="flex-shrink-0 bg-slate-900 px-6 py-2.5 flex items-center justify-between">

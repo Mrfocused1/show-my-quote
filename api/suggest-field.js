@@ -1,3 +1,5 @@
+import { requireApiKey } from './_lib/auth.js';
+
 const VALID_TYPES = [
   'text','number','currency','date','time','toggle','select','multi-check','priced-item',
   'long-text','email','phone','url','decimal','percentage','rating','slider',
@@ -6,6 +8,7 @@ const VALID_TYPES = [
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
 
   const { line, recentContext = [], existingLabels = [] } = req.body;
   const KEY = process.env.OPENAI_API_KEY;

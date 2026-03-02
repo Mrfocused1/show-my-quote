@@ -1,9 +1,10 @@
+import { setCors, requireApiKey } from './_lib/auth.js';
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  setCors(req, res);
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
 
   const { transcript = [], fields = [], fieldValues = {}, niche = null, menuItems = [] } = req.body || {};
   const KEY = process.env.OPENAI_API_KEY;

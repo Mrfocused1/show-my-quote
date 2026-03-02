@@ -1,5 +1,8 @@
+import { requireApiKey } from './_lib/auth.js';
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
+  if (!requireApiKey(req, res)) return;
 
   const { line, transcript, fields = [], recentContext = [], replaceAll = false } = req.body;
   if (!fields.length) return res.json({ fills: [] });
