@@ -108,16 +108,21 @@ export default async function handler(req, res) {
 
     // Simultaneous ring: browser client + owner's real phone (if configured).
     // timeout:20 avoids connecting inbound caller to voicemail (~25-30s on UK networks).
+    // callerId must be the Twilio number — arbitrary numbers are rejected by Twilio for outbound legs.
     const ownerPhone = process.env.OWNER_PHONE_NUMBER;
     const dialTimeout = ownerPhone ? 20 : 45;
-    const dial = twiml.dial({ callerId: from === 'Unknown' ? twilioNumber : from, timeout: dialTimeout });
+    const dial = twiml.dial({ callerId: twilioNumber, timeout: dialTimeout });
 
-    // Pass session to browser via <Parameter> so it subscribes to the right Pusher channel.
+    // Pass session + real caller number to browser via <Parameter>.
+    // callerId is forced to twilioNumber above so call.parameters.From would show Twilio's number —
+    // we use a custom 'from' param instead so the app can display who's actually calling.
     const clientNoun = dial.client();
     clientNoun.identity('demo-presenter');
     clientNoun.parameter({ name: 'session', value: session });
+    clientNoun.parameter({ name: 'from', value: from });
 
     if (ownerPhone) dial.number(ownerPhone);
+    console.log('[twilio-voice] inbound TwiML:', twiml.toString());
   }
 
   res.send(twiml.toString());

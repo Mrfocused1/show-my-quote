@@ -644,7 +644,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
             if (acceptInboundRef.current) acceptInboundRef.current(call, call.parameters?.From || 'Unknown', session);
             return;
           }
-          setIncomingCall({ call, from: call.parameters?.From || 'Unknown', session });
+          const callerFrom = call.customParameters?.get('from') || call.parameters?.From || 'Unknown';
+          setIncomingCall({ call, from: callerFrom, session });
           startInboundRingtone();
           startTitleFlash();
           try { navigator.setAppBadge?.(1); } catch {}
