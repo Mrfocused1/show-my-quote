@@ -15,7 +15,7 @@ import {
   Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
   Hash, ToggleRight, CheckSquare, Type as TypeIcon,
   AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal,
-  BookOpen, History
+  BookOpen, History, Upload, Printer, Image as ImageIcon
 } from 'lucide-react';
 
 // --- MOCK DATA ---
@@ -3068,111 +3068,423 @@ function PricingRulesView() {
   );
 }
 
+// ─── Persistent local state hook ─────────────────────────────────────────────
+function useLocalState(key, defaultVal) {
+  const [val, setVal] = useState(() => {
+    try { const s = localStorage.getItem(key); return s !== null ? JSON.parse(s) : defaultVal; } catch { return defaultVal; }
+  });
+  const save = v => { setVal(v); try { localStorage.setItem(key, JSON.stringify(v)); } catch {} };
+  return [val, save];
+}
+
+const DEFAULT_BIZ = { name: 'Elite Catering Co.', address: '12 Gourmet Lane', city: 'London', postcode: 'SW1A 1AA', email: 'quotes@elitecatering.com', phone: '+44 20 7946 0320', vat: 'GB 123 456 789', terms: '14' };
+const DEFAULT_INV_SETTINGS = { showLogo: true, showAddress: true, showVat: true, showBankDetails: true, showNotes: true, bankDetails: 'Bank: Barclays\nSort code: 20-00-00\nAccount: 12345678\nReference: Your invoice number', notes: 'Thank you for your business. Payment is due within the payment terms stated above.' };
+
+// ─── Settings ────────────────────────────────────────────────────────────────
 function SettingsView() {
-  const [copied, setCopied] = useState(false);
-  const [testStatus, setTestStatus] = useState(null);
+  const [tab, setTab] = useState('business');
+  const [biz, saveBiz] = useLocalState('smq_biz', DEFAULT_BIZ);
+  const [emailConnected, setEmailConnected] = useLocalState('smq_email_connected', false);
+  const [emailAddress, setEmailAddress] = useLocalState('smq_email_addr', '');
+  const [logo, saveLogo] = useLocalState('smq_logo', null);
+  const [inv, saveInv] = useLocalState('smq_invoice_settings', DEFAULT_INV_SETTINGS);
 
-  const webhookUrl = 'https://api.getmyquote.app/webhooks/openphone/catch';
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(webhookUrl);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleLogoUpload = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => saveLogo(ev.target.result);
+    reader.readAsDataURL(file);
   };
 
-  const handleTest = () => {
-    setTestStatus('loading');
-    setTimeout(() => setTestStatus('success'), 1500);
-  };
+  const TABS = [{ id: 'business', label: 'Business' }, { id: 'email', label: 'Email' }, { id: 'invoice', label: 'Invoice' }];
 
   return (
-    <div className="max-w-3xl mx-auto p-8">
-      <h1 className="text-2xl font-bold text-slate-900 mb-8">Settings & Integrations</h1>
+    <div className="max-w-2xl mx-auto p-4 md:p-8 pb-20">
+      <h1 className="text-2xl font-bold text-slate-900 mb-6">Settings</h1>
 
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden mb-6">
-        <div className="p-6 border-b border-slate-200 bg-slate-50">
-          <h2 className="text-lg font-semibold flex items-center">
-            <Phone className="w-5 h-5 mr-2 text-indigo-600" /> OpenPhone Integration
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">Connect OpenPhone to automatically transcribe calls and extract catering requirements.</p>
-        </div>
-
-        <div className="p-6 space-y-6">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">API Key</label>
-            <input
-              type="password"
-              defaultValue="op_live_xxxxxxxxxxxxxxxxxxxx"
-              readOnly
-              className="w-full p-2 border border-slate-300 rounded bg-slate-50 text-slate-500 font-mono text-sm"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Webhook URL</label>
-            <div className="flex">
-              <input
-                type="text"
-                value={webhookUrl}
-                readOnly
-                className="flex-1 p-2 border border-slate-300 rounded-l bg-slate-50 text-slate-500 font-mono text-sm"
-              />
-              <button
-                onClick={handleCopy}
-                className={`px-4 border border-l-0 border-slate-300 rounded-r transition-colors flex items-center gap-2 text-sm ${copied ? 'bg-green-50 text-green-700' : 'bg-white hover:bg-slate-50 text-slate-600'}`}
-              >
-                {copied ? <><Check className="w-3 h-3" /> Copied</> : <><Copy className="w-4 h-4" /> Copy</>}
-              </button>
-            </div>
-          </div>
-
-          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
-            {testStatus === 'success' && (
-              <span className="text-sm text-green-700 bg-green-50 border border-green-200 px-3 py-1 rounded flex items-center">
-                <CheckCircle2 className="w-4 h-4 mr-1.5" /> Connection successful
-              </span>
-            )}
-            {testStatus === 'loading' && <span className="text-sm text-slate-500">Testing connection...</span>}
-            {!testStatus && <span />}
-            <button
-              onClick={handleTest}
-              disabled={testStatus === 'loading'}
-              className="bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-50 transition shadow-sm disabled:opacity-50"
-            >
-              Test Connection
-            </button>
-          </div>
-        </div>
+      {/* Tab bar */}
+      <div className="flex gap-1 bg-slate-100 rounded-xl p-1 mb-6">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex-1 py-2 text-sm font-medium rounded-lg transition-all ${tab === t.id ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}>
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      {/* Business Details */}
-      <div className="bg-white border border-slate-200 rounded-lg shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-200 bg-slate-50">
-          <h2 className="text-lg font-semibold">Business Details</h2>
-          <p className="text-sm text-slate-500 mt-1">Appears on client-facing quotes and previews.</p>
-        </div>
-        <div className="p-6 space-y-4 text-sm">
-          {[
-            { label: 'Business Name', value: 'Elite Catering Co.' },
-            { label: 'Contact Email', value: 'quotes@elitecatering.com' },
-            { label: 'Phone', value: '+1 (555) 800-2200' },
-            { label: 'Default Admin Fee %', value: '18' },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <label className="block text-slate-500 mb-1">{label}</label>
-              <input
-                type="text"
-                defaultValue={value}
-                className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
-              />
+      {/* ── Business tab ── */}
+      {tab === 'business' && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-900">Business Details</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Appears on invoices and client-facing documents.</p>
+          </div>
+          <div className="p-5 space-y-4">
+            {[
+              { label: 'Business Name', key: 'name' }, { label: 'Address', key: 'address' },
+              { label: 'City', key: 'city' },          { label: 'Postcode', key: 'postcode' },
+              { label: 'Email', key: 'email' },         { label: 'Phone', key: 'phone' },
+              { label: 'VAT Number', key: 'vat' },
+            ].map(({ label, key }) => (
+              <div key={key}>
+                <label className="block text-xs font-medium text-slate-500 mb-1">{label}</label>
+                <input value={biz[key] || ''} onChange={e => saveBiz({ ...biz, [key]: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all" />
+              </div>
+            ))}
+            <div>
+              <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
+              <select value={biz.terms || '14'} onChange={e => saveBiz({ ...biz, terms: e.target.value })}
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all bg-white">
+                {['7','14','30','60'].map(d => <option key={d} value={d}>Net {d} days</option>)}
+              </select>
             </div>
-          ))}
-          <div className="pt-2 flex justify-end">
-            <button className="bg-slate-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-slate-800 transition shadow-sm">
-              Save Changes
-            </button>
           </div>
         </div>
+      )}
+
+      {/* ── Email tab ── */}
+      {tab === 'email' && (
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100">
+            <h2 className="font-semibold text-slate-900">Email Account</h2>
+            <p className="text-xs text-slate-400 mt-0.5">Send and read emails directly from Show My Quote.</p>
+          </div>
+          <div className="p-5">
+            {emailConnected ? (
+              <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center">
+                    <Check className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-medium text-slate-900">{emailAddress}</div>
+                    <div className="text-xs text-green-600">Connected</div>
+                  </div>
+                </div>
+                <button onClick={() => { setEmailConnected(false); setEmailAddress(''); }}
+                  className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors">Disconnect</button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {[
+                  { label: 'Connect Gmail', sub: 'Sign in with Google', color: 'text-red-500', bg: 'bg-red-50 border-red-100', addr: 'you@gmail.com' },
+                  { label: 'Connect Outlook', sub: 'Sign in with Microsoft', color: 'text-blue-500', bg: 'bg-blue-50 border-blue-100', addr: 'you@outlook.com' },
+                ].map(({ label, sub, color, bg, addr }) => (
+                  <button key={label} onClick={() => { setEmailConnected(true); setEmailAddress(addr); }}
+                    className="w-full flex items-center gap-3 p-4 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50 transition-all text-left group">
+                    <div className={`w-9 h-9 rounded-lg border flex items-center justify-center flex-shrink-0 ${bg}`}>
+                      <Mail className={`w-4 h-4 ${color}`} />
+                    </div>
+                    <div className="flex-1">
+                      <div className="text-sm font-medium text-slate-900">{label}</div>
+                      <div className="text-xs text-slate-400">{sub}</div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-slate-500 transition-colors" />
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Invoice tab ── */}
+      {tab === 'invoice' && (
+        <div className="space-y-4">
+          {/* Logo upload */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Logo</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Shown at the top of every invoice.</p>
+            </div>
+            <div className="p-5">
+              <div className="flex items-center gap-4">
+                <div className="w-24 h-16 border-2 border-dashed border-slate-200 rounded-xl flex items-center justify-center bg-slate-50 overflow-hidden flex-shrink-0">
+                  {logo ? <img src={logo} alt="Logo" className="w-full h-full object-contain p-1" /> : <ImageIcon className="w-6 h-6 text-slate-300" />}
+                </div>
+                <div>
+                  <label className="inline-flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg cursor-pointer hover:bg-slate-700 transition-colors shadow-sm">
+                    <Upload className="w-3.5 h-3.5" />
+                    {logo ? 'Change logo' : 'Upload logo'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleLogoUpload} />
+                  </label>
+                  {logo && <button onClick={() => saveLogo(null)} className="ml-2 text-xs text-red-500 hover:text-red-700 font-medium">Remove</button>}
+                  <p className="text-xs text-slate-400 mt-1.5">PNG, JPG or SVG · Recommended 300×100px</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Invoice structure toggles */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Invoice Structure</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Choose which sections appear on every invoice.</p>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {[
+                { key: 'showLogo',        label: 'Show logo',           desc: 'Your uploaded logo at the top' },
+                { key: 'showAddress',     label: 'Business address',    desc: 'Your address below your name' },
+                { key: 'showVat',         label: 'VAT number',          desc: 'Displayed in the invoice header' },
+                { key: 'showBankDetails', label: 'Bank / payment details', desc: 'Shown at the bottom' },
+                { key: 'showNotes',       label: 'Notes & terms',       desc: 'Payment terms and extra notes' },
+              ].map(({ key, label, desc }) => (
+                <div key={key} className="flex items-center justify-between px-5 py-3.5">
+                  <div>
+                    <div className="text-sm font-medium text-slate-800">{label}</div>
+                    <div className="text-xs text-slate-400">{desc}</div>
+                  </div>
+                  <button onClick={() => saveInv({ ...inv, [key]: !inv[key] })}
+                    className={`relative rounded-full transition-colors flex-shrink-0 ${inv[key] ? 'bg-green-500' : 'bg-slate-200'}`}
+                    style={{ width: 40, height: 22 }}>
+                    <span className={`absolute top-[3px] w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${inv[key] ? 'translate-x-[19px]' : 'translate-x-[3px]'}`} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Bank details */}
+          {inv.showBankDetails && (
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-900">Bank / Payment Details</h2>
+              </div>
+              <div className="p-5">
+                <textarea rows={4} value={inv.bankDetails || ''} onChange={e => saveInv({ ...inv, bankDetails: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+                  placeholder={'Bank: Barclays\nSort code: 20-00-00\nAccount: 12345678'} />
+              </div>
+            </div>
+          )}
+
+          {/* Notes */}
+          {inv.showNotes && (
+            <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100">
+                <h2 className="text-sm font-semibold text-slate-900">Default Notes / Terms</h2>
+              </div>
+              <div className="p-5">
+                <textarea rows={3} value={inv.notes || ''} onChange={e => saveInv({ ...inv, notes: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all resize-none"
+                  placeholder="Thank you for your business..." />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Invoice View ─────────────────────────────────────────────────────────────
+function InvoiceView({ call }) {
+  const [logo]  = useLocalState('smq_logo', null);
+  const [biz]   = useLocalState('smq_biz', DEFAULT_BIZ);
+  const [inv]   = useLocalState('smq_invoice_settings', DEFAULT_INV_SETTINGS);
+
+  const today   = new Date();
+  const fmtDate = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  const due     = new Date(today); due.setDate(due.getDate() + parseInt(biz.terms || 14));
+
+  const [invoiceNum,  setInvoiceNum]  = useState(call.invoice?.id || `INV-${String(Date.now()).slice(-5)}`);
+  const [issueDate,   setIssueDate]   = useState(fmtDate(today));
+  const [dueDateStr,  setDueDateStr]  = useState(fmtDate(due));
+  const [clientName,  setClientName]  = useState(call.extracted?.name || call.caller || '');
+  const [clientEmail, setClientEmail] = useState(call.email || '');
+  const [clientAddr,  setClientAddr]  = useState('');
+  const [notes,       setNotes]       = useState(inv.notes || '');
+  const [showVatLine, setShowVatLine] = useState(false);
+  const [vatRate,     setVatRate]     = useState(20);
+  const [items, setItems] = useState(() => {
+    if (call.invoice?.items?.length) return call.invoice.items.map(it => ({ desc: it.desc, qty: 1, rate: it.amount, amount: it.amount }));
+    const desc = [call.extracted?.eventType, call.extracted?.guestCount ? `${call.extracted.guestCount} guests` : null].filter(Boolean).join(' — ') || 'Catering Services';
+    return [{ desc, qty: 1, rate: call.invoice?.amount || call.quote?.amount || 0, amount: call.invoice?.amount || call.quote?.amount || 0 }];
+  });
+
+  const updateItem = (i, key, val) => {
+    const next = [...items]; next[i] = { ...next[i], [key]: val };
+    if (key === 'qty' || key === 'rate') next[i].amount = (Number(next[i].qty)||0) * (Number(next[i].rate)||0);
+    setItems(next);
+  };
+  const fmt = n => '£' + (Number(n)||0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const subtotal  = items.reduce((s, it) => s + (Number(it.amount)||0), 0);
+  const vatAmount = showVatLine ? subtotal * (vatRate / 100) : 0;
+  const total     = subtotal + vatAmount;
+
+  const printInvoice = () => {
+    const logoHtml = (inv.showLogo && logo)
+      ? `<img src="${logo}" style="max-height:56px;max-width:160px;object-fit:contain;" />`
+      : `<div style="font-size:18px;font-weight:800;color:#0f172a;">${biz.name}</div>`;
+    const numFmt = n => '£' + (Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const html = `<!DOCTYPE html><html><head><title>Invoice ${invoiceNum}</title><style>
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:white;padding:32px;max-width:760px;margin:0 auto;font-size:13px}
+.header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #e2e8f0}
+.invoice-title{font-size:26px;font-weight:900;color:#0f172a;margin-bottom:6px}.meta{color:#64748b;font-size:12px;margin-bottom:3px;display:flex;justify-content:flex-end;gap:8px}
+.meta span{font-weight:600;color:#1e293b}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px}
+.section-label{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#94a3b8;margin-bottom:6px}
+table{width:100%;border-collapse:collapse;margin-bottom:16px}th{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:#94a3b8;text-align:left;padding:8px 0;border-bottom:1px solid #e2e8f0}
+th.r,td.r{text-align:right}td{padding:9px 0;border-bottom:1px solid #f1f5f9;vertical-align:top;line-height:1.4}
+.totals{margin-left:auto;width:240px}.total-row{display:flex;justify-content:space-between;padding:5px 0;color:#475569}
+.total-final{display:flex;justify-content:space-between;padding:10px 0;font-size:17px;font-weight:900;color:#0f172a;border-top:2px solid #0f172a;margin-top:4px}
+.footer{margin-top:28px;padding-top:20px;border-top:1px solid #e2e8f0;font-size:11px;color:#64748b;white-space:pre-wrap;line-height:1.6}
+@media print{body{padding:16px}}
+</style></head><body>
+<div class="header"><div>${logoHtml}${inv.showAddress ? `<div style="color:#64748b;font-size:11px;margin-top:6px">${[biz.address,`${biz.city||''} ${biz.postcode||''}`.trim(),biz.email,biz.phone].filter(Boolean).join('<br/>')}</div>` : ''}${inv.showVat&&biz.vat?`<div style="color:#94a3b8;font-size:11px;margin-top:4px">VAT: ${biz.vat}</div>`:''}</div>
+<div style="text-align:right"><div class="invoice-title">INVOICE</div><div class="meta"><span>No.</span> ${invoiceNum}</div><div class="meta"><span>Issued:</span> ${issueDate}</div><div class="meta"><span>Due:</span> ${dueDateStr}</div></div></div>
+<div class="grid2"><div><div class="section-label">From</div><div style="font-weight:700;margin-bottom:4px">${biz.name}</div></div>
+<div><div class="section-label">Bill To</div><div style="font-weight:700;margin-bottom:4px">${clientName}</div>${clientEmail?`<div style="color:#64748b">${clientEmail}</div>`:''}${clientAddr?`<div style="color:#64748b;white-space:pre-wrap">${clientAddr}</div>`:''}</div></div>
+<table><thead><tr><th>Description</th><th class="r" style="width:50px">Qty</th><th class="r" style="width:80px">Rate</th><th class="r" style="width:90px">Amount</th></tr></thead><tbody>
+${items.map(it=>`<tr><td>${it.desc}</td><td class="r">${it.qty}</td><td class="r">${numFmt(it.rate)}</td><td class="r" style="font-weight:600">${numFmt(it.amount)}</td></tr>`).join('')}
+</tbody></table>
+<div class="totals"><div class="total-row"><span>Subtotal</span><span>${numFmt(subtotal)}</span></div>${showVatLine?`<div class="total-row"><span>VAT (${vatRate}%)</span><span>${numFmt(vatAmount)}</span></div>`:''}<div class="total-final"><span>Total</span><span>${numFmt(total)}</span></div></div>
+${inv.showBankDetails&&inv.bankDetails?`<div class="footer"><strong>Payment Details</strong>\n${inv.bankDetails}</div>`:''}
+${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Notes</strong>\n${notes}</div>`:''}
+</body></html>`;
+    const w = window.open('', '_blank');
+    w.document.write(html); w.document.close();
+    setTimeout(() => w.print(), 400);
+  };
+
+  const Field = ({ value, onChange, placeholder='', className='' }) => (
+    <input value={value} onChange={e => onChange(e.target.value)} placeholder={placeholder}
+      className={`bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none transition-colors ${className}`} />
+  );
+
+  return (
+    <div className="p-4 md:p-6 max-w-2xl">
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-xs text-slate-400">Click any field to edit</p>
+        <button onClick={printInvoice}
+          className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+          <Printer className="w-4 h-4" /> Download PDF
+        </button>
+      </div>
+
+      {/* Invoice card */}
+      <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+
+        {/* Header: logo + invoice meta */}
+        <div className="p-6 border-b border-slate-100">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              {inv.showLogo && logo
+                ? <img src={logo} alt="Logo" className="max-h-12 max-w-[140px] object-contain mb-2" />
+                : <div className="text-lg font-black text-slate-900 mb-1">{biz.name}</div>}
+              {inv.showAddress && <div className="text-xs text-slate-400 leading-relaxed">{[biz.address, [biz.city, biz.postcode].filter(Boolean).join(', ')].filter(Boolean).map((l,i)=><div key={i}>{l}</div>)}</div>}
+              <div className="text-xs text-slate-400">{biz.email}</div>
+              {inv.showVat && biz.vat && <div className="text-xs text-slate-400">VAT: {biz.vat}</div>}
+            </div>
+            <div className="text-right flex-shrink-0">
+              <div className="text-2xl font-black text-slate-900 mb-3">INVOICE</div>
+              <div className="space-y-1.5 text-xs">
+                {[['No.', invoiceNum, setInvoiceNum], ['Issued', issueDate, setIssueDate], ['Due', dueDateStr, setDueDateStr]].map(([label, val, setter]) => (
+                  <div key={label} className="flex items-center justify-end gap-2">
+                    <span className="text-slate-400">{label}</span>
+                    <input value={val} onChange={e => setter(e.target.value)}
+                      className="text-right text-xs font-semibold text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none w-28" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bill To */}
+        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Bill To</div>
+          <Field value={clientName} onChange={setClientName} placeholder="Client name" className="text-sm font-semibold text-slate-900 w-full block mb-1" />
+          <Field value={clientEmail} onChange={setClientEmail} placeholder="Email address" className="text-xs text-slate-500 w-full block mb-1" />
+          <textarea value={clientAddr} onChange={e => setClientAddr(e.target.value)} placeholder="Address (optional)" rows={2}
+            className="text-xs text-slate-500 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none w-full resize-none" />
+        </div>
+
+        {/* Line items */}
+        <div className="px-6 py-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200">
+                {['Description','Qty','Rate','Amount',''].map((h,i) => (
+                  <th key={i} className={`text-[10px] font-bold uppercase tracking-wider text-slate-400 pb-2 ${i>0?'text-right':''} ${i===1?'w-14':i===2?'w-20':i===3?'w-20':i===4?'w-6':''}`}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={i} className="border-b border-slate-100 group">
+                  <td className="py-2.5 pr-3">
+                    <input value={it.desc} onChange={e => updateItem(i,'desc',e.target.value)} placeholder="Item description"
+                      className="w-full text-slate-800 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none text-sm" />
+                  </td>
+                  <td className="py-2.5 px-1">
+                    <input value={it.qty} onChange={e => updateItem(i,'qty',e.target.value)} type="number" min="0"
+                      className="w-full text-right text-slate-700 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none text-sm" />
+                  </td>
+                  <td className="py-2.5 px-1">
+                    <input value={it.rate} onChange={e => updateItem(i,'rate',e.target.value)} type="number" min="0"
+                      className="w-full text-right text-slate-700 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none text-sm" />
+                  </td>
+                  <td className="py-2.5 pl-1 text-right font-semibold text-slate-900">{fmt(it.amount)}</td>
+                  <td className="py-2.5">
+                    <button onClick={() => setItems(p => p.filter((_,idx) => idx !== i))}
+                      className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-600 transition-all p-0.5">
+                      <Minus className="w-3.5 h-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <button onClick={() => setItems(p => [...p, { desc: '', qty: 1, rate: 0, amount: 0 }])}
+            className="mt-2 flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 font-medium transition-colors">
+            <Plus className="w-3.5 h-3.5" /> Add line item
+          </button>
+        </div>
+
+        {/* Totals */}
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+          <div className="flex justify-end">
+            <div className="w-56 space-y-1.5 text-sm">
+              <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-medium">{fmt(subtotal)}</span></div>
+              <div className="flex justify-between items-center text-slate-600">
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs">
+                  <input type="checkbox" checked={showVatLine} onChange={e => setShowVatLine(e.target.checked)} className="rounded" />
+                  <span>VAT</span>
+                  {showVatLine && (
+                    <select value={vatRate} onChange={e => setVatRate(Number(e.target.value))}
+                      className="text-xs bg-transparent border-b border-slate-200 outline-none ml-1">
+                      {[5,10,20].map(r => <option key={r} value={r}>{r}%</option>)}
+                    </select>
+                  )}
+                </label>
+                <span className="font-medium">{fmt(vatAmount)}</span>
+              </div>
+              <div className="flex justify-between pt-2 border-t-2 border-slate-900 text-base font-black text-slate-900">
+                <span>Total</span><span>{fmt(total)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Notes */}
+        {inv.showNotes && (
+          <div className="px-6 py-4 border-t border-slate-100">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Notes</div>
+            <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Payment terms, thank you note…"
+              className="w-full text-xs text-slate-500 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none resize-none" />
+          </div>
+        )}
+
+        {/* Bank details */}
+        {inv.showBankDetails && inv.bankDetails && (
+          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+            <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Details</div>
+            <div className="text-xs text-slate-600 whitespace-pre-wrap">{inv.bankDetails}</div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3599,55 +3911,8 @@ function CallLogView({ initialId, navigateTo }) {
 
               {/* ── INVOICE ── */}
               {activeTab === 'invoice' && (
-                <div className="p-4 md:p-6 max-w-lg">
-                  {selected.invoice ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-                      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-                        <div>
-                          <div className="font-semibold text-slate-900">Invoice #{selected.invoice.id}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">Due {selected.invoice.dueDate}</div>
-                        </div>
-                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold capitalize ${selected.invoice.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                          {selected.invoice.status}
-                        </span>
-                      </div>
-                      <div className="p-5 space-y-3">
-                        {selected.invoice.items.map((item, i) => (
-                          <div key={i} className="flex justify-between text-sm gap-4">
-                            <span className="text-slate-600">{item.desc}</span>
-                            <span className="font-semibold text-slate-900 flex-shrink-0">£{item.amount.toLocaleString()}</span>
-                          </div>
-                        ))}
-                        <div className="border-t border-slate-100 pt-3 flex justify-between font-bold text-slate-900">
-                          <span>Total</span>
-                          <span>£{selected.invoice.amount.toLocaleString()}</span>
-                        </div>
-                      </div>
-                      <div className="px-5 pb-5 flex gap-2.5">
-                        <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
-                          <Eye className="w-3.5 h-3.5" /> View
-                        </button>
-                        {selected.invoice.status !== 'paid' && (
-                          <button className="flex-1 flex items-center justify-center gap-2 py-2 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-800 transition-colors">
-                            <Send className="w-3.5 h-3.5" /> Send
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center justify-center py-16 text-center gap-4">
-                      <div className="w-14 h-14 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-center">
-                        <ReceiptText className="w-7 h-7 text-slate-400" />
-                      </div>
-                      <div>
-                        <div className="font-semibold text-slate-800">No invoice yet</div>
-                        <div className="text-sm text-slate-500 mt-1">Create an invoice once the quote is accepted</div>
-                      </div>
-                      <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
-                        <Plus className="w-4 h-4" /> Create Invoice
-                      </button>
-                    </div>
-                  )}
+                <div className="p-4 md:p-6">
+                  <InvoiceView call={selected} />
                 </div>
               )}
 
