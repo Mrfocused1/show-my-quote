@@ -5,7 +5,7 @@ import {
   Copy, Plus, Trash2, X, ArrowRight, ChevronRight, ChevronDown, ChevronUp, Minus, MessageSquare,
   LayoutGrid, Eye, Link2, Loader2, Camera, Utensils, Building2,
   Flower2, Calendar, Music, Wand2, ClipboardList, Play, Mail, FileText, Sparkles,
-  Bookmark, Edit2, Bell,
+  Bookmark, Edit2, Bell, Search, Users,
 } from 'lucide-react';
 import { suggestField, fillFields, fillFieldsFromTranscript } from './openaiHelper.js';
 
@@ -496,7 +496,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const [copied, setCopied] = useState(false);
 
   // ── Dialpad ──
-  const [dialNumber, setDialNum] = useState('');
+  const [dialNumber, setDialNum]       = useState('');
+  const [dialContactsOpen, setDialContactsOpen] = useState(false);
+  const [dialContactSearch, setDialContactSearch] = useState('');
 
   // ── Menu checklist (catering niche) ──
   const [menuChecked, setMenuChecked]     = useState({}); // { itemKey: true }
@@ -2251,6 +2253,21 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       broadcast({ dialNumber: next });
     };
 
+    const DEMO_CONTACTS = [
+      { id: 'dc1', name: 'Sarah Jenkins',      phone: '+44 7700 900123', eventType: 'Wedding',   initials: 'SJ', color: 'bg-purple-100 text-purple-700' },
+      { id: 'dc2', name: 'Michael Chen',       phone: '+44 7700 900456', eventType: 'Corporate', initials: 'MC', color: 'bg-blue-100 text-blue-700' },
+      { id: 'dc3', name: 'Emma & David Harper',phone: '+44 7700 900789', eventType: 'Wedding',   initials: 'EH', color: 'bg-pink-100 text-pink-700' },
+      { id: 'dc4', name: 'Rivera Family',      phone: '+44 7700 900321', eventType: 'Birthday',  initials: 'RF', color: 'bg-orange-100 text-orange-700' },
+      { id: 'dc5', name: 'TechCorp Inc.',       phone: '+44 7700 900654', eventType: 'Corporate', initials: 'TC', color: 'bg-green-100 text-green-700' },
+      { id: 'dc6', name: 'Aisha Okafor',       phone: '+44 7700 900987', eventType: 'Birthday',  initials: 'AO', color: 'bg-yellow-100 text-yellow-700' },
+    ];
+
+    const filteredContacts = DEMO_CONTACTS.filter(c =>
+      c.name.toLowerCase().includes(dialContactSearch.toLowerCase()) ||
+      c.phone.includes(dialContactSearch) ||
+      c.eventType.toLowerCase().includes(dialContactSearch.toLowerCase())
+    );
+
     return (
       <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined}>
         <div className="flex-1 flex flex-col items-center justify-center bg-[#F7F7F5] px-4 py-10 gap-4">
@@ -2277,9 +2294,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
               )}
             </div>
 
-            {/* Paste button */}
+            {/* Paste + Contacts buttons */}
             {!isViewer && (
-              <div className="flex justify-center mb-4">
+              <div className="flex items-center justify-center gap-2 mb-4">
                 <button
                   onClick={async () => {
                     try {
@@ -2291,6 +2308,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                   className="text-xs text-green-600 hover:text-green-700 font-medium border border-green-200 hover:border-green-400 bg-green-50 hover:bg-green-100 px-3 py-1 rounded-lg transition-colors"
                 >
                   Paste number
+                </button>
+                <button
+                  onClick={() => setDialContactsOpen(true)}
+                  className="text-xs text-slate-600 hover:text-slate-800 font-medium border border-slate-200 hover:border-slate-300 bg-white hover:bg-slate-50 px-3 py-1 rounded-lg transition-colors flex items-center gap-1.5"
+                >
+                  <Users className="w-3 h-3" /> Contacts
                 </button>
               </div>
             )}
@@ -2335,6 +2358,72 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
           </div>
 
         </div>
+
+        {/* ── Contacts bottom sheet ── */}
+        {dialContactsOpen && (
+          <>
+            <div
+              className="fixed inset-0 z-[60] bg-black/40"
+              onClick={() => { setDialContactsOpen(false); setDialContactSearch(''); }}
+            />
+            <div className="fixed bottom-0 left-0 right-0 z-[61] bg-white rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: '70vh' }}>
+              {/* Handle */}
+              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
+                <div className="w-8 h-1 bg-slate-200 rounded-full" />
+              </div>
+              {/* Header */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-100 flex-shrink-0">
+                <span className="font-semibold text-slate-900 text-sm">Contacts</span>
+                <button
+                  onClick={() => { setDialContactsOpen(false); setDialContactSearch(''); }}
+                  className="text-slate-400 hover:text-slate-700 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              {/* Search */}
+              <div className="px-4 py-3 flex-shrink-0">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400" />
+                  <input
+                    autoFocus
+                    value={dialContactSearch}
+                    onChange={e => setDialContactSearch(e.target.value)}
+                    placeholder="Search contacts…"
+                    className="w-full pl-8 pr-3 py-2 bg-slate-100 rounded-lg text-sm text-slate-900 placeholder-slate-400 outline-none focus:ring-2 focus:ring-green-500 focus:bg-white transition-all"
+                  />
+                </div>
+              </div>
+              {/* List */}
+              <div className="overflow-y-auto flex-1 px-3 pb-6">
+                {filteredContacts.length === 0 && (
+                  <p className="text-slate-400 text-sm text-center py-8">No contacts found</p>
+                )}
+                {filteredContacts.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setDialNum(c.phone);
+                      broadcast({ dialNumber: c.phone });
+                      setDialContactsOpen(false);
+                      setDialContactSearch('');
+                    }}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-50 active:bg-slate-100 transition-colors text-left"
+                  >
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${c.color}`}>
+                      {c.initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-slate-900 truncate">{c.name}</div>
+                      <div className="text-xs text-slate-400 truncate">{c.phone} · {c.eventType}</div>
+                    </div>
+                    <Phone className="w-3.5 h-3.5 text-slate-300 flex-shrink-0" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </PageShell>
     );
   }
