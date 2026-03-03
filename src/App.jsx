@@ -428,35 +428,16 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
               ))}
             </div>
 
-            {/* Auto-extracted fields */}
-            <div className="border-t border-slate-700/50 p-5 flex-shrink-0">
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Auto-extracted</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {[
-                  { label: 'Event type', value: transcript.length >= 2 ? 'Wedding'           : '' },
-                  { label: 'Guests',     value: transcript.length >= 4 ? '120'               : '' },
-                  { label: 'Date',       value: transcript.length >= 4 ? 'Jun 15'            : '' },
-                  { label: 'Venue',      value: transcript.length >= 4 ? 'River Grove Estate': '' },
-                  { label: 'Style',      value: transcript.length >= 6 ? 'Plated dinner'     : '' },
-                  { label: 'Dietary',    value: transcript.length >= 6 ? 'Vegan options'     : '' },
-                ].map(({ label, value }) => (
-                  <div key={label} className="flex flex-col gap-0.5">
-                    <span className="text-[10px] text-slate-500">{label}</span>
-                    <span className={`text-xs font-semibold ${value ? 'text-green-400' : 'text-slate-700'}`}>
-                      {value || '—'}
-                    </span>
-                  </div>
-                ))}
-              </div>
-              {status === 'ended' && transcript.length >= 4 && (
+            {status === 'ended' && (
+              <div className="border-t border-slate-700/50 p-5 flex-shrink-0">
                 <button
-                  onClick={() => { onClose(); navigateTo('quote-builder'); }}
-                  className="mt-4 w-full py-2.5 bg-green-600 hover:bg-green-500 text-white text-sm font-semibold rounded-xl transition-colors"
+                  onClick={() => { onClose(); navigateTo('calls'); }}
+                  className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors"
                 >
-                  Build Quote from this Call →
+                  View in Call History →
                 </button>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         )}
       </div>
