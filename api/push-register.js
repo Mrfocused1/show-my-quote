@@ -7,10 +7,7 @@ async function readSubs(identity) {
   const { blobs } = await list({ prefix: subsPath(identity), limit: 1 });
   if (!blobs.length) return [];
   try {
-    const token = process.env.BLOB_READ_WRITE_TOKEN;
-    const res = await fetch(blobs[0].url, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    });
+    const res = await fetch(blobs[0].url);
     return await res.json();
   } catch {
     return [];
@@ -19,7 +16,7 @@ async function readSubs(identity) {
 
 async function writeSubs(identity, subs) {
   await put(subsPath(identity), JSON.stringify(subs), {
-    access: 'private',
+    access: 'public',
     contentType: 'application/json',
     addRandomSuffix: false,
     allowOverwrite: true,

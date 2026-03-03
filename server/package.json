@@ -1,0 +1,16 @@
+{
+  "name": "smq-transcription",
+  "version": "1.0.0",
+  "description": "Show My Quote — real-time call transcription server",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "pusher": "^5.2.0",
+    "ws": "^8.18.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
