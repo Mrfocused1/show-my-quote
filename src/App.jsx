@@ -838,7 +838,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} quotes={quotes} />}
-          {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} />}
+          {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} onCall={phone => { setDialerInitNumber(phone || ''); setDialerOpen(true); }} />}
           {currentView === 'sms-inbox'     && <SmsInboxView />}
           {currentView === 'menus'         && <MenusView />}
           {currentView === 'pricing-rules'    && <PricingRulesView />}
@@ -2552,193 +2552,632 @@ function QuotesView({ navigateTo, quotes = [] }) {
   );
 }
 
-function InquiriesView({ navigateTo }) {
-  const [inquiries, setInquiries] = useState([]);
-  const [selected, setSelected] = useState(null);
-  const [newOpen, setNewOpen] = useState(false);
-  const [filterOpen, setFilterOpen] = useState(false);
+const LEAD_STATUSES = [
+  { value: 'new',            label: 'New Lead',        color: 'bg-blue-100 text-blue-700' },
+  { value: 'called',         label: 'Called',          color: 'bg-yellow-100 text-yellow-700' },
+  { value: 'interested',     label: 'Interested',      color: 'bg-purple-100 text-purple-700' },
+  { value: 'demo_booked',    label: 'Demo Booked',     color: 'bg-orange-100 text-orange-700' },
+  { value: 'client',         label: 'Client ✓',        color: 'bg-green-100 text-green-700' },
+  { value: 'not_interested', label: 'Not Interested',  color: 'bg-slate-100 text-slate-500' },
+];
+
+function LeadStatusBadge({ status }) {
+  const s = LEAD_STATUSES.find(x => x.value === status) || LEAD_STATUSES[0];
+  return <span className={`px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ${s.color}`}>{s.label}</span>;
+}
+
+function InquiriesView({ navigateTo, onCall }) {
+  const [tab, setTab] = useState('pipeline');
+
+  // ── Pipeline state ──
+  const [leads, setLeads] = useState([]);
+  const [leadsLoading, setLeadsLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
-  const [newForm, setNewForm] = useState({ name: '', phone: '', eventType: 'Wedding', eventDate: '', guests: '', notes: '' });
+  const [search, setSearch] = useState('');
+  const [researchLead, setResearchLead] = useState(null); // lead with open research panel
+  const [researchLoading, setResearchLoading] = useState(false);
+  const [editingNotes, setEditingNotes] = useState(null); // lead id
+  const [notesDraft, setNotesDraft] = useState('');
 
-  const filtered = filterStatus === 'all' ? inquiries : inquiries.filter(i => i.status === filterStatus);
+  // ── Generator state ──
+  const [genQuery, setGenQuery] = useState('roofing contractor');
+  const [genLocation, setGenLocation] = useState('Houston, TX');
+  const [genLimit, setGenLimit] = useState(20);
+  const [genMinReviews, setGenMinReviews] = useState(0);
+  const [genScrapeEmail, setGenScrapeEmail] = useState(false);
+  const [genLoading, setGenLoading] = useState(false);
+  const [genError, setGenError] = useState(null);
+  const [genResults, setGenResults] = useState([]);
+  const [genSelected, setGenSelected] = useState(new Set());
+  const [addingLeads, setAddingLeads] = useState(false);
+  const [addedCount, setAddedCount] = useState(0);
 
-  const handleAdd = () => {
-    if (!newForm.name) return;
-    const created = { ...newForm, id: `i${Date.now()}`, status: 'New Inquiry', source: 'Manual', value: 'TBD' };
-    setInquiries(prev => [created, ...prev]);
-    setNewForm({ name: '', phone: '', eventType: 'Wedding', eventDate: '', guests: '', notes: '' });
-    setNewOpen(false);
+  // Load leads from DB
+  useEffect(() => {
+    setLeadsLoading(true);
+    apiFetch('/api/leads')
+      .then(r => r.json())
+      .then(d => setLeads(d.leads || []))
+      .catch(() => {})
+      .finally(() => setLeadsLoading(false));
+  }, []);
+
+  // ── Pipeline helpers ──
+  const patchLead = async (id, updates) => {
+    const res = await apiFetch(`/api/leads/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    const d = await res.json();
+    if (d.lead) setLeads(prev => prev.map(l => l.id === id ? d.lead : l));
+  };
+
+  const deleteLead = async (id) => {
+    await apiFetch(`/api/leads/${id}`, { method: 'DELETE' });
+    setLeads(prev => prev.filter(l => l.id !== id));
+    if (researchLead?.id === id) setResearchLead(null);
+  };
+
+  const addToContacts = async (lead) => {
+    const res = await apiFetch('/api/contacts', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: lead.business_name, phone: lead.phone, email: lead.email }),
+    });
+    const d = await res.json();
+    const contactId = d.contact?.id || d.contacts?.[0]?.id;
+    if (contactId) await patchLead(lead.id, { contact_id: contactId });
+  };
+
+  const fetchResearch = async (lead) => {
+    if (lead.ai_research) { setResearchLead(lead); return; }
+    setResearchLead(lead);
+    setResearchLoading(true);
+    try {
+      const res = await apiFetch('/api/leads-research', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          business_name: lead.business_name,
+          city: lead.city,
+          state: lead.state,
+          phone: lead.phone,
+          website: lead.website,
+          rating: lead.rating,
+          reviews_count: lead.reviews_count,
+        }),
+      });
+      const d = await res.json();
+      if (d.research) {
+        await patchLead(lead.id, { ai_research: d.research });
+        setResearchLead(prev => ({ ...prev, ai_research: d.research }));
+      }
+    } catch {}
+    setResearchLoading(false);
+  };
+
+  const filteredLeads = leads.filter(l => {
+    if (filterStatus !== 'all' && l.status !== filterStatus) return false;
+    if (search) {
+      const q = search.toLowerCase();
+      return (l.business_name || '').toLowerCase().includes(q) ||
+             (l.city || '').toLowerCase().includes(q) ||
+             (l.phone || '').toLowerCase().includes(q);
+    }
+    return true;
+  });
+
+  // Status counts for summary chips
+  const statusCounts = LEAD_STATUSES.reduce((acc, s) => {
+    acc[s.value] = leads.filter(l => l.status === s.value).length;
+    return acc;
+  }, {});
+
+  // ── Generator helpers ──
+  const runScrape = async () => {
+    setGenLoading(true);
+    setGenError(null);
+    setGenResults([]);
+    setGenSelected(new Set());
+    setAddedCount(0);
+    try {
+      const res = await apiFetch('/api/leads-scrape', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          query: genQuery,
+          location: genLocation,
+          limit: genLimit,
+          minReviews: genMinReviews,
+          scrapeEmail: genScrapeEmail,
+        }),
+      });
+      const d = await res.json();
+      if (d.error) { setGenError(d.error); }
+      else { setGenResults(d.leads || []); }
+    } catch (err) {
+      setGenError(err.message);
+    }
+    setGenLoading(false);
+  };
+
+  const toggleGenSelect = (idx) => {
+    setGenSelected(prev => {
+      const next = new Set(prev);
+      next.has(idx) ? next.delete(idx) : next.add(idx);
+      return next;
+    });
+  };
+
+  const addSelectedToPipeline = async () => {
+    const rows = [...genSelected].map(i => genResults[i]);
+    if (!rows.length) return;
+    setAddingLeads(true);
+    try {
+      const res = await apiFetch('/api/leads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(rows),
+      });
+      const d = await res.json();
+      const newLeads = d.leads || [];
+      setLeads(prev => [...newLeads, ...prev]);
+      setAddedCount(newLeads.length);
+      setGenSelected(new Set());
+      // Remove added rows from results
+      const addedPlaceIds = new Set(newLeads.map(l => l.google_place_id).filter(Boolean));
+      setGenResults(prev => prev.filter(r => !addedPlaceIds.has(r.google_place_id)));
+    } catch {}
+    setAddingLeads(false);
   };
 
   return (
     <div className="flex h-full overflow-hidden">
-      <div className="flex-1 p-4 md:p-8 overflow-y-auto">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-xl md:text-2xl font-bold text-slate-900">Inquiries</h1>
-            <div className="flex gap-2 relative">
-              <button
-                onClick={() => setFilterOpen(o => !o)}
-                className="px-3 py-1.5 text-sm border border-slate-300 rounded bg-white hover:bg-slate-50 flex items-center"
-              >
-                <Sliders className="w-4 h-4 mr-2" /> Filter
-                {filterStatus !== 'all' && <span className="ml-2 w-2 h-2 rounded-full bg-slate-800 inline-block" />}
-              </button>
-              {filterOpen && (
-                <div className="absolute top-10 right-20 bg-white border border-slate-200 rounded-lg shadow-lg z-10 py-1 min-w-[160px]">
-                  {['all', 'New Inquiry', 'Drafting', 'Quote Sent'].map(s => (
-                    <button
-                      key={s}
-                      onClick={() => { setFilterStatus(s); setFilterOpen(false); }}
-                      className={`w-full text-left px-4 py-2 text-sm hover:bg-slate-50 flex items-center justify-between ${filterStatus === s ? 'font-medium text-slate-900' : 'text-slate-600'}`}
-                    >
-                      {s === 'all' ? 'All Statuses' : s}
-                      {filterStatus === s && <Check className="w-3 h-3" />}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <button
-                onClick={() => setNewOpen(true)}
-                className="px-3 py-1.5 text-sm bg-slate-900 text-white rounded hover:bg-slate-800 flex items-center"
-              >
-                <Plus className="w-4 h-4 mr-1" /> New
-              </button>
-            </div>
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Tab bar */}
+        <div className="flex-shrink-0 border-b border-slate-200 bg-white px-4 sm:px-6 pt-4">
+          <div className="flex items-center justify-between mb-3">
+            <h1 className="text-xl font-bold text-slate-900">Leads</h1>
+            <span className="text-xs text-slate-400">{leads.length} in pipeline</span>
           </div>
-
-          <div className="border border-slate-200 rounded-lg overflow-hidden bg-white shadow-sm overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse min-w-[520px]">
-              <thead>
-                <tr className="bg-slate-50 text-slate-500 border-b border-slate-200">
-                  <th className="px-4 py-3 font-medium border-r border-slate-200 w-1/4">Name</th>
-                  <th className="px-4 py-3 font-medium border-r border-slate-200">Status</th>
-                  <th className="px-4 py-3 font-medium border-r border-slate-200">Event Date</th>
-                  <th className="px-4 py-3 font-medium border-r border-slate-200">Source</th>
-                  <th className="px-4 py-3 font-medium">Est. Value</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filtered.map(inquiry => (
-                  <tr
-                    key={inquiry.id}
-                    onClick={() => setSelected(selected?.id === inquiry.id ? null : inquiry)}
-                    className={`cursor-pointer transition-colors group ${selected?.id === inquiry.id ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
-                  >
-                    <td className="px-4 py-3 border-r border-slate-200 font-medium flex items-center">
-                      <FileText className="w-4 h-4 mr-2 text-slate-400" /> {inquiry.name}
-                    </td>
-                    <td className="px-4 py-3 border-r border-slate-200">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_STYLES[inquiry.status] || 'bg-slate-100 text-slate-700'}`}>
-                        {inquiry.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 border-r border-slate-200 text-slate-600">{inquiry.eventDate}</td>
-                    <td className="px-4 py-3 border-r border-slate-200 text-slate-500 flex items-center">
-                      {inquiry.source === 'OpenPhone' && <Phone className="w-3 h-3 mr-1" />} {inquiry.source}
-                    </td>
-                    <td className="px-4 py-3 text-slate-600">{inquiry.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filtered.length === 0 && <div className="text-center py-10 text-slate-400 text-sm">No inquiries found.</div>}
+          <div className="flex gap-1">
+            {[['pipeline', 'Pipeline'], ['generator', 'Lead Generator']].map(([v, l]) => (
+              <button
+                key={v}
+                onClick={() => setTab(v)}
+                className={`px-4 py-2 text-sm font-medium rounded-t-md border-b-2 transition-colors ${tab === v ? 'border-slate-900 text-slate-900' : 'border-transparent text-slate-500 hover:text-slate-700'}`}
+              >
+                {l}
+              </button>
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Detail Panel */}
-      {selected && (
-        <div className="fixed inset-0 z-30 md:relative md:inset-auto md:z-auto md:w-80 border-l border-slate-200 bg-slate-50 p-6 flex flex-col gap-5 overflow-y-auto shadow-xl md:shadow-none">
-          <div className="flex justify-between items-start">
-            <h2 className="text-lg font-semibold text-slate-900">{selected.name}</h2>
-            <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
-          </div>
-          <div className="space-y-3 text-sm">
-            {[
-              { label: 'Status', value: selected.status },
-              { label: 'Event Type', value: selected.eventType },
-              { label: 'Event Date', value: selected.eventDate },
-              { label: 'Guests', value: selected.guests },
-              { label: 'Phone', value: selected.phone },
-              { label: 'Source', value: selected.source },
-              { label: 'Est. Value', value: selected.value },
-            ].map(({ label, value }) => value && (
-              <div key={label}>
-                <div className="text-xs text-slate-400 mb-0.5">{label}</div>
-                <div className="font-medium text-slate-800">{value}</div>
+        {/* ── PIPELINE TAB ── */}
+        {tab === 'pipeline' && (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            {/* Status filter chips */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              <button
+                onClick={() => setFilterStatus('all')}
+                className={`px-3 py-1 text-xs rounded-full border transition-colors ${filterStatus === 'all' ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}
+              >
+                All ({leads.length})
+              </button>
+              {LEAD_STATUSES.map(s => (
+                <button
+                  key={s.value}
+                  onClick={() => setFilterStatus(filterStatus === s.value ? 'all' : s.value)}
+                  className={`px-3 py-1 text-xs rounded-full border transition-colors ${filterStatus === s.value ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}
+                >
+                  {s.label} ({statusCounts[s.value] || 0})
+                </button>
+              ))}
+            </div>
+
+            {/* Search */}
+            <div className="relative mb-4">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search leads..."
+                className="w-full pl-9 pr-4 py-2 text-sm border border-slate-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+              />
+            </div>
+
+            {leadsLoading && (
+              <div className="flex justify-center py-12">
+                <div className="w-6 h-6 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin" />
               </div>
-            ))}
-            {selected.notes && (
-              <div>
-                <div className="text-xs text-slate-400 mb-0.5">Notes</div>
-                <div className="text-slate-700 text-sm bg-white border border-slate-200 rounded p-2">{selected.notes}</div>
+            )}
+
+            {!leadsLoading && filteredLeads.length === 0 && (
+              <div className="text-center py-16 text-slate-400">
+                <Users className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                <p className="text-sm font-medium mb-1">No leads yet</p>
+                <p className="text-xs mb-4">Generate leads from Google Maps to start your pipeline</p>
+                <button
+                  onClick={() => setTab('generator')}
+                  className="px-4 py-2 bg-slate-900 text-white text-sm rounded-lg hover:bg-slate-800 transition"
+                >
+                  Generate Leads
+                </button>
+              </div>
+            )}
+
+            {!leadsLoading && filteredLeads.length > 0 && (
+              <div className="space-y-2">
+                {filteredLeads.map(lead => (
+                  <div key={lead.id} className="bg-white border border-slate-200 rounded-lg p-3 sm:p-4 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      {/* Avatar */}
+                      <div className="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-sm font-bold text-slate-600 flex-shrink-0">
+                        {(lead.business_name || '?')[0].toUpperCase()}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <span className="font-medium text-slate-900 text-sm truncate">{lead.business_name}</span>
+                          {lead.city && <span className="text-xs text-slate-400">{lead.city}{lead.state ? `, ${lead.state}` : ''}</span>}
+                          <LeadStatusBadge status={lead.status} />
+                          {lead.contact_id && <span className="text-xs bg-green-50 text-green-700 border border-green-200 px-2 py-0.5 rounded">In Contacts ✓</span>}
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mb-2">
+                          {lead.phone && <span className="flex items-center gap-1"><Phone className="w-3 h-3" />{lead.phone}</span>}
+                          {lead.rating && <span>★ {lead.rating} ({lead.reviews_count || 0} reviews)</span>}
+                          {lead.last_contacted_at && (
+                            <span>Last contact: {new Date(lead.last_contacted_at).toLocaleDateString()}</span>
+                          )}
+                        </div>
+
+                        {/* Status dropdown */}
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          <select
+                            value={lead.status || 'new'}
+                            onChange={e => patchLead(lead.id, { status: e.target.value, last_contacted_at: e.target.value === 'called' ? new Date().toISOString() : lead.last_contacted_at })}
+                            className="text-xs border border-slate-200 rounded px-2 py-1 bg-slate-50 focus:outline-none"
+                          >
+                            {LEAD_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                          </select>
+                        </div>
+
+                        {/* Notes */}
+                        {editingNotes === lead.id ? (
+                          <div className="flex gap-2 mb-2">
+                            <input
+                              autoFocus
+                              value={notesDraft}
+                              onChange={e => setNotesDraft(e.target.value)}
+                              onKeyDown={e => {
+                                if (e.key === 'Enter') { patchLead(lead.id, { notes: notesDraft }); setEditingNotes(null); }
+                                if (e.key === 'Escape') setEditingNotes(null);
+                              }}
+                              placeholder="Add notes..."
+                              className="flex-1 text-xs border border-slate-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-slate-900"
+                            />
+                            <button onClick={() => { patchLead(lead.id, { notes: notesDraft }); setEditingNotes(null); }} className="text-xs px-2 py-1 bg-slate-900 text-white rounded">Save</button>
+                            <button onClick={() => setEditingNotes(null)} className="text-xs px-2 py-1 border border-slate-200 rounded">Cancel</button>
+                          </div>
+                        ) : lead.notes ? (
+                          <div
+                            onClick={() => { setEditingNotes(lead.id); setNotesDraft(lead.notes || ''); }}
+                            className="text-xs text-slate-600 bg-slate-50 rounded px-2 py-1 mb-2 cursor-pointer hover:bg-slate-100 border border-slate-200 italic"
+                          >
+                            {lead.notes}
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => { setEditingNotes(lead.id); setNotesDraft(''); }}
+                            className="text-xs text-slate-400 hover:text-slate-600 mb-2"
+                          >
+                            + Add notes
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex flex-col gap-1 flex-shrink-0">
+                        {lead.phone && onCall && (
+                          <button
+                            onClick={() => { patchLead(lead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(lead.phone); }}
+                            title="Call"
+                            className="p-1.5 rounded bg-green-50 hover:bg-green-100 text-green-700 transition"
+                          >
+                            <Phone className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => fetchResearch(lead)}
+                          title="AI Research"
+                          className="p-1.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 transition"
+                        >
+                          <Search className="w-3.5 h-3.5" />
+                        </button>
+                        {!lead.contact_id && (
+                          <button
+                            onClick={() => addToContacts(lead)}
+                            title="Add to Contacts"
+                            className="p-1.5 rounded bg-slate-50 hover:bg-slate-100 text-slate-700 transition"
+                          >
+                            <UserPlus className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => { if (window.confirm(`Delete ${lead.business_name}?`)) deleteLead(lead.id); }}
+                          title="Delete"
+                          className="p-1.5 rounded bg-red-50 hover:bg-red-100 text-red-500 transition"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
-          <button
-            onClick={() => navigateTo('quote-builder', { name: selected.name, guestCount: selected.guests, serviceStyle: '', dietary: [] })}
-            className="w-full bg-slate-900 text-white font-medium py-2 rounded-md hover:bg-slate-800 transition text-sm flex items-center justify-center"
-          >
-            <Calculator className="w-4 h-4 mr-2" /> Build Quote
-          </button>
-        </div>
-      )}
+        )}
 
-      {/* New Inquiry Modal */}
-      {newOpen && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-8" onClick={() => setNewOpen(false)}>
-          <div className="bg-white rounded-xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-5">
-              <h2 className="text-lg font-semibold">New Inquiry</h2>
-              <button onClick={() => setNewOpen(false)} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="space-y-4 text-sm">
-              {[
-                { label: 'Client Name *', field: 'name', type: 'text', placeholder: 'Full name' },
-                { label: 'Phone', field: 'phone', type: 'tel', placeholder: '+1 (555) 000-0000' },
-                { label: 'Event Date', field: 'eventDate', type: 'text', placeholder: 'e.g. June 15, 2027' },
-                { label: 'Guest Count', field: 'guests', type: 'number', placeholder: '100' },
-              ].map(({ label, field, type, placeholder }) => (
-                <div key={field}>
-                  <label className="block text-slate-500 mb-1">{label}</label>
-                  <input
-                    type={type}
-                    value={newForm[field]}
-                    onChange={e => setNewForm(p => ({ ...p, [field]: e.target.value }))}
-                    placeholder={placeholder}
-                    className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none"
-                  />
+        {/* ── GENERATOR TAB ── */}
+        {tab === 'generator' && (
+          <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="max-w-2xl">
+              <p className="text-sm text-slate-500 mb-5">Search Google Maps for roofing contractors and add them to your pipeline.</p>
+
+              <div className="bg-white border border-slate-200 rounded-xl p-4 sm:p-5 space-y-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Search query</label>
+                    <input
+                      value={genQuery}
+                      onChange={e => setGenQuery(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500 mb-1">Location</label>
+                    <input
+                      value={genLocation}
+                      onChange={e => setGenLocation(e.target.value)}
+                      className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    />
+                  </div>
                 </div>
-              ))}
-              <div>
-                <label className="block text-slate-500 mb-1">Event Type</label>
-                <select
-                  value={newForm.eventType}
-                  onChange={e => setNewForm(p => ({ ...p, eventType: e.target.value }))}
-                  className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white outline-none"
+
+                <div>
+                  <label className="block text-xs text-slate-500 mb-2">Number of leads</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[10, 20, 30, 50].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setGenLimit(n)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${genLimit === n ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">Min reviews <span className="text-slate-400">(proxy for business size)</span></label>
+                  <div className="flex gap-2 flex-wrap">
+                    {[{ label: 'Any', val: 0 }, { label: '5+', val: 5 }, { label: '10+', val: 10 }, { label: '25+', val: 25 }].map(o => (
+                      <button
+                        key={o.val}
+                        onClick={() => setGenMinReviews(o.val)}
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${genMinReviews === o.val ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-600 border-slate-300 hover:border-slate-400'}`}
+                      >
+                        {o.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={genScrapeEmail}
+                    onChange={e => setGenScrapeEmail(e.target.checked)}
+                    className="rounded border-slate-300"
+                  />
+                  Also scrape email addresses <span className="text-xs text-slate-400">(uses more credits, slower)</span>
+                </label>
+
+                <button
+                  onClick={runScrape}
+                  disabled={genLoading || !genQuery || !genLocation}
+                  className="w-full py-2.5 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center gap-2"
                 >
-                  {['Wedding', 'Corporate', 'Birthday', 'Social', 'Other'].map(t => <option key={t}>{t}</option>)}
-                </select>
+                  {genLoading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Scraping Google Maps…
+                    </>
+                  ) : (
+                    <>
+                      <MapPin className="w-4 h-4" />
+                      Generate Leads
+                    </>
+                  )}
+                </button>
               </div>
+
+              {genError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-4">
+                  {genError.includes('OUTSCRAPER_API_KEY') ? (
+                    <div>
+                      <p className="font-medium mb-1">Outscraper API key not configured</p>
+                      <p className="text-xs text-red-600">1. Sign up for a free account at <strong>outscraper.com</strong> (150 free credits/month)</p>
+                      <p className="text-xs text-red-600">2. Copy your API key from the dashboard</p>
+                      <p className="text-xs text-red-600">3. Add <code className="bg-red-100 px-1 rounded">OUTSCRAPER_API_KEY</code> to your Vercel environment variables</p>
+                      <p className="text-xs text-red-600">4. Redeploy</p>
+                    </div>
+                  ) : (
+                    <p>{genError}</p>
+                  )}
+                </div>
+              )}
+
+              {genResults.length > 0 && (
+                <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+                  <div className="flex items-center justify-between px-4 py-3 border-b border-slate-200 bg-slate-50">
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={genSelected.size === genResults.length}
+                          onChange={e => setGenSelected(e.target.checked ? new Set(genResults.map((_, i) => i)) : new Set())}
+                          className="rounded border-slate-300"
+                        />
+                        Select all
+                      </label>
+                      <span className="text-xs text-slate-400">{genResults.length} results</span>
+                    </div>
+                    {genSelected.size > 0 && (
+                      <button
+                        onClick={addSelectedToPipeline}
+                        disabled={addingLeads}
+                        className="px-3 py-1.5 text-xs bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 transition flex items-center gap-1.5"
+                      >
+                        {addingLeads ? <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-3 h-3" />}
+                        Add {genSelected.size} to Pipeline
+                      </button>
+                    )}
+                  </div>
+
+                  {addedCount > 0 && (
+                    <div className="px-4 py-2 bg-green-50 border-b border-green-100 text-xs text-green-700 flex items-center gap-1.5">
+                      <Check className="w-3 h-3" />
+                      {addedCount} lead{addedCount !== 1 ? 's' : ''} added to pipeline
+                    </div>
+                  )}
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm min-w-[520px]">
+                      <thead className="text-xs text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="w-8 px-3 py-2"></th>
+                          <th className="px-3 py-2 text-left font-medium">Business</th>
+                          <th className="px-3 py-2 text-left font-medium">Phone</th>
+                          <th className="px-3 py-2 text-left font-medium">Rating</th>
+                          <th className="px-3 py-2 text-left font-medium">City</th>
+                          {genScrapeEmail && <th className="px-3 py-2 text-left font-medium">Email</th>}
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {genResults.map((r, i) => (
+                          <tr key={i} className={`${genSelected.has(i) ? 'bg-blue-50' : 'hover:bg-slate-50'} cursor-pointer`} onClick={() => toggleGenSelect(i)}>
+                            <td className="px-3 py-2">
+                              <input type="checkbox" checked={genSelected.has(i)} onChange={() => toggleGenSelect(i)} className="rounded border-slate-300" onClick={e => e.stopPropagation()} />
+                            </td>
+                            <td className="px-3 py-2 font-medium text-slate-900 max-w-[180px] truncate">{r.business_name}</td>
+                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.phone || '—'}</td>
+                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.rating ? `★ ${r.rating} (${r.reviews_count})` : '—'}</td>
+                            <td className="px-3 py-2 text-slate-500">{r.city || '—'}</td>
+                            {genScrapeEmail && <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate">{r.email || '—'}</td>}
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── AI RESEARCH PANEL ── */}
+      {researchLead && (
+        <div className="fixed inset-0 z-40 flex justify-end" onClick={() => setResearchLead(null)}>
+          <div className="w-full sm:w-96 bg-white border-l border-slate-200 shadow-2xl flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 flex-shrink-0">
               <div>
-                <label className="block text-slate-500 mb-1">Notes</label>
-                <textarea
-                  value={newForm.notes}
-                  onChange={e => setNewForm(p => ({ ...p, notes: e.target.value }))}
-                  placeholder="Dietary needs, venue, special requests..."
-                  className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none min-h-[70px]"
-                />
+                <h2 className="font-semibold text-slate-900 text-sm">{researchLead.business_name}</h2>
+                <p className="text-xs text-slate-400">AI Research Brief</p>
               </div>
+              <button onClick={() => setResearchLead(null)} className="text-slate-400 hover:text-slate-600"><X className="w-4 h-4" /></button>
             </div>
-            <div className="flex gap-3 mt-6">
-              <button onClick={handleAdd} className="flex-1 bg-slate-900 text-white py-2 rounded-md font-medium hover:bg-slate-800 transition text-sm">
-                Create Inquiry
-              </button>
-              <button onClick={() => setNewOpen(false)} className="flex-1 border border-slate-300 text-slate-700 py-2 rounded-md font-medium hover:bg-slate-50 transition text-sm">
-                Cancel
-              </button>
+
+            <div className="flex-1 overflow-y-auto p-5">
+              {researchLoading && (
+                <div className="flex flex-col items-center justify-center py-16 text-slate-400">
+                  <div className="w-8 h-8 border-2 border-slate-200 border-t-slate-500 rounded-full animate-spin mb-3" />
+                  <p className="text-sm">Researching with AI…</p>
+                  <p className="text-xs mt-1">This may take 15–30 seconds</p>
+                </div>
+              )}
+
+              {!researchLoading && researchLead.ai_research && (() => {
+                const r = researchLead.ai_research;
+                return (
+                  <div className="space-y-5 text-sm">
+                    {(r.ownerName || r.companySize || r.yearsInBusiness) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {r.ownerName && <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-0.5">Owner</p><p className="font-medium text-slate-800">{r.ownerName}</p></div>}
+                        {r.companySize && <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-0.5">Size</p><p className="font-medium text-slate-800">{r.companySize}</p></div>}
+                        {r.yearsInBusiness && <div className="bg-slate-50 rounded-lg p-3"><p className="text-xs text-slate-400 mb-0.5">In Business</p><p className="font-medium text-slate-800">{r.yearsInBusiness}</p></div>}
+                      </div>
+                    )}
+
+                    {r.callOpener && (
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <p className="text-xs font-medium text-green-700 mb-1.5 flex items-center gap-1"><Phone className="w-3 h-3" /> Call Opener</p>
+                        <p className="text-slate-800 font-medium leading-relaxed">{r.callOpener}</p>
+                      </div>
+                    )}
+
+                    {r.painPoints?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">Pain Points</p>
+                        <ul className="space-y-1.5">
+                          {r.painPoints.map((p, i) => <li key={i} className="flex gap-2 text-slate-700"><span className="text-slate-400 flex-shrink-0">•</span>{p}</li>)}
+                        </ul>
+                      </div>
+                    )}
+
+                    {r.talkingPoints?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">Talking Points</p>
+                        <ol className="space-y-1.5 list-decimal list-inside">
+                          {r.talkingPoints.map((p, i) => <li key={i} className="text-slate-700">{p}</li>)}
+                        </ol>
+                      </div>
+                    )}
+
+                    {r.objectionHandling?.length > 0 && (
+                      <div>
+                        <p className="text-xs font-medium text-slate-500 mb-2 uppercase tracking-wide">Objection Handling</p>
+                        <div className="space-y-2">
+                          {r.objectionHandling.map((o, i) => (
+                            <div key={i} className="bg-slate-50 rounded-lg p-3 text-xs text-slate-700 leading-relaxed">{o}</div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
+              {!researchLoading && !researchLead.ai_research && (
+                <div className="text-center py-12 text-slate-400 text-sm">No research data yet.</div>
+              )}
             </div>
+
+            {researchLead.phone && onCall && (
+              <div className="flex-shrink-0 p-4 border-t border-slate-200">
+                <button
+                  onClick={() => { patchLead(researchLead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(researchLead.phone); setResearchLead(null); }}
+                  className="w-full py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
+                >
+                  <Phone className="w-4 h-4" /> Call {researchLead.business_name}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
