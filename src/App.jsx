@@ -4350,12 +4350,49 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
   const [scName, setScName]   = useState('');
   const [scPhone, setScPhone] = useState('');
   const [scSaving, setScSaving] = useState(false);
+  // Email compose
+  const [clEmailOpen, setClEmailOpen]       = useState(false);
+  const [clEmailSubject, setClEmailSubject] = useState('');
+  const [clEmailBody, setClEmailBody]       = useState('');
+  const [clEmailSending, setClEmailSending] = useState(false);
+  const [clEmailSent, setClEmailSent]       = useState(false);
 
   // Reset per-call UI when selection changes
   useEffect(() => {
     setEditingName(false);
     setSaveContactOpen(false);
+    setClEmailOpen(false);
   }, [selectedId]);
+
+  const openClEmail = (call) => {
+    setClEmailSubject(`Following up on your roofing enquiry — ${call.name || call.phone || ''}`);
+    setClEmailBody('');
+    setClEmailSent(false);
+    setClEmailOpen(true);
+  };
+  const closeClEmail = () => { setClEmailOpen(false); setClEmailSubject(''); setClEmailBody(''); setClEmailSent(false); };
+  const sendClEmail = async (toAddress) => {
+    if (!toAddress || !clEmailSubject.trim() || !clEmailBody.trim() || clEmailSending || clEmailSent) return;
+    setClEmailSending(true);
+    try {
+      const res = await apiFetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: toAddress, subject: clEmailSubject.trim(), body: clEmailBody.trim() }),
+      });
+      if (res.ok) {
+        setClEmailSent(true);
+        setTimeout(closeClEmail, 2000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert('Failed: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed: ' + e.message);
+    } finally {
+      setClEmailSending(false);
+    }
+  };
 
   const selected = callLogs.find(c => c.id === selectedId) || callLogs[0] || null;
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -5006,13 +5043,60 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                     </div>
                   )}
                   <div className="flex gap-2 mt-4">
-                    <button onClick={() => window.open(`mailto:${selected.email || ''}?subject=Following up on our call`)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+                    <button onClick={() => openClEmail(selected)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
                       <Mail className="w-4 h-4" /> Send Email
                     </button>
                     <button onClick={() => { setFabSmsTo(selected.phone || ''); setFabMode('text'); setFabState('keypad'); }} className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-white transition-colors">
                       <MessageSquare className="w-4 h-4" /> Send SMS
                     </button>
                   </div>
+
+                  {/* Email compose panel */}
+                  {clEmailOpen && (
+                    <div className="mt-4 pt-4 border-t border-slate-200">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-xs font-semibold text-slate-500">To: {selected.email || '(no email on record)'}</span>
+                        <button onClick={closeClEmail} className="text-slate-400 hover:text-slate-600 transition-colors">
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      {!selected.email ? (
+                        <p className="text-sm text-red-500">No email address on record for this contact.</p>
+                      ) : (
+                        <>
+                          <input
+                            autoFocus
+                            type="text"
+                            value={clEmailSubject}
+                            onChange={e => setClEmailSubject(e.target.value)}
+                            placeholder="Subject…"
+                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                          />
+                          <textarea
+                            value={clEmailBody}
+                            onChange={e => setClEmailBody(e.target.value)}
+                            placeholder="Write your message…"
+                            rows={4}
+                            className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                          />
+                          <button
+                            onClick={() => sendClEmail(selected.email)}
+                            disabled={!clEmailSubject.trim() || !clEmailBody.trim() || clEmailSending || clEmailSent}
+                            className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                              clEmailSent    ? 'bg-green-100 text-green-700' :
+                              clEmailSending ? 'bg-slate-100 text-slate-500 cursor-wait' :
+                              !clEmailSubject.trim() || !clEmailBody.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+                              'bg-green-600 hover:bg-green-500 text-white'
+                            }`}
+                          >
+                            {clEmailSent ? <><Check className="w-3.5 h-3.5" /> Sent!</> :
+                             clEmailSending ? 'Sending…' :
+                             <><Send className="w-3.5 h-3.5" /> Send Email</>}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
 
