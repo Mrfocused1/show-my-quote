@@ -46,6 +46,7 @@ function makeCallUi(c) {
   const tx = Array.isArray(c.transcript) ? c.transcript : [];
   return {
     id: c.id,
+    callSid: c.call_sid || null,
     caller: c.from_number || 'Unknown',
     phone: c.from_number || '',
     email: '',
@@ -3762,7 +3763,9 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
   const [showDetail, setShowDetail] = useState(typeof initialId === 'string');
   const [isPlaying, setIsPlaying]   = useState(false);
   const [isMuted,   setIsMuted]     = useState(false);
+  const [checkingRec, setCheckingRec] = useState(false);
   const audioRef = useRef(null);
+  const checkedRecs = useRef(new Set());
   const timerRef   = useRef(null);
   const timeoutIds = useRef([]);
 
@@ -3824,6 +3827,25 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
   useEffect(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
     setIsPlaying(false);
+  }, [selectedId]);
+
+  // Auto-check SignalWire for a recording if the call has a callSid but no recording_sid yet
+  useEffect(() => {
+    if (!selectedId) return;
+    const call = callLogs.find(c => c.id === selectedId);
+    if (!call || call.hasRecording || !call.callSid) return;
+    if (checkedRecs.current.has(selectedId)) return;
+    checkedRecs.current.add(selectedId);
+    setCheckingRec(true);
+    apiFetch(`/api/twilio-recording?callSid=${encodeURIComponent(call.callSid)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.ready && d.recordingSid) {
+          onUpdateCall?.(selectedId, { hasRecording: true, recordingSid: d.recordingSid });
+        }
+      })
+      .catch(() => {})
+      .finally(() => setCheckingRec(false));
   }, [selectedId]);
 
   const handleCallAgain = phone => {
@@ -4147,6 +4169,12 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
             )}
 
             {/* Recording bar */}
+            {!selected.hasRecording && checkingRec && selected.callSid && (
+              <div className="px-4 md:px-6 py-2 bg-slate-50 border-b border-slate-100 flex items-center gap-2 flex-shrink-0">
+                <div className="w-3 h-3 border-2 border-slate-300 border-t-slate-600 rounded-full animate-spin flex-shrink-0" />
+                <span className="text-xs text-slate-500">Checking for recording…</span>
+              </div>
+            )}
             {selected.hasRecording && (
               <div className="px-4 md:px-6 py-2.5 bg-slate-900 text-white flex items-center gap-3 flex-shrink-0">
                 <audio

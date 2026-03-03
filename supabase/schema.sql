@@ -45,8 +45,10 @@ create table if not exists calls (
   from_number  text,
   transcript   jsonb,              -- array of { speaker, text } objects
   duration     integer,            -- seconds
-  status       text default 'completed',
-  created_at   timestamptz not null default now()
+  status        text default 'completed',
+  niche         text,
+  recording_sid text,
+  created_at    timestamptz not null default now()
 );
 
 alter table calls enable row level security;

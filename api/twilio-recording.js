@@ -1,4 +1,5 @@
 import { setCors, requireApiKey } from './_lib/auth.js';
+import { getSupabase } from './_lib/supabase.js';
 
 export default async function handler(req, res) {
   setCors(req, res);
@@ -10,8 +11,14 @@ export default async function handler(req, res) {
 
   // POST — recording status callback webhook from SignalWire (no auth check needed here)
   if (req.method === 'POST') {
-    const { RecordingUrl, RecordingSid, RecordingStatus, CallSid } = req.body || {};
-    console.log('Recording callback:', { RecordingSid, RecordingStatus, CallSid, RecordingUrl });
+    const { RecordingSid, RecordingStatus, CallSid } = req.body || {};
+    console.log('Recording callback:', { RecordingSid, RecordingStatus, CallSid });
+    if (RecordingStatus === 'completed' && RecordingSid && CallSid) {
+      const supabase = getSupabase();
+      if (supabase) {
+        await supabase.from('calls').update({ recording_sid: RecordingSid }).eq('call_sid', CallSid);
+      }
+    }
     return res.status(200).end();
   }
 

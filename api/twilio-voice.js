@@ -43,6 +43,8 @@ export default async function handler(req, res) {
 
   const transcriptionWsUrl = process.env.TRANSCRIPTION_WS_URL || 'wss://smq-transcription-production.up.railway.app';
 
+  const appUrl = process.env.APP_URL || 'https://www.showmyquote.com';
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Start>
@@ -50,7 +52,7 @@ export default async function handler(req, res) {
       <Parameter name="session" value="${session}"/>
     </Stream>
   </Start>
-  <Dial callerId="${signalwireNumber}" timeout="${dialTimeout}">
+  <Dial callerId="${signalwireNumber}" timeout="${dialTimeout}" record="record-from-answer" recordingStatusCallback="${appUrl}/api/twilio-recording" recordingStatusCallbackMethod="POST">
     <Client>
       <Identity>demo-presenter</Identity>
       <Parameter name="session" value="${session}"/>
