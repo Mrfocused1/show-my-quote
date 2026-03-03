@@ -55,12 +55,23 @@ function RotatingWord() {
     return () => clearInterval(interval);
   }, []);
 
+  const longest = ROTATING_WORDS.reduce((a, b) => a.length >= b.length ? a : b);
+
   return (
-    <span
-      className="text-green-600"
-      style={{ opacity: visible ? 1 : 0, transition: 'opacity 0.35s ease' }}
-    >
-      {ROTATING_WORDS[index]}
+    <span className="text-green-600" style={{ display: 'inline-block', position: 'relative' }}>
+      {/* Hidden spacer — always the longest word, keeps width stable */}
+      <span style={{ visibility: 'hidden' }}>{longest}</span>
+      {/* Visible word, absolutely overlaid — never affects layout */}
+      <span style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        whiteSpace: 'nowrap',
+        opacity: visible ? 1 : 0,
+        transition: 'opacity 0.35s ease',
+      }}>
+        {ROTATING_WORDS[index]}
+      </span>
     </span>
   );
 }
