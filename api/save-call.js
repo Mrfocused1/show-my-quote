@@ -12,36 +12,23 @@ export default async function handler(req, res) {
   const supabase = getSupabase();
   if (!supabase) return res.status(503).json({ error: 'DB not configured' });
 
-  let result;
-  if (call_sid) {
-    // Upsert: inbound calls already have a row from twilio-voice webhook; update it with final data
-    result = await supabase
-      .from('calls')
-      .upsert({
-        call_sid,
-        direction: direction || 'outbound',
-        from_number: from_number || null,
-        duration: duration || null,
-        transcript: transcript || [],
-        status,
-        niche: niche || null,
-      }, { onConflict: 'call_sid' })
-      .select('id')
-      .single();
-  } else {
-    // No call_sid (e.g. mic-only or outbound without a SID) — plain insert
-    result = await supabase
-      .from('calls')
-      .insert({
-        direction: direction || 'outbound',
-        from_number: from_number || null,
-        duration: duration || null,
-        transcript: transcript || [],
-        status,
-        niche: niche || null,
-      })
-      .select('id')
-      .single();
+  const baseRow = {
+    direction:   direction || 'outbound',
+    from_number: from_number || null,
+    duration:    duration || null,
+    transcript:  transcript || [],
+    status,
+  };
+
+  const doInsert = (row) => call_sid
+    ? supabase.from('calls').upsert({ call_sid, ...row }, { onConflict: 'call_sid' }).select('id').single()
+    : supabase.from('calls').insert(row).select('id').single();
+
+  // Try with niche first; fall back without it (column may not exist in older DB schemas)
+  let result = await doInsert({ ...baseRow, niche: niche || null });
+  if (result.error?.code === '42703') {
+    // column does not exist — retry without niche
+    result = await doInsert(baseRow);
   }
 
   const { data, error } = result;
