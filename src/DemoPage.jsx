@@ -1106,9 +1106,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     if (phoneNumber) {
       setActiveCallPhone(phoneNumber);
       try {
-        // Ensure the SignalWire client is online to receive the inbound bridge leg.
-        // The persistent useEffect normally registers the client, but if it hasn't
-        // finished yet we create one here and register it online.
+        // Ensure SignalWire client is ready for outbound dial.
+        // The persistent useEffect normally registers it; fall back to creating one here.
         if (!swDeviceRef.current) {
           const tokenRes = await apiFetch('/api/signalwire-token');
           if (!tokenRes.ok) throw new Error('Token fetch failed');
@@ -1117,70 +1116,45 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
           const { SignalWire } = await import('@signalwire/js');
           const client = await SignalWire({ token });
           swDeviceRef.current = client;
-          // Register online with auto-answer handler for the bridge leg
-          await client.online({
-            incomingCallHandlers: {
-              all: (notification) => {
-                const details = notification.invite.details;
-                const callerFrom = details.caller_id_number || details.callerIdNumber || 'Unknown';
-                const session = details.session || details.custom_data_session || null;
-                if (autoAnswerRef.current) {
-                  autoAnswerRef.current = false;
-                  (async () => {
-                    try {
-                      const call = await notification.invite.accept({
-                        rootElement: document.getElementById('sw-media'),
-                        audio: true, video: false,
-                      });
-                      swCallRef.current = call;
-                      call.on('destroy', () => {
-                        remoteHungUpRef.current = true;
-                        if (caRef.current) swEndCallRef.current?.();
-                      });
-                      if (acceptInboundRef.current) acceptInboundRef.current(call, callerFrom, session);
-                    } catch (e) { console.warn('[signalwire] Auto-answer failed:', e.message); }
-                  })();
-                }
-              },
-            },
-          });
         }
 
-        // Set auto-answer so the persistent inbound handler auto-accepts the bridge leg.
-        // acceptInboundCallSetup will handle mic, timer, and Pusher transcription subscription.
-        autoAnswerRef.current = true;
+        // Dial directly from the browser via Call Fabric (browser → SignalWire → PSTN).
+        // The Compatibility API bridge-leg approach (<Client>demo-presenter</Client>) routes
+        // via a different layer and never reaches the Call Fabric browser client.
+        const to = phoneNumber.replace(/[^\d+]/g, '');
+        console.log('[signalwire] Dialing directly via Call Fabric:', to);
+        const call = await swDeviceRef.current.dial({
+          to,
+          rootElement: document.getElementById('sw-media'),
+          audio: true,
+          video: false,
+        });
+        swCallRef.current = call;
+        twilioCallSidRef.current = null;
 
-        // Initiate outbound call via server-side Compatibility REST API.
-        // Flow: SignalWire rings the PSTN number → customer answers → LaML bridges to
-        // our browser client (demo-presenter) → auto-answered → both parties connected.
-        const outRes = await apiFetch('/api/signalwire-outbound', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ to: phoneNumber.replace(/[^\d+]/g, '') }),
+        call.on('call.state', (params) => {
+          console.log('[signalwire] Outbound call.state:', params?.call_state);
+          if (params?.call_state === 'answered') {
+            // Customer picked up — transition to active call
+            if (acceptInboundRef.current) acceptInboundRef.current(call, phoneNumber, null);
+          }
         });
 
-        if (!outRes.ok) {
-          const err = await outRes.json().catch(() => ({}));
-          console.error('[signalwire] Outbound failed:', outRes.status, err);
-          throw new Error(err.error || 'Outbound call failed');
-        }
+        call.on('destroy', () => {
+          console.log('[signalwire] Outbound call destroyed');
+          remoteHungUpRef.current = true;
+          if (caRef.current) swEndCallRef.current?.();
+        });
 
-        const { callSid } = await outRes.json();
-        twilioCallSidRef.current = callSid || null;
-        console.log('[signalwire] Outbound call initiated via REST API, sid:', callSid);
-
+        call.start().catch(e => console.warn('[signalwire] call.start:', e.message));
         setCallStatus('ringing');
       } catch (e) {
         console.error('[signalwire] Outbound call error:', e.message);
-        autoAnswerRef.current = false;
         // Reset UI — don't leave user stuck on LIVE with no active call
         setCallStatus('idle');
         setCA(false);
         setTimerRunning(false);
-        const msg = e.message?.includes('busy') || e.message?.includes('429') || e.message?.includes('21218')
-          ? 'SignalWire is busy — wait 60 seconds and try again.'
-          : `Call failed: ${e.message}. Try again in a moment.`;
-        alert(msg);
+        alert(`Call failed: ${e.message}. Please try again.`);
         return;
       }
     }
@@ -1761,9 +1735,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Rec</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <div className={`w-2 h-2 rounded-full animate-pulse ${callStatus === 'connecting' ? 'bg-amber-400' : 'bg-green-400'}`} />
-          <span className={`text-[10px] font-bold uppercase tracking-widest ${callStatus === 'connecting' ? 'text-amber-400' : 'text-green-400'}`}>
-            {callStatus === 'connecting' ? 'Connecting' : 'Live'}
+          <div className={`w-2 h-2 rounded-full animate-pulse ${callStatus === 'connecting' ? 'bg-amber-400' : callStatus === 'ringing' ? 'bg-yellow-400' : 'bg-green-400'}`} />
+          <span className={`text-[10px] font-bold uppercase tracking-widest ${callStatus === 'connecting' ? 'text-amber-400' : callStatus === 'ringing' ? 'text-yellow-400' : 'text-green-400'}`}>
+            {callStatus === 'connecting' ? 'Connecting' : callStatus === 'ringing' ? 'Ringing…' : 'Live'}
           </span>
         </div>
         <span className="text-slate-400 font-mono text-sm ml-1">{fmt(callSeconds)}</span>
