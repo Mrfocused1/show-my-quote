@@ -3163,6 +3163,9 @@ function SettingsView() {
   const [emailAddress, setEmailAddress] = useLocalState('smq_email_addr', '');
   const [logo, saveLogo] = useLocalState('smq_logo', null);
   const [inv, saveInv] = useLocalState('smq_invoice_settings', DEFAULT_INV_SETTINGS);
+  const [stripeKey, setStripeKey] = useLocalState('smq_stripe_pub_key', '');
+  const [stripePayLink, setStripePayLink] = useLocalState('smq_stripe_pay_link', '');
+  const [stripeConnected, setStripeConnected] = useLocalState('smq_stripe_connected', false);
 
   const handleLogoUpload = e => {
     const file = e.target.files[0];
@@ -3172,7 +3175,7 @@ function SettingsView() {
     reader.readAsDataURL(file);
   };
 
-  const TABS = [{ id: 'business', label: 'Business' }, { id: 'email', label: 'Email' }, { id: 'invoice', label: 'Invoice' }];
+  const TABS = [{ id: 'business', label: 'Business' }, { id: 'email', label: 'Email' }, { id: 'invoice', label: 'Invoice' }, { id: 'payments', label: 'Payments' }];
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-8 pb-20">
@@ -3348,6 +3351,97 @@ function SettingsView() {
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Payments tab ── */}
+      {tab === 'payments' && (
+        <div className="space-y-4">
+          {/* Stripe */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-8 h-8 bg-[#635BFF] rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-white font-black text-sm">S</span>
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-900">Stripe</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Accept card payments and add a Pay Now button to invoices.</p>
+              </div>
+              {stripeConnected && (
+                <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full bg-green-50 border border-green-200 text-green-700">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Connected
+                </span>
+              )}
+            </div>
+            <div className="p-5 space-y-4">
+              {stripeConnected ? (
+                <>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Publishable Key</label>
+                    <input value={stripeKey} onChange={e => setStripeKey(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#635BFF] font-mono"
+                      placeholder="pk_live_..." />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">Payment Link URL</label>
+                    <p className="text-xs text-slate-400 mb-1.5">Create a payment link in your <a href="https://dashboard.stripe.com/payment-links" target="_blank" rel="noreferrer" className="text-[#635BFF] hover:underline">Stripe dashboard</a> and paste it here. It will appear as a "Pay Now" button on invoices.</p>
+                    <input value={stripePayLink} onChange={e => setStripePayLink(e.target.value)}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#635BFF]"
+                      placeholder="https://buy.stripe.com/..." />
+                  </div>
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+                    <span className="text-xs text-slate-500">Remove Stripe integration</span>
+                    <button onClick={() => { setStripeConnected(false); setStripeKey(''); setStripePayLink(''); }}
+                      className="text-xs text-red-500 hover:text-red-700 font-medium transition-colors">Disconnect</button>
+                  </div>
+                </>
+              ) : (
+                <div className="space-y-3">
+                  <p className="text-sm text-slate-600">Connect Stripe to add a <strong>Pay Now</strong> button to your invoices so clients can pay by card instantly.</p>
+                  <button
+                    onClick={() => setStripeConnected(true)}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-[#635BFF] hover:bg-[#5145e5] text-white text-sm font-semibold rounded-lg transition-colors shadow-sm"
+                  >
+                    <span className="font-black">S</span> Connect Stripe
+                  </button>
+                  <p className="text-xs text-slate-400">You'll enter your publishable key and a payment link — no redirects, no Stripe OAuth required.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* E-signature */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="w-8 h-8 bg-slate-900 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Edit2 className="w-4 h-4 text-white" />
+              </div>
+              <div>
+                <h2 className="font-semibold text-slate-900">E-Signature</h2>
+                <p className="text-xs text-slate-400 mt-0.5">Let clients sign quotes and contracts digitally before booking.</p>
+              </div>
+              <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 uppercase tracking-wide">Coming soon</span>
+            </div>
+            <div className="p-5">
+              <p className="text-sm text-slate-500 mb-4">Clients will receive a signing link via email or SMS. Once signed, you'll be notified and the signed document is stored against the enquiry.</p>
+              <div className="space-y-2">
+                {[
+                  'Send quotes for e-signature with one click',
+                  'Clients sign on any device — no account needed',
+                  'Signed PDF stored against the call record',
+                  'Automatic confirmation email to both parties',
+                ].map(f => (
+                  <div key={f} className="flex items-center gap-2 text-sm text-slate-600">
+                    <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                    {f}
+                  </div>
+                ))}
+              </div>
+              <button disabled className="mt-4 px-4 py-2 bg-slate-100 text-slate-400 text-sm font-semibold rounded-lg cursor-not-allowed">
+                Notify me when available
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
