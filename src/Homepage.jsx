@@ -425,7 +425,7 @@ const CUSTOM_LOOP = CUSTOM_STEPS[CUSTOM_STEPS.length - 1].delay + 5000;
 
 function CustomisationDemo() {
   const [packageId, setPackageId] = useState('p1');
-  const [teamId,    setTeamId]    = useState('solo');
+  const [teamId,    setTeamId]    = useState('standard');
   const [addons,    setAddons]    = useState([]);
   const [flash,     setFlash]     = useState(null);
 
