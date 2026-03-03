@@ -437,7 +437,7 @@ function dedupFields(newFields, existingLabels) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboard, initialPhone = '', initialNiche = null }) {
+export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboard, initialPhone = '', initialNiche = null, forceFillSelect = false }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
   const watchCode = params.get('w') || params.get('watch'); // 'w' is the short form
@@ -449,8 +449,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const hasPusher = !!PUSHER_KEY;
 
   // ── Phase state ──
-  const [phase, setPhase] = useState(isViewer ? 'waiting' : (initialPhone ? 'fill-select' : 'landing'));
-  const [mode,  setMode]  = useState(initialPhone ? 'fill' : null); // 'build' | 'fill'
+  const startAtFormSelect = !isViewer && (!!initialPhone || forceFillSelect);
+  const [phase, setPhase] = useState(isViewer ? 'waiting' : (startAtFormSelect ? 'fill-select' : 'landing'));
+  const [mode,  setMode]  = useState(startAtFormSelect ? 'fill' : null); // 'build' | 'fill'
   const [sessionCode, setCode] = useState(isViewer ? watchCode : null);
 
   // Ref holding the phone number passed in from "Call again"
@@ -507,7 +508,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   // ── Form selector (fill-select phase dropdown) ──
   const [selectedFormKey, setSelectedFormKey] = useState(() => {
     // In "Call again" mode, try to find a previously used form
-    if (initialPhone) {
+    if (initialPhone || forceFillSelect) {
       if (initialNiche) return 'continue';
       try {
         const last = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
@@ -549,7 +550,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Refs ──
   const phaseRef        = useRef(phase);
-  const modeRef         = useRef(initialPhone ? 'fill' : null);
+  const modeRef         = useRef(startAtFormSelect ? 'fill' : null);
   const nicheRef        = useRef(null);
   const fieldsRef       = useRef([]);
   const fvRef           = useRef({});
@@ -2310,7 +2311,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       <PageShell onHome={onHome} onBookDemo={onBookDemo} onDashboard={onGoToDashboard}>
         <div className="flex-1 flex items-center justify-center bg-[#F7F7F5] px-6 py-10">
           <div className="w-full max-w-sm">
-            {initPhoneRef.current && onEnterApp && (
+            {onEnterApp && (
               <button onClick={onEnterApp} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 mb-6 transition-colors">
                 ← Back to app
               </button>

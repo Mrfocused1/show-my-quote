@@ -804,7 +804,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
 
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
-          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => setDialerOpen(true)} callLogs={callLogs} contacts={contacts} />}
+          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => { if (onCallAgainProp) { onCallAgainProp('', null, true); } else { setDialerOpen(true); } }} callLogs={callLogs} contacts={contacts} />}
           {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} />}
           {currentView === 'calls'         && <CallLogView
             initialId={activeRecord}
