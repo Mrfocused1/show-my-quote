@@ -1546,23 +1546,26 @@ function DashboardView({ navigateTo, onNewCall, callLogs = [], contacts = [] }) 
       </div>
 
       {/* 3 stat cards */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
         {[
-          { label: 'Calls This Week', value: String(callsThisWeek), icon: Inbox, sub: `${callLogs.length} total`, view: 'calls' },
-          { label: 'Transcribed', value: String(transcribed), icon: CheckCircle2, sub: `of ${callLogs.length} calls`, view: 'calls' },
-          { label: 'Contacts', value: String(contacts.length), icon: Users, sub: 'in your database', view: 'contacts' },
+          { label: 'This Week', fullLabel: 'Calls This Week', value: String(callsThisWeek), icon: Inbox, sub: `${callLogs.length} total`, view: 'calls' },
+          { label: 'Transcribed', fullLabel: 'Transcribed', value: String(transcribed), icon: CheckCircle2, sub: `of ${callLogs.length} calls`, view: 'calls' },
+          { label: 'Contacts', fullLabel: 'Contacts', value: String(contacts.length), icon: Users, sub: 'in database', view: 'contacts' },
         ].map((m, i) => (
           <div
             key={i}
             onClick={() => navigateTo(m.view)}
-            className="bg-white border border-slate-200 rounded-xl p-4 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group"
+            className="bg-white border border-slate-200 rounded-xl p-2.5 sm:p-4 cursor-pointer hover:border-slate-300 hover:shadow-sm transition-all group"
           >
-            <div className="flex items-center gap-1.5 text-slate-400 mb-2">
-              <m.icon className="w-3.5 h-3.5" />
-              <span className="text-xs font-medium">{m.label}</span>
+            <div className="flex items-center gap-1 text-slate-400 mb-1.5 sm:mb-2">
+              <m.icon className="w-3 h-3 sm:w-3.5 sm:h-3.5 flex-shrink-0" />
+              <span className="text-[10px] sm:text-xs font-medium truncate">
+                <span className="sm:hidden">{m.label}</span>
+                <span className="hidden sm:inline">{m.fullLabel}</span>
+              </span>
             </div>
-            <div className="text-2xl font-bold text-slate-900">{m.value}</div>
-            <div className="text-xs text-slate-400 mt-1">{m.sub}</div>
+            <div className="text-xl sm:text-2xl font-bold text-slate-900">{m.value}</div>
+            <div className="text-[10px] sm:text-xs text-slate-400 mt-0.5 sm:mt-1 truncate">{m.sub}</div>
           </div>
         ))}
       </div>
@@ -3569,9 +3572,9 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
   return (
     <div className="p-4 md:p-6 max-w-2xl">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-3 gap-2">
         <p className="text-xs text-slate-400">Click any field to edit</p>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {sigState !== 'done' && (
             <button onClick={sendForSignature} disabled={sigState === 'sending'}
               className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
@@ -3610,8 +3613,8 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
 
         {/* Header: logo + invoice meta */}
-        <div className="p-6 border-b border-slate-100">
-          <div className="flex items-start justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-slate-100">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               {inv.showLogo && logo
                 ? <img src={logo} alt="Logo" className="max-h-12 max-w-[140px] object-contain mb-2" />
@@ -3636,7 +3639,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
         </div>
 
         {/* Bill To */}
-        <div className="px-6 py-4 bg-slate-50 border-b border-slate-100">
+        <div className="px-4 sm:px-6 py-4 bg-slate-50 border-b border-slate-100">
           <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Bill To</div>
           <Field value={clientName} onChange={setClientName} placeholder="Client name" className="text-sm font-semibold text-slate-900 w-full block mb-1" />
           <Field value={clientEmail} onChange={setClientEmail} placeholder="Email address" className="text-xs text-slate-500 w-full block mb-1" />
@@ -3645,8 +3648,8 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
         </div>
 
         {/* Line items */}
-        <div className="px-6 py-4">
-          <table className="w-full text-sm">
+        <div className="px-4 sm:px-6 py-4 overflow-x-auto">
+          <table className="w-full text-sm min-w-[340px]">
             <thead>
               <tr className="border-b border-slate-200">
                 {['Description','Qty','Rate','Amount',''].map((h,i) => (
@@ -3687,7 +3690,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
         </div>
 
         {/* Totals */}
-        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+        <div className="px-4 sm:px-6 py-4 bg-slate-50 border-t border-slate-100">
           <div className="flex justify-end">
             <div className="w-56 space-y-1.5 text-sm">
               <div className="flex justify-between text-slate-600"><span>Subtotal</span><span className="font-medium">{fmt(subtotal)}</span></div>
@@ -3713,7 +3716,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 
         {/* Notes */}
         {inv.showNotes && (
-          <div className="px-6 py-4 border-t border-slate-100">
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-100">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Notes</div>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2} placeholder="Payment terms, thank you note…"
               className="w-full text-xs text-slate-500 bg-transparent border-b border-transparent hover:border-slate-200 focus:border-green-400 outline-none resize-none" />
@@ -3722,7 +3725,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 
         {/* Bank details */}
         {inv.showBankDetails && inv.bankDetails && (
-          <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-100 bg-slate-50">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Details</div>
             <div className="text-xs text-slate-600 whitespace-pre-wrap">{inv.bankDetails}</div>
           </div>
@@ -3730,7 +3733,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 
         {/* Pay Now button — shown if Stripe payment link is configured */}
         {stripePayLink && (
-          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-4">
+          <div className="px-4 sm:px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-4">
             <div className="text-xs text-slate-400">Pay securely online</div>
             <a href={stripePayLink} target="_blank" rel="noreferrer"
               className="flex items-center gap-2 px-5 py-2 bg-[#635BFF] hover:bg-[#5145e5] text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
@@ -4092,7 +4095,8 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                   ) : (
                     <div className="font-semibold text-slate-900 text-sm">{contactByPhone(selected.phone)?.name || selected.caller}</div>
                   )}
-                  <div className="text-xs text-slate-500 truncate">{selected.phone} · {selected.date} · {selected.duration}</div>
+                  <div className="text-xs text-slate-500 truncate hidden sm:block">{selected.phone} · {selected.date} · {selected.duration}</div>
+                  <div className="text-xs text-slate-500 sm:hidden">{selected.date}</div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
@@ -4127,7 +4131,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                 {callsForPhone.length > 1 && (
                   <button
                     onClick={handleDeleteAllCalls}
-                    className="px-2 py-1.5 text-xs font-medium text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    className="hidden sm:block px-2 py-1.5 text-xs font-medium text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                     title="Delete all calls for this number"
                   >
                     Delete all
@@ -4153,7 +4157,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                   value={scPhone}
                   onChange={e => setScPhone(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && saveContact()}
-                  className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-slate-900 outline-none bg-white flex-shrink-0"
+                  className="hidden sm:block w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-slate-900 outline-none bg-white flex-shrink-0"
                 />
                 <button
                   onClick={saveContact}
@@ -7406,7 +7410,7 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
                 <button
                   key={item.id}
                   onClick={() => navigateTo(item.id)}
-                  className={`w-full flex items-center px-3 py-1.5 rounded-md text-sm transition-colors ${
+                  className={`w-full flex items-center px-3 py-2.5 md:py-1.5 rounded-md text-sm transition-colors ${
                     currentView === item.id
                       ? 'bg-slate-200/60 text-slate-900 font-medium'
                       : 'text-slate-600 hover:bg-slate-200/40 hover:text-slate-900'
