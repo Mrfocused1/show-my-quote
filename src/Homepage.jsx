@@ -432,7 +432,7 @@ function CustomisationDemo() {
   useEffect(() => {
     const ids = [];
     const run = () => {
-      setPackageId('p1'); setTeamId('solo'); setAddons([]); setFlash(null);
+      setPackageId('p1'); setTeamId('standard'); setAddons([]); setFlash(null);
       CUSTOM_STEPS.forEach(({ delay, change, flash: f }) => {
         ids.push(setTimeout(() => {
           if (change.packageId !== undefined) setPackageId(change.packageId);
