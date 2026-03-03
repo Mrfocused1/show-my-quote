@@ -1359,6 +1359,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       }),
     }).catch(() => {});
 
+    setAnalysis(null); setAnalysing(false);
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
@@ -1385,8 +1386,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       pollRecording();
     }
 
-    // Run full AI analysis — only if there's actual transcript content
-    if (!txRef.current.length) return;
+    // Run full AI analysis — only if there are enough meaningful transcript lines
+    const meaningfulLines = txRef.current.filter(l => l.text && l.text.trim().length > 8);
+    if (meaningfulLines.length < 3) return;
     setAnalysing(true);
     try {
       const r = await apiFetch('/api/demo-analyze', {
@@ -1534,6 +1536,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setSaveName(''); setFormSaved(false);
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setPriceOverrides({});
+    setAnalysis(null); setAnalysing(false);
     modeRef.current = null; nicheRef.current = null;
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;

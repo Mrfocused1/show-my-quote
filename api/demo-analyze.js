@@ -30,9 +30,9 @@ export default async function handler(req, res) {
 "summary": 2-3 sentence plain-English summary of the call, mentioning the key details captured.
 "sms": a warm, professional ready-to-send SMS (max 160 chars) referencing specific details from the call.
 "email": object with "subject" (short email subject line) and "body" (a 3-4 paragraph follow-up email, professional and personalised to the call details, ending with a clear next-step CTA).
-"quote": object with "lineItems" (array of objects, each with "description" string, "qty" number, "unitPrice" number in GBP) and "total" (number, the sum of all qty*unitPrice). Generate 2-5 realistic line items based on what was discussed. Use realistic UK market pricing. For catering, base line items on the selected menu items if provided.
+"quote": object with "lineItems" (array of objects, each with "description" string, "qty" number, "unitPrice" number in GBP) and "total" (number, the sum of all qty*unitPrice). Generate 2-5 realistic line items based ONLY on what was actually discussed. Use realistic UK market pricing. For catering, base line items on the selected menu items if provided.
 
-Use the actual names, dates, venues and details from the transcript in every message. Keep tone warm and professional.`,
+IMPORTANT: Only use names, dates, venues and details that are explicitly present in the transcript. Do NOT invent or hallucinate any client details, venue names, dates or services that were not mentioned. If the transcript is too short or contains no real client information, return null for "summary", null for "sms", null for "email", and {"lineItems": [], "total": 0} for "quote".`,
           },
           {
             role: 'user',

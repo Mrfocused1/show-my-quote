@@ -95,6 +95,21 @@ const MOCK_MENUS = [
   },
 ];
 
+function getStoredMenus() {
+  try {
+    const raw = localStorage.getItem('smq_menus');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return MOCK_MENUS;
+}
+
+function saveStoredMenus(menus) {
+  try { localStorage.setItem('smq_menus', JSON.stringify(menus)); } catch {}
+}
+
 const MOCK_RULES_INITIAL = [
   { id: 'r1', condition: 'serviceStyle = Plated',        action: 'Multiply staff labor by 1.4',  expression: 'staffCost × 1.4',            raw: 'multiply staff labor by 1.4 for plated service' },
   { id: 'r2', condition: 'guests > 150',                 action: 'Apply 5% volume discount',     expression: 'total × 0.95',               raw: 'apply 5% discount if guests exceed 150' },
@@ -153,8 +168,8 @@ function TourCard({ step, onNext, onClose }) {
 
 // --- MAIN APP ---
 // ─── Phone Dialer ─────────────────────────────────────────────────────────────
-function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
-  const [number, setNumber] = useState('');
+function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' }) {
+  const [number, setNumber] = useState(initialNumber);
   const [status, setStatus] = useState('idle'); // idle | dialing | connected | ended
   const [timer, setTimer] = useState(0);
   const [muted, setMuted] = useState(false);
@@ -528,6 +543,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialerOpen, setDialerOpen] = useState(false);
+  const [dialerInitNumber, setDialerInitNumber] = useState('');
   const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
   const [incomingCall, setIncomingCall] = useState(null);   // { invite, from }
   const [smsBadge, setSmsBadge] = useState(0);
@@ -808,7 +824,15 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
           {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => setDialerOpen(true)} callLogs={callLogs} contacts={contacts} />}
           {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} />}
-          {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} callLogs={callLogs} />}
+          {currentView === 'calls'         && <CallLogView
+            initialId={activeRecord}
+            navigateTo={navigateTo}
+            callLogs={callLogs}
+            onDeleteCall={id => setCallLogs(prev => prev.filter(c => c.id !== id))}
+            onUpdateCall={(id, updates) => setCallLogs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))}
+            onSaveContact={contact => setContacts(prev => [makeContactUi(contact), ...prev])}
+            onCallAgain={phone => { setDialerInitNumber(phone || ''); setDialerOpen(true); }}
+          />}
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} quotes={quotes} />}
@@ -824,7 +848,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
       </div>
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} callLogs={callLogs} quotes={quotes} />}
-      {dialerOpen && <PhoneDialer onClose={() => setDialerOpen(false)} navigateTo={navigateTo} contacts={contacts} />}
+      {dialerOpen && <PhoneDialer onClose={() => { setDialerOpen(false); setDialerInitNumber(''); }} navigateTo={navigateTo} contacts={contacts} initialNumber={dialerInitNumber} />}
 
       {/* Dashboard tour card */}
       {tourStep !== null && (
@@ -2356,8 +2380,8 @@ function CallDetailView({ call, navigateTo }) {
 function QuoteBuilderView({ initialData, navigateTo }) {
   const [quoteState, setQuoteState] = useState({
     clientName: initialData?.name || initialData?.client || '',
-    guestCount: initialData?.guestCount || initialData?.guests || 100,
-    serviceStyle: initialData?.serviceStyle || 'Buffet',
+    guestCount: initialData?.guestCount || initialData?.guests || 0,
+    serviceStyle: initialData?.serviceStyle || '',
     selectedMenuId: null,
     rentalsAmount: 0,
     dietaryNotes: initialData?.dietary?.join(', ') || '',
@@ -2368,8 +2392,9 @@ function QuoteBuilderView({ initialData, navigateTo }) {
 
   const handleUpdate = (field, value) => setQuoteState(prev => ({ ...prev, [field]: value }));
 
-  const menu = MOCK_MENUS.find(m => m.id === quoteState.selectedMenuId) || MOCK_MENUS[0];
-  const baseFoodCost = quoteState.guestCount * menu.basePrice;
+  const menus = getStoredMenus();
+  const menu = menus.find(m => m.id === quoteState.selectedMenuId) || menus[0];
+  const baseFoodCost = quoteState.guestCount * (menu?.basePrice || 0);
   let styleMultiplier = 1;
   if (quoteState.serviceStyle === 'Plated') styleMultiplier = 1.35;
   if (quoteState.serviceStyle === 'Family Style') styleMultiplier = 1.15;
@@ -2426,6 +2451,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
                   onChange={(e) => handleUpdate('serviceStyle', e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
                 >
+                  <option value="">Select style…</option>
                   <option>Buffet</option>
                   <option>Family Style</option>
                   <option>Plated</option>
@@ -2440,12 +2466,15 @@ function QuoteBuilderView({ initialData, navigateTo }) {
               <Package className="w-5 h-5 mr-2 text-slate-400" /> Menu Selection
             </h3>
             <div className="space-y-3">
-              {MOCK_MENUS.map(m => (
+              {menus.length === 0 && (
+                <p className="text-sm text-slate-400 py-2">No menus yet — add one in <button onClick={() => navigateTo('menus')} className="underline text-slate-600 hover:text-slate-900">Menus & Packages</button>.</p>
+              )}
+              {menus.map(m => (
                 <div
                   key={m.id}
                   onClick={() => handleUpdate('selectedMenuId', m.id)}
                   className={`p-4 border rounded-lg cursor-pointer transition-all ${
-                    (quoteState.selectedMenuId === m.id) || (!quoteState.selectedMenuId && m.id === 'm1')
+                    (quoteState.selectedMenuId === m.id) || (!quoteState.selectedMenuId && m.id === menus[0]?.id)
                       ? 'border-slate-800 bg-slate-50 shadow-sm'
                       : 'border-slate-200 hover:border-slate-400 hover:bg-slate-50/50'
                   }`}
@@ -2840,7 +2869,7 @@ function InquiriesView({ navigateTo }) {
             )}
           </div>
           <button
-            onClick={() => navigateTo('quote-builder', { name: selected.name, guestCount: selected.guests, serviceStyle: 'Buffet', dietary: [] })}
+            onClick={() => navigateTo('quote-builder', { name: selected.name, guestCount: selected.guests, serviceStyle: '', dietary: [] })}
             className="w-full bg-slate-900 text-white font-medium py-2 rounded-md hover:bg-slate-800 transition text-sm flex items-center justify-center"
           >
             <Calculator className="w-4 h-4 mr-2" /> Build Quote
@@ -2910,11 +2939,13 @@ function InquiriesView({ navigateTo }) {
 }
 
 function MenusView() {
-  const [menus, setMenus] = useState(MOCK_MENUS);
+  const [menus, setMenus] = useState(() => getStoredMenus());
   const [selected, setSelected] = useState(null);
   const [editing, setEditing] = useState(false);
   const [editForm, setEditForm] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
+
+  useEffect(() => { saveStoredMenus(menus); }, [menus]);
 
   const openMenu = (menu) => { setSelected(menu); setEditing(false); setEditForm(null); };
 
@@ -3732,7 +3763,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 }
 
 // ─── Call Log View ────────────────────────────────────────────────────────────
-function CallLogView({ initialId, navigateTo, callLogs = [] }) {
+function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpdateCall, onSaveContact, onCallAgain }) {
   const [selectedId, setSelectedId] = useState(
     (typeof initialId === 'string' ? initialId : null) || null
   );
@@ -3751,6 +3782,21 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
   const [showDetail, setShowDetail] = useState(typeof initialId === 'string');
   const timerRef   = useRef(null);
   const timeoutIds = useRef([]);
+
+  // Edit name
+  const [editingName, setEditingName] = useState(false);
+  const [editNameVal, setEditNameVal] = useState('');
+  // Save contact inline form
+  const [saveContactOpen, setSaveContactOpen] = useState(false);
+  const [scName, setScName]   = useState('');
+  const [scPhone, setScPhone] = useState('');
+  const [scSaving, setScSaving] = useState(false);
+
+  // Reset per-call UI when selection changes
+  useEffect(() => {
+    setEditingName(false);
+    setSaveContactOpen(false);
+  }, [selectedId]);
 
   const selected = callLogs.find(c => c.id === selectedId) || callLogs[0] || null;
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
@@ -3792,8 +3838,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
   }, []);
 
   const handleCallAgain = phone => {
-    setDialNumber(phone);
-    setFabState('keypad');
+    onCallAgain?.(phone);
   };
 
   const fabSendSms = async () => {
@@ -3825,6 +3870,58 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
     setShowDetail(true);
   };
 
+  const startEditName = () => {
+    setEditNameVal(selected?.caller || '');
+    setEditingName(true);
+  };
+
+  const saveEditName = async () => {
+    if (!editNameVal.trim() || !selected) return;
+    setEditingName(false);
+    try {
+      await apiFetch(`/api/calls/${selected.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from_number: editNameVal.trim() }),
+      });
+      onUpdateCall?.(selected.id, { caller: editNameVal.trim() });
+    } catch {}
+  };
+
+  const handleDeleteCall = async () => {
+    if (!selected) return;
+    if (!confirm('Delete this call log?')) return;
+    try {
+      await apiFetch(`/api/calls/${selected.id}`, { method: 'DELETE' });
+      onDeleteCall?.(selected.id);
+      setSelectedId(null);
+      setShowDetail(false);
+    } catch (e) { alert('Delete failed: ' + e.message); }
+  };
+
+  const openSaveContact = () => {
+    setScName(selected.caller !== selected.phone ? selected.caller : '');
+    setScPhone(selected.phone || '');
+    setSaveContactOpen(true);
+  };
+
+  const saveContact = async () => {
+    if (!scPhone.trim()) return;
+    setScSaving(true);
+    try {
+      const res = await apiFetch('/api/contacts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: scName.trim() || scPhone.trim(), phone: scPhone.trim() }),
+      });
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed');
+      const { contact } = await res.json();
+      onSaveContact?.(contact);
+      setSaveContactOpen(false);
+    } catch (e) { alert('Save failed: ' + e.message); }
+    finally { setScSaving(false); }
+  };
+
   const CALL_STATUS = {
     transcribed: { label: 'Transcribed', dotCls: 'bg-green-500', textCls: 'text-green-700', bgCls: 'bg-green-50 border-green-200' },
     missed:      { label: 'Missed',      dotCls: 'bg-red-500',   textCls: 'text-red-700',   bgCls: 'bg-red-50   border-red-200'   },
@@ -3846,6 +3943,23 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
     { id: 'invoice',    label: 'Invoice' },
   ];
 
+  // Group calls by phone number for the sidebar
+  const phoneGroups = Object.values(
+    callLogs.reduce((acc, call) => {
+      const key = call.phone || call.id;
+      if (!acc[key]) acc[key] = { phone: key, calls: [] };
+      acc[key].calls.push(call);
+      return acc;
+    }, {})
+  ).sort((a, b) => {
+    const aTime = a.calls[0]?.createdAt ? new Date(a.calls[0].createdAt).getTime() : 0;
+    const bTime = b.calls[0]?.createdAt ? new Date(b.calls[0].createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  // All calls for the currently selected phone number
+  const callsForPhone = selected ? callLogs.filter(c => c.phone === selected.phone) : [];
+
   return (
     <div className="flex h-full overflow-hidden relative">
 
@@ -3854,7 +3968,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
         <div className="px-4 py-3.5 border-b border-slate-200 flex items-center justify-between flex-shrink-0">
           <div>
             <h2 className="font-semibold text-slate-900 text-sm">Call Log</h2>
-            <p className="text-xs text-slate-400 mt-0.5">{callLogs.length} calls</p>
+            <p className="text-xs text-slate-400 mt-0.5">{callLogs.length} call{callLogs.length !== 1 ? 's' : ''}{phoneGroups.length < callLogs.length ? ` · ${phoneGroups.length} contact${phoneGroups.length !== 1 ? 's' : ''}` : ''}</p>
           </div>
           <button
             onClick={() => setFabState(fabState === 'keypad' ? 'icon' : 'keypad')}
@@ -3866,26 +3980,27 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
         </div>
 
         <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-          {callLogs.length === 0 && (
+          {phoneGroups.length === 0 && (
             <p className="text-sm text-slate-400 text-center py-8">No calls yet</p>
           )}
-          {callLogs.map(call => {
-            const st = CALL_STATUS[call.status] || CALL_STATUS.new;
-            const isSel = selectedId === call.id;
+          {phoneGroups.map(group => {
+            const latest = group.calls[0];
+            const st = CALL_STATUS[latest.status] || CALL_STATUS.new;
+            const isGroupSel = group.calls.some(c => c.id === selectedId);
             return (
               <button
-                key={call.id}
-                onClick={() => selectCall(call.id)}
-                className={`w-full text-left px-4 py-3.5 hover:bg-slate-50 transition-colors border-l-[3px] ${isSel ? 'bg-slate-50 border-l-slate-900' : 'border-l-transparent'}`}
+                key={group.phone}
+                onClick={() => selectCall(latest.id)}
+                className={`w-full text-left px-4 py-3.5 hover:bg-slate-50 transition-colors border-l-[3px] ${isGroupSel ? 'bg-slate-50 border-l-slate-900' : 'border-l-transparent'}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
                     <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
-                      {call.caller.charAt(0)}
+                      {latest.caller.charAt(0)}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-900 text-sm truncate">{call.caller}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{call.date}</div>
+                      <div className="font-medium text-slate-900 text-sm truncate">{latest.caller}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{latest.date}</div>
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -3893,11 +4008,16 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
                       <span className={`w-1 h-1 rounded-full flex-shrink-0 ${st.dotCls}`} />
                       {st.label}
                     </span>
-                    <div className="text-[11px] text-slate-400 mt-1">{call.duration}</div>
+                    {group.calls.length > 1 && (
+                      <div className="text-[11px] text-slate-400 mt-1">{group.calls.length} calls</div>
+                    )}
+                    {group.calls.length === 1 && (
+                      <div className="text-[11px] text-slate-400 mt-1">{latest.duration}</div>
+                    )}
                   </div>
                 </div>
                 <div className="text-xs text-slate-500 mt-1.5 pl-10 truncate">
-                  {call.extracted?.eventType} · {call.extracted?.guestCount ?? '—'} guests
+                  {latest.extracted?.eventType} · {latest.extracted?.guestCount ?? '—'} guests
                 </div>
               </button>
             );
@@ -3919,11 +4039,29 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
                   {selected.caller.charAt(0)}
                 </div>
                 <div className="min-w-0">
-                  <div className="font-semibold text-slate-900 text-sm">{selected.caller}</div>
+                  {editingName ? (
+                    <div className="flex items-center gap-1.5">
+                      <input
+                        autoFocus
+                        value={editNameVal}
+                        onChange={e => setEditNameVal(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') saveEditName(); if (e.key === 'Escape') setEditingName(false); }}
+                        className="font-semibold text-slate-900 text-sm border-b border-slate-400 focus:border-slate-900 outline-none bg-transparent w-40"
+                      />
+                      <button onClick={saveEditName} className="text-green-600 hover:text-green-500 p-0.5 flex-shrink-0">
+                        <Check className="w-3.5 h-3.5" />
+                      </button>
+                      <button onClick={() => setEditingName(false)} className="text-slate-400 hover:text-slate-600 p-0.5 flex-shrink-0">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="font-semibold text-slate-900 text-sm">{selected.caller}</div>
+                  )}
                   <div className="text-xs text-slate-500 truncate">{selected.phone} · {selected.date} · {selected.duration}</div>
                 </div>
               </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-1.5 flex-shrink-0">
                 <button
                   onClick={() => handleCallAgain(selected.phone)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-semibold rounded-lg transition-colors shadow-sm"
@@ -3931,8 +4069,77 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
                   <PhoneForwarded className="w-3.5 h-3.5" />
                   <span className="hidden sm:inline">Call again</span>
                 </button>
+                <button
+                  onClick={openSaveContact}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Save as contact"
+                >
+                  <UserPlus className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={startEditName}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                  title="Edit name"
+                >
+                  <Edit3 className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={handleDeleteCall}
+                  className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Delete call"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
               </div>
             </div>
+
+            {/* Save contact inline form */}
+            {saveContactOpen && (
+              <div className="px-4 md:px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex items-center gap-2 flex-shrink-0">
+                <UserPlus className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                <input
+                  autoFocus
+                  placeholder="Name"
+                  value={scName}
+                  onChange={e => setScName(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveContact()}
+                  className="flex-1 min-w-0 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-slate-900 outline-none bg-white"
+                />
+                <input
+                  placeholder="Phone"
+                  value={scPhone}
+                  onChange={e => setScPhone(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && saveContact()}
+                  className="w-32 text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 focus:ring-1 focus:ring-slate-900 outline-none bg-white flex-shrink-0"
+                />
+                <button
+                  onClick={saveContact}
+                  disabled={scSaving || !scPhone.trim()}
+                  className="px-3 py-1.5 bg-slate-900 text-white text-xs font-semibold rounded-lg hover:bg-slate-800 transition-colors disabled:opacity-40 flex-shrink-0"
+                >
+                  {scSaving ? 'Saving…' : 'Save'}
+                </button>
+                <button onClick={() => setSaveContactOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
+            {/* Call switcher — shown when multiple calls exist for this number */}
+            {callsForPhone.length > 1 && (
+              <div className="px-4 md:px-6 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
+                <span className="text-[11px] font-semibold text-slate-400 flex-shrink-0">Calls:</span>
+                {callsForPhone.map(c => (
+                  <button
+                    key={c.id}
+                    onClick={() => { setSelectedId(c.id); setActiveTab('transcript'); }}
+                    className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${c.id === selectedId ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400'}`}
+                  >
+                    {c.date} · {c.duration}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Recording bar */}
             {selected.hasRecording && (
@@ -4252,7 +4459,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [] }) {
                   className="flex-1 h-10 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-lg text-lg transition-colors"
                 >⌫</button>
                 <button
-                  onClick={() => { if (dialNumber) startLiveCall(); }}
+                  onClick={() => { if (dialNumber) { onCallAgain?.(dialNumber); setFabState('icon'); } }}
                   disabled={!dialNumber}
                   className="flex-[2] h-10 bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold rounded-lg flex items-center justify-center gap-2 text-sm transition-colors"
                 >
@@ -4343,7 +4550,7 @@ function SearchOverlay({ onClose, navigateTo, callLogs = [], quotes = [] }) {
   const allItems = [
     ...callLogs.map(c => ({ type: 'Call', label: c.caller, sub: `${c.date}`, action: () => navigateTo('calls', c.id) })),
     ...quotes.map(q => ({ type: 'Quote', label: q.client || q.id, sub: `${q.status}`, action: () => navigateTo('quotes') })),
-    ...MOCK_MENUS.map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • £${m.basePrice}/pp`, action: () => navigateTo('menus') })),
+    ...getStoredMenus().map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • £${m.basePrice}/pp`, action: () => navigateTo('menus') })),
   ];
 
   const results = query.length > 1
