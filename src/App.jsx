@@ -21,7 +21,7 @@ import {
   Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
   Hash, ToggleRight, CheckSquare, Type as TypeIcon,
   AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal,
-  BookOpen, History, Upload, Printer, Image as ImageIcon
+  BookOpen, History, Upload, Printer, Image as ImageIcon, Clipboard
 } from 'lucide-react';
 
 // ─── DB → UI shape helpers ────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ function makeCallUi(c) {
     email: '',
     date,
     duration,
+    createdAt: c.created_at || null,
     status: tx.length > 0 ? 'transcribed' : (c.status === 'missed' ? 'missed' : 'new'),
     hasRecording: false,
     transcript: tx,
@@ -251,11 +252,18 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
               className="font-mono text-xl tracking-widest font-bold flex-1 text-center bg-transparent outline-none text-white placeholder-slate-600 disabled:opacity-40"
             />
             <button
-              onClick={() => setContactsOpen(true)}
-              className="text-slate-400 hover:text-white transition-colors p-1 ml-2 flex-shrink-0"
-              title="Contacts"
+              onClick={async () => {
+                try {
+                  const text = await navigator.clipboard.readText();
+                  const clean = text.replace(/[^\d+\-\s().#*]/g, '').slice(0, 20);
+                  if (clean) setNumber(clean);
+                } catch {}
+              }}
+              disabled={status === 'connected' || status === 'dialing'}
+              className="text-slate-400 hover:text-white transition-colors p-1 ml-2 flex-shrink-0 disabled:opacity-30"
+              title="Paste number"
             >
-              <BookOpen className="w-4 h-4" />
+              <Clipboard className="w-4 h-4" />
             </button>
           </div>
 
@@ -1405,6 +1413,9 @@ function LiveCallModal({ onClose, navigateTo }) {
 
 function WorkspaceView({ navigateTo }) {
   const [liveCallOpen, setLiveCallOpen] = useState(false);
+  const [biz] = useLocalState('smq_biz', DEFAULT_BIZ);
+  const bizName = biz.name || 'My Business';
+  const bizInitials = bizName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'MB';
 
   const stats = [
     { label: 'Pipeline Value',  value: '£63,700', delta: '+12% this month', icon: TrendingUp },
@@ -1431,12 +1442,12 @@ function WorkspaceView({ navigateTo }) {
           <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
             <div className="flex items-center gap-4">
               <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-xl font-bold border border-white/20">
-                EC
+                {bizInitials}
               </div>
               <div>
                 <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">Workspace</div>
-                <h1 className="text-2xl font-bold">Elite Catering Co.</h1>
-                <p className="text-slate-400 text-sm mt-0.5">Premium event catering · Est. 2018 · Admin Plan</p>
+                <h1 className="text-2xl font-bold">{bizName}</h1>
+                {biz.email && <p className="text-slate-400 text-sm mt-0.5">{biz.email}</p>}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -1669,6 +1680,9 @@ function SmsQuickCompose() {
 function DashboardView({ navigateTo, onNewCall, callLogs = [], contacts = [] }) {
   const hour = new Date().getHours();
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const weekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const callsThisWeek = callLogs.filter(c => c.createdAt && new Date(c.createdAt).getTime() >= weekAgo).length;
+  const transcribed = callLogs.filter(c => c.status === 'transcribed').length;
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-8 space-y-6 pb-20">
       {/* Header */}
@@ -1688,9 +1702,9 @@ function DashboardView({ navigateTo, onNewCall, callLogs = [], contacts = [] }) 
       {/* 3 stat cards */}
       <div className="grid grid-cols-3 gap-3">
         {[
-          { label: 'New This Week', value: '6', icon: Inbox, sub: '+2 today', view: 'inquiries' },
-          { label: 'Awaiting Reply', value: '4', icon: Clock, sub: '£32k pipeline', view: 'inquiries' },
-          { label: 'Won This Month', value: '3', icon: CheckCircle2, sub: '£22k revenue', view: 'inquiries' },
+          { label: 'Calls This Week', value: String(callsThisWeek), icon: Inbox, sub: `${callLogs.length} total`, view: 'calls' },
+          { label: 'Transcribed', value: String(transcribed), icon: CheckCircle2, sub: `of ${callLogs.length} calls`, view: 'calls' },
+          { label: 'Contacts', value: String(contacts.length), icon: Users, sub: 'in your database', view: 'contacts' },
         ].map((m, i) => (
           <div
             key={i}
@@ -3114,7 +3128,7 @@ function useLocalState(key, defaultVal) {
   return [val, save];
 }
 
-const DEFAULT_BIZ = { name: 'Elite Catering Co.', address: '12 Gourmet Lane', city: 'London', postcode: 'SW1A 1AA', email: 'quotes@elitecatering.com', phone: '+44 20 7946 0320', vat: 'GB 123 456 789', terms: '14' };
+const DEFAULT_BIZ = { name: '', address: '', city: '', postcode: '', email: '', phone: '', vat: '', terms: '14' };
 const DEFAULT_INV_SETTINGS = { showLogo: true, showAddress: true, showVat: true, showBankDetails: true, showNotes: true, bankDetails: 'Bank: Barclays\nSort code: 20-00-00\nAccount: 12345678\nReference: Your invoice number', notes: 'Thank you for your business. Payment is due within the payment terms stated above.' };
 
 // ─── Settings ────────────────────────────────────────────────────────────────
@@ -6874,6 +6888,7 @@ function SmsInboxView() {
 
 // --- SIDEBAR ---
 function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0, tourStep = null }) {
+  const [biz] = useLocalState('smq_biz', DEFAULT_BIZ);
   const navGroups = [
     {
       title: null,
@@ -6940,8 +6955,8 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
           <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=e2e8f0" alt="avatar" />
         </div>
         <div className="flex-1 truncate">
-          <div className="font-medium text-slate-800">Elite Catering</div>
-          <div className="text-xs">Admin Plan</div>
+          <div className="font-medium text-slate-800">{biz.name || 'My Business'}</div>
+          <div className="text-xs text-slate-400">{biz.email || 'Set up in Settings'}</div>
         </div>
       </div>
     </div>
