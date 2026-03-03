@@ -1058,40 +1058,28 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   };
 
   // ── Remote audio capture for outbound client.dial() calls ─────────────────
-  // Captures the remote party's audio from the #sw-media <audio> element.
-  // Records 3-second chunks with NO GAP: the next chunk starts immediately
-  // when the previous one stops, while transcription runs in parallel.
-  const startRemoteCapture = () => {
+  // SignalWire Call Fabric does NOT append <audio> to rootElement for audio-only calls.
+  // It creates an internal Audio() object (never in the DOM).
+  // We must use call.remoteStream / call.peer.remoteAudioTrack / RTCPeerConnection APIs.
+  const startRemoteCapture = (call) => {
     remoteRecActiveRef.current = true;
+    if (!call) return;
 
     const mimeType = ['audio/webm;codecs=opus', 'audio/webm', '']
       .find(t => !t || MediaRecorder.isTypeSupported(t)) || '';
 
-    const tryStart = () => {
+    const beginRecording = (stream) => {
       if (!remoteRecActiveRef.current || !caRef.current) return;
-
-      // Find the <audio> element SignalWire creates inside #sw-media
-      const audioEl = document.getElementById('sw-media')?.querySelector('audio');
-      const stream = audioEl?.srcObject;
-
-      if (!(stream instanceof MediaStream) || stream.getAudioTracks().length === 0) {
-        setTimeout(tryStart, 300);
-        return;
-      }
+      console.log('[remote-tx] Recording remote audio stream, tracks:', stream.getAudioTracks().length);
 
       const startChunk = () => {
         if (!remoteRecActiveRef.current || !caRef.current) return;
-
         const chunks = [];
         const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
         remoteRecRef.current = mr;
-
         mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
         mr.onstop = () => {
-          // Start next chunk IMMEDIATELY — no gap while API call happens
-          startChunk();
-
-          // Transcribe this chunk in parallel (fire-and-forget)
+          startChunk(); // next chunk immediately — no gap
           const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
           if (blob.size < 1000) return;
           apiFetch('/api/transcribe-remote', {
@@ -1102,17 +1090,59 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
             .then(data => { if (data?.text?.trim()) onTranscriptLine('Client', data.text.trim()); })
             .catch(() => {});
         };
-
         mr.start();
-        // Stop after 3 seconds to ship the chunk
         setTimeout(() => { if (mr.state === 'recording') mr.stop(); }, 3000);
       };
-
       startChunk();
     };
 
-    // Give SignalWire a moment to attach the audio element after call connects
-    setTimeout(tryStart, 600);
+    // Strategy 1: 'track' event — fires when remote audio track arrives via WebRTC
+    const trackHandler = (event) => {
+      if (event?.track?.kind === 'audio') {
+        console.log('[remote-tx] Got remote audio via track event');
+        try { call.off('track', trackHandler); } catch {}
+        beginRecording(new MediaStream([event.track]));
+      }
+    };
+    try { call.on('track', trackHandler); } catch {}
+
+    // Strategy 2: Poll for existing stream using SignalWire SDK + RTCPeerConnection APIs
+    const tryExisting = () => {
+      if (!remoteRecActiveRef.current) return;
+
+      // call.remoteStream (SDK high-level)
+      const rs = call.remoteStream;
+      if (rs instanceof MediaStream && rs.getAudioTracks().length > 0) {
+        try { call.off('track', trackHandler); } catch {}
+        console.log('[remote-tx] Got remote stream via call.remoteStream');
+        beginRecording(rs);
+        return;
+      }
+
+      // call.peer.remoteAudioTrack (SDK mid-level)
+      const track = call.peer?.remoteAudioTrack;
+      if (track) {
+        try { call.off('track', trackHandler); } catch {}
+        console.log('[remote-tx] Got remote track via call.peer.remoteAudioTrack');
+        beginRecording(new MediaStream([track]));
+        return;
+      }
+
+      // RTCPeerConnection.getReceivers() (WebRTC native)
+      const pc = call.peer?.instance;
+      if (pc) {
+        const audioReceivers = pc.getReceivers().filter(r => r.track?.kind === 'audio');
+        if (audioReceivers.length > 0) {
+          try { call.off('track', trackHandler); } catch {}
+          console.log('[remote-tx] Got remote tracks via RTCPeerConnection.getReceivers()');
+          beginRecording(new MediaStream(audioReceivers.map(r => r.track)));
+          return;
+        }
+      }
+
+      setTimeout(tryExisting, 500);
+    };
+    setTimeout(tryExisting, 600);
   };
 
   const stopRemoteCapture = () => {
@@ -1153,8 +1183,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       console.log('[smq] Subscribed to Pusher channel:', channel);
     } else if (!session) {
       // Outbound client.dial() call — no server-side stream.
-      // Capture remote audio from the sw-media <audio> element and transcribe via OpenAI Whisper.
-      startRemoteCapture();
+      // Capture remote audio via call.remoteStream / call.peer / RTCPeerConnection APIs.
+      startRemoteCapture(call);
     }
     // Note: remote hangup is detected via the SignalWire notification handler
   };
