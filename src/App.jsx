@@ -2024,7 +2024,7 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <button onClick={() => onCallAgain?.(selected?.phone || '', null)} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+                  <button onClick={() => onCallAgain?.(contact?.phone || '', null)} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
                     <Phone className="w-3.5 h-3.5" /> Call Now
                   </button>
                   <button onClick={openSms} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
