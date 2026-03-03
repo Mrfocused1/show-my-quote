@@ -1471,6 +1471,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setPriceOverrides({});
+    if (n.id !== 'blank') {
+      try { localStorage.setItem('smq_last_form', JSON.stringify({ type: 'template', nicheId: n.id, label: n.label })); } catch {}
+    }
     const phone = initPhoneRef.current || '';
     setDialNum(phone);
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
@@ -2268,7 +2271,16 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
         if (form) selectSavedForm(form);
       }
     } else if (selectedFormKey === 'blank') {
-      useManualFields();
+      // Start with no predefined fields — just go to dial
+      setNiche(null); nicheRef.current = null;
+      setFields([]); fieldsRef.current = [];
+      setFVals({}); fvRef.current = {};
+      setTx([]); txRef.current = [];
+      setMenuChecked({}); menuCheckedRef.current = {};
+      const phone = initPhoneRef.current || '';
+      setDialNum(phone);
+      const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
+      broadcast({ phase: nextPhase, fields: [], fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
     } else if (selectedFormKey.startsWith('saved:')) {
       const id = selectedFormKey.slice(6);
       const form = savedForms.find(f => f.id === id);
@@ -2618,7 +2630,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     const filledCount = fields.filter(f => fieldValues[f.key] !== undefined && fieldValues[f.key] !== '').length;
 
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} overlay={<>{incomingCallModal}{notifBanner}</>}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} isViewer={isViewer} sessionCode={sessionCode} onReset={!isViewer ? reset : undefined} onDashboard={!isViewer ? onGoToDashboard : undefined} overlay={<>{incomingCallModal}{notifBanner}</>}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-2xl mx-auto">
 
