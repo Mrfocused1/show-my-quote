@@ -20,290 +20,181 @@ function apiFetch(url, options = {}) {
 
 const NICHES = [
   {
-    id: 'wedding-photography',
-    label: 'Wedding Photography',
-    Icon: Camera,
-    desc: 'Dates, venues, coverage type, packages, add-ons',
-    seedFields: ['Event Date', 'Venue Name', 'Coverage Type', 'Guest Count', 'Package'],
-    smsTemplate: "Hi {name}! Great speaking with you. I'll get your photography quote for {date} at {venue} across to you today. Looking forward to capturing your day!",
-    promptHint: 'Wedding photography enquiry. Extract: event date, venue name/location, coverage type (ceremony only / ceremony+reception / full day), second shooter needed (yes/no), film or cinematic add-on, guest count, package tier (e.g. bronze/silver/gold/platinum), drone coverage, golden hour session, special requests.',
-  },
-  {
-    id: 'wedding-catering',
-    label: 'Wedding Catering',
-    Icon: Utensils,
-    desc: 'Guest count, service style, dietary needs, bar',
-    seedFields: ['Event Date', 'Venue', 'Guest Count', 'Service Style', 'Bar Package'],
-    smsTemplate: "Hi {name}! Lovely speaking with you. Your catering quote for {date} covering {guests} guests will be with you shortly. Excited to be part of your day!",
-    promptHint: 'Wedding catering enquiry. Extract: event date, venue, guest count (adults + children separately), service style (plated sit-down / buffet / canapés / family style), dietary requirements (allergies, vegan, halal, gluten-free), bar package (open bar / wine & beer / soft drinks / no bar), evening food, setup and breakdown timing, budget range.',
-  },
-  {
-    id: 'wedding-venue',
-    label: 'Wedding Venue',
+    id: 'roof-replacement',
+    label: 'Full Roof Replacement',
     Icon: Building2,
-    desc: 'Capacity, packages, ceremony type, accommodation',
-    seedFields: ['Event Date', 'Guest Count', 'Package', 'Ceremony Type', 'Bedrooms Needed'],
-    smsTemplate: "Hi {name}! Wonderful chatting. I'll put your venue package together for {date} and send everything over today. We'd love to host your big day!",
-    promptHint: 'Wedding venue enquiry. Extract: event date, guest count (day / evening separately), venue package or hire option, ceremony type (civil ceremony / blessing / reception only), exclusive use or shared, bar package, catering (in-house or external), bedrooms/accommodation, honeymoon suite, budget.',
+    desc: 'Squares, pitch, material grade, tear-off, storeys',
+    seedFields: ['Roof Size', 'Pitch', 'Material', 'Storeys', 'Tear-off'],
+    smsTemplate: "Hi {name}! Great speaking with you. I'll get your full replacement quote together and send it across today. Talk soon!",
+    promptHint: 'Roofing enquiry — full roof replacement. Extract: job address, roof size in squares (1 square = 100 sq ft), pitch/slope (e.g. 4:12, 6:12, 8:12), number of storeys, material type (3-tab / 30-yr architectural / 50-yr / impact-resistant Class 4 / metal), tear-off layers (0, 1 or 2), gutter replacement needed (yes/no), budget range, insurance claim involved (yes/no).',
   },
   {
-    id: 'florist-styling',
-    label: 'Floral & Styling',
-    Icon: Flower2,
-    desc: 'Bridal party, arrangements, centrepieces, delivery',
-    seedFields: ['Event Date', 'Venue', 'Bridal Party Size', 'Arrangements', 'Delivery & Setup'],
-    smsTemplate: "Hi {name}! So exciting to be planning your florals. I'll get your quote together for {date} at {venue} — bouquets, arrangements and everything in between. Speak soon!",
-    promptHint: 'Wedding florist/styling enquiry. Extract: event date, venue, bridal party size (number of bridesmaids, groomsmen), bridal bouquet style, ceremony arch or backdrop, aisle flowers, pew ends, table centrepiece count and style, additional items (flower girl, button holes, cake flowers), delivery and setup time.',
+    id: 'storm-damage',
+    label: 'Storm Damage & Insurance',
+    Icon: Radio,
+    desc: 'Hail/wind damage, claim status, adjuster details',
+    seedFields: ['Job Address', 'Damage Type', 'Insurance Company', 'Claim Status', 'Roof Size'],
+    smsTemplate: "Hi {name}! Thanks for calling. I'll put your storm damage assessment together and send it over. We'll work with your insurance company every step of the way.",
+    promptHint: 'Roofing enquiry — storm damage and insurance claim. Extract: job address, type of damage (hail / wind / tree impact / other), insurance company name, claim number if available, adjuster appointment status, roof size (squares if known), number of storeys, approximate age of roof.',
   },
   {
-    id: 'wedding-planning',
-    label: 'Wedding Planning',
-    Icon: Calendar,
-    desc: 'Planning tier, guest list, suppliers, theme',
-    seedFields: ['Event Date', 'Guest Count', 'Venue', 'Planning Tier', 'Budget Range'],
-    smsTemplate: "Hi {name}! Loved hearing about your plans. I'll put your planning package together for {date} and send it across shortly. Can't wait to start!",
-    promptHint: 'Wedding planning enquiry. Extract: event date, guest count, venue (confirmed or still searching), planning tier (full planning / partial planning / day-of coordination), suppliers already booked, budget range, wedding style or theme, key priorities or challenges.',
+    id: 'roof-repair',
+    label: 'Roof Repairs',
+    Icon: Wand2,
+    desc: 'Leak, missing shingles, flashing, spot fix',
+    seedFields: ['Job Address', 'Repair Type', 'Storeys', 'Approximate Area', 'Urgency'],
+    smsTemplate: "Hi {name}! Thanks for calling. I'll get your repair quote together and send it across shortly. We'll get that sorted for you.",
+    promptHint: 'Roofing enquiry — repair job. Extract: job address, type of repair needed (leak / missing shingles / flashing / valley / ridge / pipe boot / soffit / fascia), number of storeys, approximate affected area, urgency (emergency same-day / within a week / flexible), current temporary protection in place (tarp etc).',
   },
   {
-    id: 'entertainment',
-    label: 'Entertainment & Music',
-    Icon: Music,
-    desc: 'Act type, sets, DJ hours, PA, travel distance',
-    seedFields: ['Event Date', 'Venue', 'Act Type', 'Performance Duration', 'Guest Count'],
-    smsTemplate: "Hi {name}! Great to chat. Your entertainment quote for {date} at {venue} — sets, DJ and travel — will be with you shortly. Can't wait to perform!",
-    promptHint: 'Entertainment/music enquiry. Extract: event date, venue, act type (live band / DJ / both), number of band members, performance sets and durations, DJ hours, PA and sound system required, lighting rig, travel distance or location, accommodation needed, guest count for sizing.',
+    id: 'commercial-flat',
+    label: 'Commercial Flat Roofing',
+    Icon: ClipboardList,
+    desc: 'TPO, EPDM, modified bitumen, square footage',
+    seedFields: ['Property Address', 'Roof Area', 'Current Membrane', 'Access', 'HVAC Units'],
+    smsTemplate: "Hi {name}! Great speaking with you. I'll get your commercial flat roofing quote together and send it over today.",
+    promptHint: 'Commercial flat roofing enquiry. Extract: property address, total roof area (sq ft), current roof membrane type (TPO / EPDM / modified bitumen / built-up / unknown), number of HVAC/rooftop units, roof access (permanent hatch / external ladder / scissor lift required), drainage type (internal drains / scuppers), building height/storeys.',
+  },
+  {
+    id: 'gutter-fascia',
+    label: 'Gutter & Fascia',
+    Icon: Minus,
+    desc: 'Seamless gutters, fascia, soffit, gutter guards',
+    seedFields: ['Job Address', 'Linear Footage', 'Gutter Size', 'Fascia Needed', 'Gutter Guards'],
+    smsTemplate: "Hi {name}! Great speaking with you. I'll put your gutter and fascia quote together and send it across shortly.",
+    promptHint: 'Gutter and fascia enquiry. Extract: job address, estimated linear footage of gutters (or home perimeter), gutter size preference (5\" or 6\"), fascia board replacement needed (yes/no), soffit replacement (yes/no), gutter guards wanted (yes/no / type), number of downspouts, number of storeys.',
+  },
+  {
+    id: 'emergency-leak',
+    label: 'Emergency Leak Response',
+    Icon: Bell,
+    desc: 'Active leak, same-day response, temporary fix',
+    seedFields: ['Job Address', 'Leak Location', 'Storeys', 'Temp Fix In Place', 'Interior Damage'],
+    smsTemplate: "Hi {name}! I'm on it. We'll get someone out to you as soon as possible — I'll send your emergency response details right now.",
+    promptHint: 'Emergency roofing / active leak enquiry. Extract: job address, location of leak (room, area on roof), number of storeys, is there a temporary fix in place (yes/no), interior damage (ceiling, walls, electrical), roof age if known, when the leak started, any previous repairs to that area.',
   },
   {
     id: 'custom',
     label: 'Other / Custom',
     Icon: LayoutGrid,
-    desc: 'Any wedding or events business niche',
+    desc: 'Any roofing job type',
     seedFields: [],
     smsTemplate: "Hi {name}! Great speaking with you. I'll get your quote together and send it across shortly. Looking forward to working with you!",
-    promptHint: 'General wedding/events vendor enquiry. Extract all relevant details the client mentions: event date, venue, guest count, specific service requirements, budget range, and any special requests.',
+    promptHint: 'General roofing enquiry. Extract all relevant details the customer mentions: job address, type of work needed, roof size or area, number of storeys, material preferences, urgency, budget range, and any special requirements.',
   },
 ];
 
 // ── Template forms (one per niche) ───────────────────────────────────────────
 
 const TEMPLATE_FORMS = {
-  'wedding-photography': [
-    { key: 'date',     label: 'Event Date',       type: 'date' },
-    { key: 'venue',    label: 'Venue Name',        type: 'text' },
-    { key: 'coverage', label: 'Coverage Required', type: 'select', options: ['Ceremony Only', 'Ceremony + Reception', 'Full Day'] },
-    { key: 'guests',   label: 'Guest Count',       type: 'number' },
-    { key: 'shooter2', label: 'Second Shooter',    type: 'toggle' },
-    { key: 'film',     label: 'Film / Cinematic Add-on', type: 'toggle' },
-    { key: 'budget',   label: 'Budget Range',      type: 'text' },
-    { key: 'requests', label: 'Special Requests',  type: 'long-text' },
+  'roof-replacement': [
+    { key: 'address',  label: 'Job Address',    type: 'text' },
+    { key: 'size',     label: 'Roof Size (sq)', type: 'number' },
+    { key: 'pitch',    label: 'Pitch / Slope',  type: 'select', options: ['Low (1:12–3:12)', 'Moderate (4:12–6:12)', 'Steep (7:12–9:12)', 'Very Steep (10:12+)'] },
+    { key: 'stories',  label: 'Storeys',        type: 'number' },
+    { key: 'material', label: 'Material',       type: 'select', options: ['3-Tab', '30-yr Architectural', '50-yr Architectural', 'Impact-Resistant Class 4', 'Metal'] },
+    { key: 'tearoff',  label: 'Tear-off Layers', type: 'select', options: ['0 — overlay', '1 layer', '2 layers'] },
+    { key: 'gutters',  label: 'Gutter Replacement', type: 'toggle' },
+    { key: 'insurance', label: 'Insurance Claim', type: 'toggle' },
+    { key: 'notes',    label: 'Notes',           type: 'long-text' },
   ],
-  'wedding-catering': [
-    { key: 'date',     label: 'Event Date',           type: 'date' },
-    { key: 'venue',    label: 'Venue',                type: 'text' },
-    { key: 'guests',   label: 'Guest Count (Adults)', type: 'number' },
-    { key: 'children', label: 'Children Attending',   type: 'number' },
-    { key: 'style',    label: 'Service Style',        type: 'select',   options: ['Plated Sit-down', 'Buffet', 'Canapés', 'Family Style'],
-      hint: 'How food will be served: plated sit-down, buffet, canapés, or family style. Only fill if explicitly stated.' },
-    { key: 'dietary',  label: 'Dietary Requirements', type: 'long-text',
-      hint: 'ONLY dietary restrictions, allergies or intolerances (e.g. halal, vegan, gluten-free, nut allergy). Do NOT put food orders, menu choices or dish names here.' },
-    { key: 'bar',      label: 'Bar Package',          type: 'select',   options: ['Open Bar', 'Wine & Beer', 'Soft Drinks Only', 'No Bar'],
-      hint: 'Drink/bar preference only. Fill with closest option or leave empty if not mentioned.' },
-    { key: 'evening',  label: 'Evening Food',         type: 'text',
-      hint: 'ONLY fill if a SEPARATE evening buffet or late-night food was explicitly discussed (e.g. "evening buffet", "midnight snacks"). Leave empty if only main reception food was discussed.' },
-    { key: 'menu_selection', label: 'Menu', type: 'menu-checklist' },
+  'storm-damage': [
+    { key: 'address',  label: 'Job Address',      type: 'text' },
+    { key: 'damage',   label: 'Damage Type',      type: 'select', options: ['Hail', 'Wind', 'Tree Impact', 'Multiple', 'Other'] },
+    { key: 'insurer',  label: 'Insurance Company', type: 'text' },
+    { key: 'claim',    label: 'Claim Number',     type: 'text' },
+    { key: 'adjuster', label: 'Adjuster Booked',  type: 'toggle' },
+    { key: 'size',     label: 'Roof Size (sq)',   type: 'number' },
+    { key: 'stories',  label: 'Storeys',          type: 'number' },
+    { key: 'age',      label: 'Roof Age (yrs)',   type: 'number' },
   ],
-  'wedding-venue': [
-    { key: 'date',     label: 'Event Date',     type: 'date' },
-    { key: 'guests',   label: 'Day Guests',     type: 'number' },
-    { key: 'evening',  label: 'Evening Guests', type: 'number' },
-    { key: 'package',  label: 'Package',        type: 'select', options: ['Bronze', 'Silver', 'Gold', 'Exclusive Use'] },
-    { key: 'ceremony', label: 'Ceremony Type',  type: 'select', options: ['Civil Ceremony', 'Blessing', 'Reception Only'] },
-    { key: 'bar',      label: 'Bar Package',    type: 'text' },
-    { key: 'rooms',    label: 'Bedrooms Needed',type: 'number' },
-    { key: 'budget',   label: 'Budget',         type: 'text' },
+  'roof-repair': [
+    { key: 'address',  label: 'Job Address',    type: 'text' },
+    { key: 'type',     label: 'Repair Type',    type: 'select', options: ['Active Leak', 'Missing Shingles', 'Flashing', 'Valley', 'Ridge', 'Pipe Boot', 'Fascia / Soffit', 'Other'] },
+    { key: 'stories',  label: 'Storeys',        type: 'number' },
+    { key: 'area',     label: 'Affected Area',  type: 'text' },
+    { key: 'urgency',  label: 'Urgency',        type: 'select', options: ['Emergency — same day', 'Within a week', 'Flexible'] },
+    { key: 'interior', label: 'Interior Damage', type: 'toggle' },
+    { key: 'tarp',     label: 'Tarp In Place',  type: 'toggle' },
+    { key: 'notes',    label: 'Notes',          type: 'long-text' },
   ],
-  'florist-styling': [
-    { key: 'date',        label: 'Event Date',             type: 'date' },
-    { key: 'venue',       label: 'Venue',                  type: 'text' },
-    { key: 'bridesmaids', label: 'Bridesmaids Count',      type: 'number' },
-    { key: 'bouquet',     label: 'Bridal Bouquet Style',   type: 'text' },
-    { key: 'arch',        label: 'Ceremony Arch / Backdrop', type: 'toggle' },
-    { key: 'tables',      label: 'Table Centrepieces',     type: 'number' },
-    { key: 'pews',        label: 'Pew Ends / Aisle Decor', type: 'toggle' },
-    { key: 'delivery',    label: 'Delivery & Setup Time',  type: 'text' },
+  'commercial-flat': [
+    { key: 'address',  label: 'Property Address',   type: 'text' },
+    { key: 'area',     label: 'Roof Area (sq ft)',  type: 'number' },
+    { key: 'membrane', label: 'Current Membrane',   type: 'select', options: ['TPO', 'EPDM', 'Modified Bitumen', 'Built-Up', 'Unknown'] },
+    { key: 'hvac',     label: 'HVAC Units on Roof', type: 'number' },
+    { key: 'access',   label: 'Roof Access',        type: 'select', options: ['Permanent Hatch', 'External Ladder', 'Scissor Lift Required'] },
+    { key: 'drainage', label: 'Drainage Type',      type: 'select', options: ['Internal Drains', 'Scuppers', 'Both'] },
+    { key: 'stories',  label: 'Building Storeys',   type: 'number' },
   ],
-  'wedding-planning': [
-    { key: 'date',      label: 'Event Date',       type: 'date' },
-    { key: 'guests',    label: 'Guest Count',      type: 'number' },
-    { key: 'venue',     label: 'Venue',            type: 'text' },
-    { key: 'tier',      label: 'Planning Tier',   type: 'select', options: ['Full Planning', 'Partial Planning', 'Day-of Coordination'] },
-    { key: 'suppliers', label: 'Suppliers Booked',type: 'number' },
-    { key: 'budget',    label: 'Budget Range',     type: 'text' },
-    { key: 'theme',     label: 'Style / Theme',    type: 'text' },
+  'gutter-fascia': [
+    { key: 'address',  label: 'Job Address',        type: 'text' },
+    { key: 'linft',    label: 'Linear Footage',     type: 'number' },
+    { key: 'size',     label: 'Gutter Size',        type: 'select', options: ['5" Standard', '6" High-Flow'] },
+    { key: 'fascia',   label: 'Fascia Replacement', type: 'toggle' },
+    { key: 'soffit',   label: 'Soffit Replacement', type: 'toggle' },
+    { key: 'guards',   label: 'Gutter Guards',      type: 'toggle' },
+    { key: 'stories',  label: 'Storeys',            type: 'number' },
+    { key: 'downspouts', label: 'Downspouts',       type: 'number' },
   ],
-  'entertainment': [
-    { key: 'date',    label: 'Event Date',            type: 'date' },
-    { key: 'venue',   label: 'Venue',                 type: 'text' },
-    { key: 'act',     label: 'Act Type',              type: 'select', options: ['Band Only', 'DJ Only', 'Band + DJ'] },
-    { key: 'sets',    label: 'Performance Sets',      type: 'text' },
-    { key: 'djhours', label: 'DJ Hours',              type: 'number' },
-    { key: 'pa',      label: 'PA / Sound Required',   type: 'toggle' },
-    { key: 'travel',  label: 'Travel Distance (mi)',  type: 'number' },
-    { key: 'guests',  label: 'Guest Count',           type: 'number' },
+  'emergency-leak': [
+    { key: 'address',  label: 'Job Address',       type: 'text' },
+    { key: 'location', label: 'Leak Location',     type: 'text' },
+    { key: 'stories',  label: 'Storeys',           type: 'number' },
+    { key: 'tarp',     label: 'Temp Fix In Place', type: 'toggle' },
+    { key: 'interior', label: 'Interior Damage',   type: 'toggle' },
+    { key: 'age',      label: 'Roof Age (yrs)',    type: 'number' },
+    { key: 'notes',    label: 'Notes',             type: 'long-text' },
   ],
 };
 
-// ── De'Osa Menu Data ──────────────────────────────────────────────────────────
+// ── Roofing Line Items (for materials checklist) ─────────────────────────────
 
 const DEOSA_MENU = [
   {
-    cuisine: 'Nigerian Cuisine',
+    cuisine: 'Shingles & Materials',
     sections: [
       {
-        name: 'Starters', price: 8,
+        name: 'Materials', price: 90,
         items: [
-          { key: 'ng_st_puff_puff',      name: 'Puff Puff',                           keywords: ['puff puff'] },
-          { key: 'ng_st_moyin',           name: 'Moyin Moyin',                         keywords: ['moyin moyin', 'moin moin', 'moimoi', 'moi moi', 'moymoy', 'moyin', 'moin', 'moaning moaning', 'moaning', 'morning morning', 'mine mine', 'morn morn', 'moine', 'moyne moyne', 'moyene'] },
-          { key: 'ng_st_gizzard',         name: 'Spicy Gizzard',                       keywords: ['gizzard'] },
-          { key: 'ng_st_kebab',           name: 'Spicy Shish Kebab',                   keywords: ['shish kebab', 'kebab'] },
-          { key: 'ng_st_plantain_salmon', name: 'Plantain & Smoked Salmon Sticks',     keywords: ['smoked salmon', 'salmon sticks'] },
-          { key: 'ng_st_pepper_soup',     name: 'Assorted Meat / Fish Pepper Soup',    keywords: ['pepper soup', 'assorted meat', 'assorted', 'assaulted meat', 'assaulted'] },
-          { key: 'ng_st_spring_rolls',    name: 'Spring Rolls with Sauce',             keywords: ['spring rolls', 'spring roll', 'for roll', 'four roll', 'for rolls', 'four rolls'] },
-          { key: 'ng_st_ugba',            name: 'Fermented Oil Bean Seed (Ugba)',      keywords: ['ugba', 'oil bean', 'agba', 'ogba', 'uguba', 'oogba', 'ugbah', 'ugbe', 'uba'] },
-          { key: 'ng_st_king_prawns',     name: 'Crispy Breaded King Prawns',          keywords: ['king prawns', 'breaded prawns'] },
-          { key: 'ng_st_prawns_lettuce',  name: 'Cooked Prawns on Lettuce',            keywords: ['prawns on lettuce'] },
-          { key: 'ng_st_wings',           name: 'Chicken Wings with BBQ Sauce',        keywords: ['chicken wings', 'bbq wings'] },
-        ],
-      },
-      {
-        name: 'Mains', price: 22,
-        items: [
-          { key: 'ng_mn_jollof',     name: 'Jollof / Fried / Coconut / White Rice',                 keywords: ['jollof rice', 'fried rice', 'coconut rice', 'white rice', 'jollof', 'love rice', 'lof rice', 'jalof', 'jolof'] },
-          { key: 'ng_mn_soups',      name: 'Egusi / Eforiro / Ewedu / Ogbono / Edikaikong / Banga', keywords: ['egusi', 'egorsi', 'egoshi', 'agushi', 'igusi', 'egoozy', 'eforiro', 'efariro', 'efforiro', 'iforiro', 'ewedu', 'ewedo', 'e wedu', 'awedu', 'ogbono', 'ogbono soup', 'agbono', 'ugbono', 'edikaikong', 'edika', 'edi kai kong', 'adikaikong', 'adika', 'banga soup', 'banga'] },
-          { key: 'ng_mn_swallow',    name: 'Semolina / Pounded Yam / Garri / Amala',                keywords: ['semolina', 'pounded yam', 'garri', 'gari', 'gary', 'garry', 'amala', 'amella', 'ah mala', 'swallow', 'eba'] },
-          { key: 'ng_mn_roasted',    name: 'Roasted Potatoes with Lamb / Chicken / Turkey',         keywords: ['roasted potatoes', 'roasted lamb', 'roasted turkey'] },
-          { key: 'ng_mn_yam_omelet', name: 'Boiled Yam and Omelette',                               keywords: ['boiled yam', 'yam omelette'] },
-          { key: 'ng_mn_dodo_omelet',name: 'Dodo (Fried Plantain) with Omelette',                   keywords: ['dodo omelette', 'plantain omelette', 'dodo', 'fried plantain omelette'] },
-          { key: 'ng_mn_asaro',      name: 'Asaro (Yam Porridge) and Dodo',                         keywords: ['asaro', 'yam porridge', 'asaro yam', 'osharo', 'assaro', 'azaro', 'osaro', 'ah saro'] },
-        ],
-      },
-      {
-        name: 'Desserts', price: 7,
-        items: [
-          { key: 'ng_ds_fruit_salad',  name: 'Fresh Tropical Fruit Salad', keywords: ['fruit salad', 'tropical fruit'] },
-          { key: 'ng_ds_banana_cake',  name: 'Banana Cake and Ice Cream',  keywords: ['banana cake ice cream'] },
-          { key: 'ng_ds_choc_gateau',  name: 'Chocolate Gateau',           keywords: ['gateau', 'chocolate gateau'] },
-          { key: 'ng_ds_apple_pie',    name: 'Apple Pie with Ice Cream',   keywords: ['apple pie'] },
+          { key: 'shingle_3tab',      name: '3-Tab Shingles',              keywords: ['3-tab', 'three tab', 'three-tab', 'economy shingles'] },
+          { key: 'shingle_arch',      name: '30-yr Architectural Shingles', keywords: ['architectural', '30-year', '30 year', 'arch shingles', 'dimensional', 'laminate shingles'] },
+          { key: 'shingle_50yr',      name: '50-yr Architectural Shingles', keywords: ['50-year', '50 year', 'lifetime shingles'] },
+          { key: 'shingle_impact',    name: 'Impact-Resistant (Class 4)',   keywords: ['impact resistant', 'class 4', 'impact-resistant', 'hail resistant', 'class four'] },
+          { key: 'shingle_metal',     name: 'Metal Roofing',                keywords: ['metal roof', 'standing seam', 'metal shingles', 'steel roofing'] },
+          { key: 'underlayment',      name: 'Synthetic Underlayment',       keywords: ['underlayment', 'underlament', 'felt', 'synthetic felt'] },
+          { key: 'ice_water',         name: 'Ice & Water Shield',           keywords: ['ice and water', 'ice water shield', 'ice shield'] },
         ],
       },
     ],
   },
   {
-    cuisine: 'Ghanaian Cuisine',
+    cuisine: 'Labor & Tear-Off',
     sections: [
       {
-        name: 'Mains', price: 22,
+        name: 'Labor', price: 60,
         items: [
-          { key: 'gh_mn_banku',    name: 'Banku with Okro Soup',             keywords: ['banku', 'banco', 'bankoo', 'bangku', 'baku', 'banko', 'bunko', 'okro soup'] },
-          { key: 'gh_mn_kelewele', name: 'Kelewele (Spiced Fried Plantain)', keywords: ['kelewele', 'kele wele', 'kelewele chicken', 'kelley kelly', 'kelewelay', 'kelly willie', 'kelly willy', 'keli wele', 'kelo wele', 'kilowele'] },
-          { key: 'gh_mn_fufu',     name: 'Fufu with Groundnut Soup',         keywords: ['ghanaian fufu', 'fufu groundnut', 'ghana fufu', 'fufu', 'fofo', 'foo foo'] },
-          { key: 'gh_mn_jollof',   name: 'Jollof Rice (Ghanaian)',           keywords: ['ghanaian jollof', 'ghana jollof'] },
-          { key: 'gh_mn_kenkey',   name: 'Kenkey',                           keywords: ['kenkey', 'kenkay', 'kenke', 'kinkey', 'ken key', 'kenkee', 'kenki', 'kenke fish'] },
-          { key: 'gh_mn_omo_tuo',  name: 'Omo Tuo (Mashed Rice Balls)',      keywords: ['omo tuo', 'omo two', 'omoe tuo', 'omotuo', 'omo to', 'amo tuo', 'omo too', 'omoh tuo', 'omo tow'] },
-          { key: 'gh_mn_waakye',   name: 'Waakye (Rice and Beans)',          keywords: ['waakye', 'wahchay', 'waakey', 'watchee', 'wahchi', 'wachie', 'wachi', 'watch'] },
-          { key: 'gh_mn_ampesi',   name: "Yam Ampesi with Dosa Sauce",       keywords: ['yam ampesi', 'ampesi', 'am pesi', 'ampasi', 'umpesi', 'ampezi', 'ampesee'] },
-          { key: 'gh_mn_shito',    name: 'Shito Chicken Stew / Curry',       keywords: ['shito', 'chateau chicken', 'chatou chicken', 'chato chicken', 'shato chicken', 'shatow', 'chato', 'shato'] },
-          { key: 'gh_mn_goat',     name: 'Goat Curry / Beef Stew / Curry',   keywords: ['goat curry', 'beef stew', 'beef curry'] },
-          { key: 'gh_mn_fish',     name: 'Fish Stew / Red Snapper / Tilapia',keywords: ['red snapper', 'tilapia', 'fish curry'] },
+          { key: 'labor_install',   name: 'Installation Labor',      keywords: ['installation', 'install labor', 'labor', 'labour'] },
+          { key: 'labor_tearoff',   name: 'Tear-Off & Disposal',     keywords: ['tear off', 'tear-off', 'removal', 'rip off', 'strip off', 'old roof removal'] },
+          { key: 'flashing',        name: 'Flashing',                keywords: ['flashing', 'valley flashing', 'step flashing', 'drip edge'] },
+          { key: 'ridge_cap',       name: 'Ridge Cap & Vents',       keywords: ['ridge cap', 'ridge vent', 'ridge ventilation', 'hip cap'] },
+          { key: 'decking',         name: 'Decking Replacement',     keywords: ['decking', 'plywood', 'osb', 'sheathing', 'wood rot'] },
         ],
       },
     ],
   },
   {
-    cuisine: 'Sierra Leonean Cuisine',
+    cuisine: 'Extras & Add-ons',
     sections: [
       {
-        name: 'Mains', price: 22,
+        name: 'Extras', price: 0,
         items: [
-          { key: 'sl_mn_jollof',     name: 'Jollof Rice & Stew (Sierra Leonean)', keywords: ['sierra leonean jollof', 'sierra leone jollof'] },
-          { key: 'sl_mn_fried_rice', name: 'Boneless Chicken / Seafood Fried Rice',keywords: ['seafood fried rice', 'chicken fried rice'] },
-          { key: 'sl_mn_rice_sticks',name: 'Rice Sticks',                          keywords: ['rice sticks'] },
-          { key: 'sl_mn_groundnut',  name: 'Groundnut Stew with Steamed Rice',     keywords: ['groundnut stew', 'ground nut stew', 'groundnut', 'groundnut soup', 'ground nut soup'] },
-          { key: 'sl_mn_cassava',    name: 'Cassava Leaves with Meat / Fish',      keywords: ['cassava leaves', 'casava leaves', 'cassawa leaves', 'cassava leaf', 'casava leaf', 'cassava'] },
-          { key: 'sl_mn_crain',      name: 'Crain Crain with Meat / Fish',         keywords: ['crain crain', 'crane crane', 'cran cran', 'krain krain', 'grain grain', 'cream cream', 'krane krane', 'kren kren', 'krain'] },
-          { key: 'sl_mn_potato',     name: 'Potato Leaves with Meat / Fish',       keywords: ['potato leaves', 'potato leaf'] },
-          { key: 'sl_mn_palm_oil',   name: 'Red Palm Oil Stew with Check Rice',    keywords: ['palm oil stew', 'red palm oil', 'palm oil', 'check rice'] },
-          { key: 'sl_mn_fufu',       name: 'Fufu with Choice of Soup',             keywords: ['sierra fufu', 'fufu palm oil', 'salone fufu'] },
-        ],
-      },
-    ],
-  },
-  {
-    cuisine: 'Caribbean Cuisine',
-    sections: [
-      {
-        name: 'Mains', price: 20,
-        items: [
-          { key: 'cb_mn_jerk_chicken',  name: 'Jerk Chicken',           keywords: ['jerk chicken'] },
-          { key: 'cb_mn_jerk_wings',    name: 'Jerk Chicken Wings',     keywords: ['jerk chicken wings', 'jerk wings'] },
-          { key: 'cb_mn_jerk_pork',     name: 'Jerk Pork',              keywords: ['jerk pork'] },
-          { key: 'cb_mn_curried',       name: 'Curried Chicken',        keywords: ['curried chicken', 'curry chicken'] },
-          { key: 'cb_mn_brown_chicken', name: 'Brown Stew Chicken',     keywords: ['brown stew chicken'] },
-          { key: 'cb_mn_oxtail',        name: 'Oxtail',                 keywords: ['oxtail', 'ox tail', 'oxtails'] },
-          { key: 'cb_mn_pepper_steak',  name: 'Pepper Steak',           keywords: ['pepper steak'] },
-          { key: 'cb_mn_curry_goat',    name: 'Curry Goat',             keywords: ['curry goat'] },
-          { key: 'cb_mn_stew_shrimp',   name: 'Stew Shrimp',            keywords: ['stew shrimp', 'shrimp stew'] },
-          { key: 'cb_mn_brown_fish',    name: 'Brown Stew Fish',        keywords: ['brown stew fish', 'stew fish'] },
-          { key: 'cb_mn_escovitch',     name: 'Escovitch Fish',         keywords: ['escovitch', 'escobeech', 'escobitch', 'escovish', 'eskovitch', 'escoviche', 'escowich', 'escobeach', 'escovet'] },
-          { key: 'cb_mn_curry_shrimp',  name: 'Curry Shrimp',          keywords: ['curry shrimp'] },
-        ],
-      },
-      {
-        name: 'Specials', price: 24,
-        items: [
-          { key: 'cb_sp_callaloo', name: 'Callaloo',        keywords: ['callaloo', 'calaloo', 'callalou', 'calalou', 'callalu', 'kalaloo', 'kalalu', 'callalo', 'calalow', 'kalalow'] },
-          { key: 'cb_sp_ackee',    name: 'Ackee & Cod Fish',keywords: ['ackee', 'aki', 'ackie', 'acky', 'ackee cod', 'echo see', 'ackey'] },
-        ],
-      },
-      {
-        name: 'Sides', price: 5,
-        items: [
-          { key: 'cb_sd_plantains', name: 'Plantains',      keywords: ['caribbean plantain', 'rice and peas plantain', 'plantain'] },
-          { key: 'cb_sd_dumpling',  name: 'Fried Dumpling', keywords: ['fried dumpling', 'dumpling', 'fried dumplin', 'fry dumpling'] },
-          { key: 'cb_sd_wings',     name: 'Wings (Side)',   keywords: ['wings side'] },
-        ],
-      },
-      {
-        name: 'Desserts', price: 7,
-        items: [
-          { key: 'cb_ds_rum_cake',  name: 'Rum Cake',        keywords: ['rum cake'] },
-          { key: 'cb_ds_banana',    name: 'Banana Cake',     keywords: ['banana cake'] },
-          { key: 'cb_ds_choc_cake', name: 'Chocolate Cake',  keywords: ['chocolate cake'] },
-          { key: 'cb_ds_ice_cream', name: 'Ice Creams',      keywords: ['ice cream'] },
-        ],
-      },
-    ],
-  },
-  {
-    cuisine: 'Luxury Canapés',
-    sections: [
-      {
-        name: 'Canapés', price: 4,
-        items: [
-          { key: 'cn_ackee_vol',     name: 'Ackee & Saltfish Vol au Vent',       keywords: ['vol au vent', 'ackee vol', 'vola vent', 'volu vent', 'vol vent', 'vow vent', 'vol au van'] },
-          { key: 'cn_jerk_skewer',   name: 'Jerk Chicken Skewer & Plantain',     keywords: ['jerk skewer', 'chicken skewer'] },
-          { key: 'cn_yam_plantain',  name: 'Fried Yam and Plantain Mix',         keywords: ['fried yam plantain', 'yam plantain mix'] },
-          { key: 'cn_spring_rolls',  name: 'Spring Rolls with Sweet Chilli',     keywords: ['sweet chilli spring rolls', 'sweet chilli'] },
-          { key: 'cn_king_prawns',   name: 'Crispy Breaded King Prawns (Canapé)',keywords: ['crispy king prawns', 'canapé prawns'] },
-          { key: 'cn_fish_chips',    name: 'Mini British Fish and Chips',        keywords: ['fish and chips', 'mini fish'] },
-          { key: 'cn_prawns_lettuce',name: 'Cooked Prawns on Lettuce (Canapé)', keywords: ['canapé prawns lettuce'] },
-          { key: 'cn_wings_canape',  name: 'Chicken Wings BBQ (Canapé)',         keywords: ['canapé wings'] },
-          { key: 'cn_butter_chicken',name: 'Crispy Chicken in Butter Mayonnaise',keywords: ['butter mayonnaise', 'butter chicken crispy'] },
-          { key: 'cn_gizzard_plantain',name:'Spicy Gizzard & Diced Plantains',  keywords: ['gizzard plantain', 'gizzard diced'] },
-          { key: 'cn_mini_burgers',  name: 'Mini Burgers',                       keywords: ['mini burgers', 'sliders'] },
-          { key: 'cn_meat_pies',     name: 'Mini Mixed Meat Pies',               keywords: ['meat pies', 'mini pies'] },
-          { key: 'cn_patties',       name: 'Mini Mixed Patties',                 keywords: ['patties', 'mini patties'] },
-          { key: 'cn_puff_puff_bite',name: 'Puff Puff Bites (Canapé)',          keywords: ['puff puff bites'] },
+          { key: 'gutters',         name: 'Gutter Replacement',      keywords: ['gutters', 'gutter replacement', 'seamless gutters', 'new gutters'] },
+          { key: 'gutter_guards',   name: 'Gutter Guards',           keywords: ['gutter guards', 'leaf guards', 'micro mesh'] },
+          { key: 'fascia',          name: 'Fascia & Soffit',         keywords: ['fascia', 'soffit', 'fascia board'] },
+          { key: 'skylight',        name: 'Skylight Flashing',       keywords: ['skylight', 'sky light flashing'] },
+          { key: 'chimney',         name: 'Chimney Flashing',        keywords: ['chimney flashing', 'chimney recount', 'chimney'] },
+          { key: 'ventilation',     name: 'Ventilation Upgrade',     keywords: ['ventilation', 'attic ventilation', 'power vent', 'box vents'] },
         ],
       },
     ],
@@ -317,11 +208,9 @@ const DEOSA_ALL_ITEMS = DEOSA_MENU.flatMap(cg =>
   )
 );
 
-// Detect food items mentioned in a transcript line
+// Detect roofing items mentioned in a transcript line
 // Returns { toCheck: [key], toUncheck: [key], toAmbiguous: [{id, label, candidates, minPrice, maxPrice}] }
 function detectFoodInText(text) {
-  // Split into clauses so "remove X, but leave Y" is handled per-clause.
-  // This prevents a removal phrase in one clause from unchecking items in another.
   const clauses = text.split(/[.!?]+\s*|\s*,?\s+but\s+|\s*,?\s+however\s+|\s*,?\s+except\s+/i)
     .map(c => c.trim()).filter(Boolean);
 
@@ -335,8 +224,6 @@ function detectFoodInText(text) {
     /\bscratch that\b/,
     /\bno (more|longer)\b/,
   ];
-  // A clause with preservation language is never treated as a removal,
-  // even if it also contains removal words from an adjacent clause.
   const PRESERVATION_PATTERNS = [
     /\bleave\b/,
     /\bkeep\b/,
@@ -354,7 +241,6 @@ function detectFoodInText(text) {
     const isPreservation = PRESERVATION_PATTERNS.some(p => p.test(lower));
     const effectiveRemoval = isRemoval && !isPreservation;
 
-    // Map from keyword → matching items for THIS clause
     const kwMatches = new Map();
     for (const item of DEOSA_ALL_ITEMS) {
       for (const kw of item.keywords) {
@@ -367,7 +253,6 @@ function detectFoodInText(text) {
     }
 
     const clauseResolved = new Set();
-    // Sort by keyword length descending (longer = more specific = higher priority)
     const entries = [...kwMatches.entries()].sort((a, b) => b[0].length - a[0].length);
 
     for (const [kw, items] of entries) {
@@ -529,7 +414,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
       if (saved.length > 0) return `saved:${saved[0].id}`;
     } catch { /* ignore */ }
-    return 'template:wedding-photography';
+    return 'template:roof-replacement';
   });
 
   // ── Share ──
@@ -540,7 +425,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const [dialContactsOpen, setDialContactsOpen] = useState(false);
   const [dialContactSearch, setDialContactSearch] = useState('');
 
-  // ── Menu checklist (catering niche) ──
+  // ── Menu checklist (roofing niche) ──
   const [menuChecked, setMenuChecked]     = useState({}); // { itemKey: true }
   const menuCheckedRef = useRef({});
   const [menuAmbiguous, setMenuAmbiguous] = useState([]); // [{ id, label, candidates, minPrice, maxPrice }]
@@ -974,8 +859,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
         }, 1500);
       }
 
-      // ── Live food detection for catering niche ────────────────────────────
-      if (nicheRef.current?.id === 'wedding-catering') {
+      // ── Live roofing item detection ────────────────────────────────────────
+      if (nicheRef.current?.id === 'roof-replacement') {
         const { toCheck, toUncheck, toAmbiguous } = detectFoodInText(text);
         if (toCheck.length || toUncheck.length) {
           setMenuChecked(prev => {
@@ -1317,8 +1202,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       }).catch(() => {});
     }
 
-    // Re-scan full transcript for missed food items (catering niche)
-    if (nicheRef.current?.id === 'wedding-catering' && txRef.current.length > 0) {
+    // Re-scan full transcript for missed roofing items
+    if (nicheRef.current?.id === 'roof-replacement' && txRef.current.length > 0) {
       const allChecked = {};
       txRef.current.forEach(line => {
         const { toCheck, toUncheck } = detectFoodInText(line.text);
@@ -1330,7 +1215,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     }
 
     // Sync menu checklist → fieldValues so MENU shows as "captured"
-    if (nicheRef.current?.id === 'wedding-catering') {
+    if (nicheRef.current?.id === 'roof-replacement') {
       setTimeout(() => {
         const menuField = fieldsRef.current.find(f => f.type === 'menu-checklist');
         if (menuField) {
@@ -1432,7 +1317,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       const r = await apiFetch('/api/demo-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Build menu summary for catering niche
+        // Build menu summary for roofing niche
         body: (() => {
           const checkedMenuItems = Object.keys(menuCheckedRef.current).map(key => {
             const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
@@ -1597,8 +1482,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     } else {
       try {
         const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
-        setSelectedFormKey(saved.length > 0 ? `saved:${saved[0].id}` : 'template:wedding-photography');
-      } catch { setSelectedFormKey('template:wedding-photography'); }
+        setSelectedFormKey(saved.length > 0 ? `saved:${saved[0].id}` : 'template:roof-replacement');
+      } catch { setSelectedFormKey('template:roof-replacement'); }
     }
   };
 
@@ -1635,7 +1520,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Render helpers ────────────────────────────────────────────────────────
 
-  // ── Menu checklist renderer (catering niche) ──────────────────────────────
+  // ── Menu checklist renderer (roofing niche) ──────────────────────────────
   const renderMenuChecklist = (f) => {
     const guestField = fields.find(fl => fl.label.toLowerCase().includes('guest'));
     const guestCount = parseInt((guestField ? fieldValues[guestField.key] : 0) || 0) || 0;
@@ -2420,9 +2305,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     };
 
     const DEMO_CONTACTS = [
-      { id: 'dc1', name: 'Sarah Jenkins',      phone: '+44 7700 900123', eventType: 'Wedding',   initials: 'SJ', color: 'bg-purple-100 text-purple-700' },
+      { id: 'dc1', name: 'Mike Harris',         phone: '+1 (713) 555-0142', eventType: 'Full Replacement', initials: 'MH', color: 'bg-blue-100 text-blue-700' },
       { id: 'dc2', name: 'Michael Chen',       phone: '+44 7700 900456', eventType: 'Corporate', initials: 'MC', color: 'bg-blue-100 text-blue-700' },
-      { id: 'dc3', name: 'Emma & David Harper',phone: '+44 7700 900789', eventType: 'Wedding',   initials: 'EH', color: 'bg-pink-100 text-pink-700' },
+      { id: 'dc3', name: 'Tom Bradley',        phone: '+1 (832) 555-0198', eventType: 'Roof Repair',     initials: 'TB', color: 'bg-amber-100 text-amber-700' },
       { id: 'dc4', name: 'Rivera Family',      phone: '+44 7700 900321', eventType: 'Birthday',  initials: 'RF', color: 'bg-orange-100 text-orange-700' },
       { id: 'dc5', name: 'TechCorp Inc.',       phone: '+44 7700 900654', eventType: 'Corporate', initials: 'TC', color: 'bg-green-100 text-green-700' },
       { id: 'dc6', name: 'Aisha Okafor',       phone: '+44 7700 900987', eventType: 'Birthday',  initials: 'AO', color: 'bg-yellow-100 text-yellow-700' },
@@ -2637,9 +2522,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       );
     }
 
-    // Live quote total for header — catering niche only for now
+    // Live quote total for header — roofing niche only for now
     let callQuoteTotal = null;
-    if (niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0) {
+    if (niche?.id === 'roof-replacement' && Object.keys(menuChecked).length > 0) {
       let pp = 0;
       Object.keys(menuChecked).forEach(key => {
         const item = DEOSA_ALL_ITEMS.find(i => i.key === key);
@@ -2711,7 +2596,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
               let lineItems = [];
               let isExact = false;
 
-              if (niche?.id === 'wedding-catering' && Object.keys(menuChecked).length > 0) {
+              if (niche?.id === 'roof-replacement' && Object.keys(menuChecked).length > 0) {
                 // Exact pricing from live menu checklist
                 isExact = true;
                 DEOSA_MENU.forEach(cg => {
@@ -2809,7 +2694,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                       )}
                       {venue && (
                         <div>
-                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Venue</div>
+                          <div className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">Location</div>
                           <div className="text-xs font-semibold text-slate-700">{String(venue)}</div>
                         </div>
                       )}
@@ -2900,7 +2785,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                   <div className="px-6 py-3 bg-slate-50 border-t border-slate-100">
                     <div className="text-[10px] text-slate-400">
                       {isExact
-                        ? `Prices based on De'Osa catering menu. Final quote subject to full menu confirmation.`
+                        ? `Prices based on quoted materials. Final quote subject to site survey confirmation.`
                         : `Estimate based on call discussion. Final quote subject to written confirmation.`}
                     </div>
                     {!guestCount && isExact && (

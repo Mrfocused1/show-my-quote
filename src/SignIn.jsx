@@ -64,7 +64,7 @@ export default function SignIn({ onHome, onEnterApp }) {
                 type="email"
                 value={form.email}
                 onChange={set('email')}
-                placeholder="jane@elitecatering.co.uk"
+                placeholder="mike@houstonroofing.com"
                 className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
               />
             </div>

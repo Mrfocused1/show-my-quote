@@ -9,28 +9,28 @@ import {
 export const MOCK_TEMPLATES = [
   {
     id: 'tmpl-1',
-    name: 'Wedding Reception',
-    description: 'Full plated dinner with open bar, staff, and tiered guest pricing.',
-    eventType: 'Wedding',
-    itemCount: 8,
+    name: 'Standard Reroof',
+    description: 'Full tear-off and replacement with 30-year architectural shingles.',
+    eventType: 'Full Replacement',
+    itemCount: 6,
     lastUsed: '2 days ago',
     quotesGenerated: 12,
   },
   {
     id: 'tmpl-2',
-    name: 'Corporate Buffet',
-    description: 'Self-service buffet for corporate retreats and team events.',
-    eventType: 'Corporate',
-    itemCount: 5,
+    name: 'Premium Reroof',
+    description: 'Impact-resistant Class 4 shingles with lifetime workmanship warranty.',
+    eventType: 'Full Replacement',
+    itemCount: 6,
     lastUsed: '1 week ago',
     quotesGenerated: 7,
   },
   {
     id: 'tmpl-3',
-    name: 'Birthday Celebration',
-    description: 'Family-style sharing plates and drinks for birthday parties.',
-    eventType: 'Birthday',
-    itemCount: 6,
+    name: 'Repair Package',
+    description: 'Spot repair for leaks, missing shingles, and flashing issues.',
+    eventType: 'Repair',
+    itemCount: 4,
     lastUsed: '3 days ago',
     quotesGenerated: 4,
   },
@@ -39,40 +39,42 @@ export const MOCK_TEMPLATES = [
 const EMPTY_TEMPLATE = {
   name: '',
   description: '',
-  eventType: 'Wedding',
+  eventType: 'Full Replacement',
   items: [
-    { id: 'i1', name: 'Three-Course Dinner', category: 'Food',  price: 85, unit: 'per person' },
-    { id: 'i2', name: 'Welcome Drinks',      category: 'Drink', price: 15, unit: 'per person' },
-    { id: 'i3', name: 'Wine with Dinner',    category: 'Drink', price: 25, unit: 'per person' },
+    { id: 'i1', name: '30-yr architectural shingles', category: 'Materials', price: 90,    unit: 'per square' },
+    { id: 'i2', name: 'Synthetic underlayment',       category: 'Materials', price: 15,    unit: 'per square' },
+    { id: 'i3', name: 'Labor — installation',         category: 'Labor',     price: 60,    unit: 'per square' },
+    { id: 'i4', name: 'Tear-off & disposal',          category: 'Labor',     price: 12.50, unit: 'per square' },
+    { id: 'i5', name: 'Drip edge & flashing',         category: 'Materials', price: 280,   unit: 'flat fee'   },
+    { id: 'i6', name: 'Ridge cap & vents',            category: 'Materials', price: 220,   unit: 'flat fee'   },
   ],
   timings: [
-    { id: 't1', label: 'Setup & Prep',    hours: 2, extraHourRate: 200 },
-    { id: 't2', label: 'Drinks Reception', hours: 1, extraHourRate: 250 },
-    { id: 't3', label: 'Dinner Service',   hours: 3, extraHourRate: 300 },
-    { id: 't4', label: 'Evening Event',    hours: 2, extraHourRate: 200 },
+    { id: 't1', label: 'Crew mobilisation', hours: 0.5, extraHourRate: 150 },
+    { id: 't2', label: 'Tear-off',          hours: 4,   extraHourRate: 120 },
+    { id: 't3', label: 'Installation',      hours: 6,   extraHourRate: 120 },
+    { id: 't4', label: 'Cleanup & inspect', hours: 1,   extraHourRate: 120 },
   ],
-  guestCount: 100,
+  guestCount: 28,
   guestTiers: [
-    { id: 'g1', label: 'Intimate (up to 50)', max: 50,  adjustment: 15  },
-    { id: 'g2', label: 'Standard (51–150)',   max: 150, adjustment: 0   },
-    { id: 'g3', label: 'Large (151–300)',     max: 300, adjustment: -8  },
+    { id: 'g1', label: 'Small (up to 15 sq)',  max: 15,  adjustment: 10 },
+    { id: 'g2', label: 'Standard (16–35 sq)', max: 35,  adjustment: 0  },
+    { id: 'g3', label: 'Large (36+ sq)',       max: 999, adjustment: -5 },
   ],
   staff: [
-    { id: 's1', role: 'Waiter / Server',     count: 6, ratePerShift: 180 },
-    { id: 's2', role: 'Head Chef',           count: 1, ratePerShift: 450 },
-    { id: 's3', role: 'Sous Chef',           count: 2, ratePerShift: 300 },
-    { id: 's4', role: 'Event Coordinator',   count: 1, ratePerShift: 350 },
+    { id: 's1', role: 'Lead roofer',  count: 1, ratePerShift: 450 },
+    { id: 's2', role: 'Crew member',  count: 3, ratePerShift: 250 },
+    { id: 's3', role: 'Site foreman', count: 1, ratePerShift: 350 },
   ],
   rules: [
-    { id: 'r1', ifField: 'Guest Count',      operator: '>',  ifValue: '150', thenField: 'Food Subtotal', thenAction: 'Apply % discount', thenValue: '5'    },
-    { id: 'r2', ifField: 'Total Event Hours', operator: '>',  ifValue: '6',   thenField: 'Staff Cost',    thenAction: 'Multiply by factor', thenValue: '1.25' },
+    { id: 'r1', ifField: 'Roof Squares', operator: '>',  ifValue: '35', thenField: 'Labor Subtotal',    thenAction: 'Apply % discount',   thenValue: '5'    },
+    { id: 'r2', ifField: 'Storeys',      operator: '>',  ifValue: '1',  thenField: 'Labor Subtotal',    thenAction: 'Add % surcharge',    thenValue: '25'   },
   ],
 };
 
 const BLANK_TEMPLATE = {
   name: '',
   description: '',
-  eventType: 'Wedding',
+  eventType: 'Full Replacement',
   items: [],
   timings: [],
   guestCount: 0,
@@ -85,8 +87,8 @@ const FIELD_OPTIONS  = ['Guest Count', 'Total Event Hours', 'Food Subtotal', 'Dr
 const ACTION_OPTIONS = ['Add flat fee', 'Subtract flat fee', 'Add % surcharge', 'Apply % discount', 'Multiply by factor'];
 
 const MOCK_CALLS_FOR_CONNECT = [
-  { id: 'call-101', caller: 'Sarah Jenkins', extracted: { guestCount: 120, eventType: 'Wedding',   serviceStyle: 'Plated', dietary: ['Nut Allergy', 'Vegan'] } },
-  { id: 'call-102', caller: 'Michael Chen',  extracted: { guestCount: 50,  eventType: 'Corporate', serviceStyle: 'Buffet', dietary: []                        } },
+  { id: 'call-101', caller: 'Mike Harris',   extracted: { roofSquares: 28, eventType: 'Full Replacement', material: '30-yr Architectural', stories: 2 } },
+  { id: 'call-102', caller: 'Tom Bradley',   extracted: { roofSquares: 14, eventType: 'Repair',           material: 'Match existing',      stories: 1 } },
 ];
 
 // ─── Templates list page ──────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ export function TemplatesView({ navigateTo }) {
     <div className="max-w-5xl mx-auto p-4 md:p-8">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6 md:mb-8">
         <div>
-          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Catering Templates</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-slate-900">Roofing Templates</h1>
           <p className="text-slate-500 text-sm mt-1">
             Build reusable quote flows — items, timings, staff, guest tiers, and auto logic.
           </p>
@@ -211,7 +213,7 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
                 type="text"
                 value={template.name}
                 onChange={e => update('name', e.target.value)}
-                placeholder="Template name (e.g. Wedding Reception)"
+                placeholder="Template name (e.g. Standard Reroof)"
                 className="text-2xl font-bold text-slate-900 w-full outline-none placeholder-slate-300 border-b border-transparent focus:border-slate-200 transition-colors bg-transparent"
               />
               <input
@@ -228,7 +230,7 @@ export function TemplateBuilderView({ initialData, navigateTo }) {
                 onChange={e => update('eventType', e.target.value)}
                 className="text-sm border border-slate-200 rounded-md px-3 py-1.5 bg-slate-50 outline-none"
               >
-                {['Wedding', 'Corporate', 'Birthday', 'Social', 'Other'].map(t => (
+                {['Full Replacement', 'Repair', 'Storm / Insurance', 'Commercial', 'Emergency', 'Gutter & Fascia', 'Other'].map(t => (
                   <option key={t}>{t}</option>
                 ))}
               </select>

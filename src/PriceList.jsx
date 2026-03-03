@@ -20,132 +20,107 @@ const COLOR_KEYS = Object.keys(CAT_COLORS);
 
 // ─── Seed data ────────────────────────────────────────────────────────────────
 const SEED = [
-  // ── Food ──────────────────────────────────────────────────────────────────
+  // ── Shingles & Underlayment ───────────────────────────────────────────────
   {
-    id: 'cat-1', name: 'Starters', color: 'amber', collapsed: true,
+    id: 'cat-1', name: 'Shingles & Underlayment', color: 'amber', collapsed: true,
     items: [
-      { id: 'i1',  name: 'Caesar Salad',              price: 12,  unit: 'per person', notes: '' },
-      { id: 'i2',  name: 'Soup of the Day',            price: 8,   unit: 'per person', notes: '' },
-      { id: 'i3',  name: 'Bruschetta Board',           price: 14,  unit: 'per person', notes: 'Serves 2' },
-      { id: 'i4',  name: 'Prawn Cocktail',             price: 18,  unit: 'per person', notes: '' },
-      { id: 'i5',  name: 'Smoked Salmon Blini',        price: 16,  unit: 'per person', notes: '' },
-      { id: 'i6',  name: 'Canapé Selection (6 pcs)',   price: 22,  unit: 'per person', notes: 'Passed around' },
-    ],
-  },
-  {
-    id: 'cat-2', name: 'Mains', color: 'blue', collapsed: true,
-    items: [
-      { id: 'i7',  name: 'Beef Wellington',            price: 68,  unit: 'per person', notes: '' },
-      { id: 'i8',  name: 'Pan-Seared Salmon',          price: 42,  unit: 'per person', notes: '' },
-      { id: 'i9',  name: 'Chicken Supreme',            price: 35,  unit: 'per person', notes: '' },
-      { id: 'i10', name: 'Slow-Roast Lamb Shoulder',   price: 52,  unit: 'per person', notes: '' },
-      { id: 'i11', name: 'Mushroom Wellington',        price: 28,  unit: 'per person', notes: 'Vegan' },
-      { id: 'i12', name: 'Buffet (3-course spread)',   price: 38,  unit: 'per person', notes: 'Self-service' },
-    ],
-  },
-  {
-    id: 'cat-3', name: 'Desserts', color: 'rose', collapsed: true,
-    items: [
-      { id: 'i13', name: 'Crème Brûlée',               price: 12,  unit: 'per person', notes: '' },
-      { id: 'i14', name: 'Chocolate Fondant',          price: 11,  unit: 'per person', notes: '' },
-      { id: 'i15', name: 'Seasonal Sorbet',            price: 8,   unit: 'per person', notes: 'Vegan' },
-      { id: 'i16', name: 'Cheeseboard & Chutney',      price: 15,  unit: 'per person', notes: 'Serves 2–3' },
-      { id: 'i17', name: 'Wedding Cake (cutting fee)', price: 3,   unit: 'per person', notes: 'Customer supplies cake' },
+      { id: 'i1',  name: '3-Tab shingles',                    price: 70,  unit: 'per square', notes: 'Economy option' },
+      { id: 'i2',  name: '30-yr architectural shingles',      price: 90,  unit: 'per square', notes: 'Most popular' },
+      { id: 'i3',  name: '50-yr architectural shingles',      price: 120, unit: 'per square', notes: 'Premium grade' },
+      { id: 'i4',  name: 'Impact-resistant (Class 4)',        price: 130, unit: 'per square', notes: 'Insurance discount eligible' },
+      { id: 'i5',  name: 'Metal standing seam',              price: 350, unit: 'per square', notes: '40–70 yr lifespan' },
+      { id: 'i6',  name: 'Synthetic underlayment',            price: 15,  unit: 'per square', notes: '' },
+      { id: 'i7',  name: 'Felt underlayment (15 lb)',         price: 8,   unit: 'per square', notes: '' },
+      { id: 'i8',  name: 'Ice & water shield',               price: 22,  unit: 'per square', notes: 'Eaves & valleys' },
     ],
   },
 
-  // ── Drinks & Bar ──────────────────────────────────────────────────────────
+  // ── Flashing & Trim ───────────────────────────────────────────────────────
   {
-    id: 'cat-4', name: 'Drinks & Bar', color: 'teal', collapsed: true,
+    id: 'cat-2', name: 'Flashing & Trim', color: 'blue', collapsed: true,
     items: [
-      { id: 'i18', name: 'Welcome Drink (Prosecco)',   price: 8,   unit: 'per person', notes: '' },
-      { id: 'i19', name: 'Wine Package (half bottle)', price: 22,  unit: 'per person', notes: 'Red or white' },
-      { id: 'i20', name: 'Open Bar — 4 hours',        price: 55,  unit: 'per person', notes: 'House spirits & mixers' },
-      { id: 'i21', name: 'Open Bar — 6 hours',        price: 75,  unit: 'per person', notes: 'House spirits & mixers' },
-      { id: 'i22', name: 'Soft Drinks & Water Station', price: 6, unit: 'per person', notes: '' },
-      { id: 'i23', name: 'Cocktail Reception (2 hrs)', price: 30, unit: 'per person', notes: '4 cocktails per person' },
-      { id: 'i24', name: 'Mocktail Package',           price: 14,  unit: 'per person', notes: 'Alcohol-free' },
-      { id: 'i25', name: 'Tea & Coffee Service',       price: 5,   unit: 'per person', notes: '' },
-      { id: 'i26', name: 'Late Bar Extension (1 hr)',  price: 12,  unit: 'per person', notes: 'Per extra hour' },
+      { id: 'i9',  name: 'Drip edge (aluminum)',             price: 120, unit: 'flat fee',   notes: 'Standard perimeter' },
+      { id: 'i10', name: 'Valley flashing',                  price: 180, unit: 'flat fee',   notes: 'Open-cut valley' },
+      { id: 'i11', name: 'Step flashing (chimney)',           price: 250, unit: 'flat fee',   notes: 'Brick chimney recount' },
+      { id: 'i12', name: 'Pipe boot / plumbing flashing',    price: 45,  unit: 'per item',   notes: '' },
+      { id: 'i13', name: 'Skylight flashing',                price: 150, unit: 'per item',   notes: '' },
+      { id: 'i14', name: 'Ridge cap shingles',               price: 80,  unit: 'flat fee',   notes: '' },
+      { id: 'i15', name: 'Hip cap shingles',                 price: 60,  unit: 'flat fee',   notes: '' },
     ],
   },
 
-  // ── Staff & Labour ────────────────────────────────────────────────────────
+  // ── Labor ─────────────────────────────────────────────────────────────────
   {
-    id: 'cat-5', name: 'Staff & Labour', color: 'purple', collapsed: true,
+    id: 'cat-3', name: 'Labor', color: 'purple', collapsed: true,
     items: [
-      { id: 'i27', name: 'Head Chef',                  price: 450, unit: 'per shift',  notes: '8-hr shift' },
-      { id: 'i28', name: 'Sous Chef',                  price: 300, unit: 'per shift',  notes: '8-hr shift' },
-      { id: 'i29', name: 'Commis Chef',                price: 180, unit: 'per shift',  notes: '8-hr shift' },
-      { id: 'i30', name: 'Kitchen Porter',             price: 120, unit: 'per shift',  notes: '8-hr shift' },
-      { id: 'i31', name: 'Event Coordinator',          price: 400, unit: 'per shift',  notes: 'Lead on-site contact' },
-      { id: 'i32', name: 'Head Waiter / Maitre d\'',   price: 260, unit: 'per shift',  notes: '' },
-      { id: 'i33', name: 'Waiter / Server',            price: 180, unit: 'per shift',  notes: '8-hr shift' },
-      { id: 'i34', name: 'Bartender',                  price: 200, unit: 'per shift',  notes: '' },
-      { id: 'i35', name: 'Bar Back',                   price: 140, unit: 'per shift',  notes: 'Bar support' },
-      { id: 'i36', name: 'Runner',                     price: 130, unit: 'per shift',  notes: 'Food & dish running' },
-      { id: 'i37', name: 'Security / Door Staff',      price: 220, unit: 'per shift',  notes: 'SIA licensed' },
-      { id: 'i38', name: 'Cleaning Staff',             price: 150, unit: 'per shift',  notes: 'Post-event clean' },
-      { id: 'i39', name: 'Overtime Rate (per person)', price: 30,  unit: 'per hour',   notes: 'Beyond agreed hours' },
+      { id: 'i16', name: 'Installation labor — standard pitch', price: 60, unit: 'per square', notes: '4:12 to 6:12' },
+      { id: 'i17', name: 'Installation labor — steep pitch',    price: 80, unit: 'per square', notes: '7:12 and above' },
+      { id: 'i18', name: 'Steep pitch surcharge (25%)',         price: 0,  unit: 'flat fee',   notes: 'Applied via rule' },
+      { id: 'i19', name: 'Multi-storey surcharge',              price: 150, unit: 'per storey', notes: 'Per storey above ground' },
+      { id: 'i20', name: 'Hourly labor rate',                   price: 75, unit: 'per hour',   notes: 'Miscellaneous tasks' },
+      { id: 'i21', name: 'Lead roofer (day rate)',              price: 450, unit: 'per shift',  notes: '8-hr shift' },
+      { id: 'i22', name: 'Crew member (day rate)',              price: 250, unit: 'per shift',  notes: '8-hr shift' },
+    ],
+  },
+
+  // ── Tear-Off & Disposal ───────────────────────────────────────────────────
+  {
+    id: 'cat-4', name: 'Tear-Off & Disposal', color: 'rose', collapsed: true,
+    items: [
+      { id: 'i23', name: 'Tear-off — 1 layer',               price: 12.50, unit: 'per square', notes: '' },
+      { id: 'i24', name: 'Tear-off — 2 layers',              price: 20,    unit: 'per square', notes: 'Additional charge for double layer' },
+      { id: 'i25', name: 'Dumpster / roll-off rental',       price: 350,   unit: 'flat fee',   notes: '10-yd container, 1 week' },
+      { id: 'i26', name: 'Haul-off & disposal fee',          price: 80,    unit: 'flat fee',   notes: 'Landfill gate fee' },
+      { id: 'i27', name: 'Decking replacement (per sheet)',   price: 85,    unit: 'per item',   notes: '4×8 OSB sheet' },
+    ],
+  },
+
+  // ── Ventilation & Insulation ──────────────────────────────────────────────
+  {
+    id: 'cat-5', name: 'Ventilation & Insulation', color: 'teal', collapsed: true,
+    items: [
+      { id: 'i28', name: 'Ridge vent (per linear foot)',      price: 5,   unit: 'per item',   notes: '' },
+      { id: 'i29', name: 'Box / static vent',                price: 45,  unit: 'per item',   notes: '' },
+      { id: 'i30', name: 'Power attic ventilator',           price: 350, unit: 'per item',   notes: 'Solar or electric' },
+      { id: 'i31', name: 'Soffit vent installation',         price: 25,  unit: 'per item',   notes: '' },
+      { id: 'i32', name: 'Blown-in insulation (per sq ft)',  price: 2,   unit: 'per item',   notes: 'Attic insulation' },
+    ],
+  },
+
+  // ── Gutters & Fascia ─────────────────────────────────────────────────────
+  {
+    id: 'cat-6', name: 'Gutters & Fascia', color: 'sky', collapsed: true,
+    items: [
+      { id: 'i33', name: 'Seamless aluminum gutters (5")',    price: 8,   unit: 'per linear ft', notes: '' },
+      { id: 'i34', name: 'Seamless aluminum gutters (6")',    price: 10,  unit: 'per linear ft', notes: 'High-flow' },
+      { id: 'i35', name: 'Downspout (per foot)',              price: 5,   unit: 'per linear ft', notes: '' },
+      { id: 'i36', name: 'Gutter guards (premium)',           price: 12,  unit: 'per linear ft', notes: 'Micro-mesh' },
+      { id: 'i37', name: 'Fascia board replacement',         price: 6,   unit: 'per linear ft', notes: '' },
+      { id: 'i38', name: 'Soffit replacement',               price: 7,   unit: 'per linear ft', notes: '' },
+      { id: 'i39', name: 'Gutter cleaning (per visit)',       price: 150, unit: 'flat fee',      notes: 'Single-storey' },
     ],
   },
 
   // ── Time & Scheduling ─────────────────────────────────────────────────────
   {
-    id: 'cat-6', name: 'Time & Scheduling', color: 'indigo', collapsed: true,
+    id: 'cat-7', name: 'Time & Scheduling', color: 'indigo', collapsed: true,
     items: [
-      { id: 'i40', name: 'Setup Time (standard)',      price: 200, unit: 'flat fee',   notes: 'Up to 2 hrs pre-event' },
-      { id: 'i41', name: 'Extended Setup (per hour)',  price: 85,  unit: 'per hour',   notes: 'Beyond 2-hr standard' },
-      { id: 'i42', name: 'Breakdown / Strike',         price: 150, unit: 'flat fee',   notes: 'Post-event clear-down' },
-      { id: 'i43', name: 'Early Access Fee',           price: 120, unit: 'flat fee',   notes: 'Venue access before 8am' },
-      { id: 'i44', name: 'Late Finish Surcharge',      price: 100, unit: 'flat fee',   notes: 'Finish after midnight' },
-      { id: 'i45', name: 'Weekend Premium',            price: 15,  unit: 'per person', notes: 'Sat & Sun events' },
-      { id: 'i46', name: 'Bank Holiday Premium',       price: 20,  unit: 'per person', notes: 'All UK bank holidays' },
-      { id: 'i47', name: 'Same-Day Booking Surcharge', price: 250, unit: 'flat fee',   notes: '< 48 hrs notice' },
-      { id: 'i48', name: 'Time on Site (per hour)',    price: 120, unit: 'per hour',   notes: 'General hourly rate' },
+      { id: 'i40', name: 'Emergency call-out (same day)',     price: 350, unit: 'flat fee',   notes: 'Temporary fix included' },
+      { id: 'i41', name: 'Weekend / holiday premium',        price: 200, unit: 'flat fee',   notes: '' },
+      { id: 'i42', name: 'Rush scheduling surcharge',        price: 250, unit: 'flat fee',   notes: '< 48 hrs notice' },
+      { id: 'i43', name: 'Hourly rate (emergency)',           price: 120, unit: 'per hour',   notes: '' },
+      { id: 'i44', name: 'Tarping (emergency)',               price: 150, unit: 'flat fee',   notes: 'Temporary weather protection' },
     ],
   },
 
   // ── Location & Travel ─────────────────────────────────────────────────────
   {
-    id: 'cat-7', name: 'Location & Travel', color: 'sky', collapsed: true,
+    id: 'cat-8', name: 'Location & Travel', color: 'green', collapsed: true,
     items: [
-      { id: 'i49', name: 'Local Travel (within 10 mi)', price: 0,  unit: 'flat fee',   notes: 'Complimentary' },
-      { id: 'i50', name: 'Regional Travel (10–30 mi)',  price: 80, unit: 'flat fee',   notes: '' },
-      { id: 'i51', name: 'Extended Travel (30–60 mi)',  price: 180, unit: 'flat fee',  notes: '' },
-      { id: 'i52', name: 'National Travel (60 mi+)',    price: 350, unit: 'flat fee',  notes: 'Plus accommodation' },
-      { id: 'i53', name: 'Mileage (staff vehicles)',    price: 0.45, unit: 'per mile', notes: 'HMRC rate' },
-      { id: 'i54', name: 'Overnight Accommodation',     price: 120, unit: 'per person', notes: 'Per staff member' },
-      { id: 'i55', name: 'Congestion / ULEZ Charge',    price: 25,  unit: 'flat fee',  notes: 'Central London events' },
-      { id: 'i56', name: 'Parking (per vehicle)',       price: 20,  unit: 'per item',  notes: 'On-site or nearby' },
-      { id: 'i57', name: 'Toll / Ferry Charges',        price: 30,  unit: 'flat fee',  notes: 'Where applicable' },
-    ],
-  },
-
-  // ── Equipment & Rentals ───────────────────────────────────────────────────
-  {
-    id: 'cat-8', name: 'Equipment & Rentals', color: 'green', collapsed: true,
-    items: [
-      { id: 'i58', name: 'Round Table (seats 10)',      price: 45,  unit: 'per item',  notes: '' },
-      { id: 'i59', name: 'Folding Chair',               price: 3,   unit: 'per item',  notes: '' },
-      { id: 'i60', name: 'Chiavari Chair',              price: 8,   unit: 'per item',  notes: '' },
-      { id: 'i61', name: 'Tablecloth (round)',          price: 12,  unit: 'per item',  notes: '' },
-      { id: 'i62', name: 'Linen Napkins (set of 10)',   price: 18,  unit: 'per item',  notes: '' },
-      { id: 'i63', name: 'Crockery Set (per 10 covers)', price: 40, unit: 'per item',  notes: 'Plates, bowls, side plates' },
-      { id: 'i64', name: 'Cutlery Set (per 10 covers)', price: 25,  unit: 'per item',  notes: 'Starter, main, dessert' },
-      { id: 'i65', name: 'Glassware Set (per 10)',      price: 30,  unit: 'per item',  notes: 'Wine, water, champagne' },
-      { id: 'i66', name: 'Chafing Dish / Bain Marie',   price: 35,  unit: 'per item',  notes: 'Keeps food warm' },
-      { id: 'i67', name: 'Buffet Stand & Risers',       price: 60,  unit: 'per item',  notes: 'Tiered display' },
-      { id: 'i68', name: 'Bar Counter (portable)',      price: 300, unit: 'flat fee',  notes: 'Full bar setup' },
-      { id: 'i69', name: 'Cocktail Poseur Table',       price: 20,  unit: 'per item',  notes: '' },
-      { id: 'i70', name: 'Dance Floor (per sq m)',      price: 12,  unit: 'per item',  notes: 'Wooden parquet' },
-      { id: 'i71', name: 'Marquee / Tent (small)',      price: 600, unit: 'flat fee',  notes: 'Up to 50 guests' },
-      { id: 'i72', name: 'Marquee / Tent (large)',      price: 1200, unit: 'flat fee', notes: '50–150 guests' },
-      { id: 'i73', name: 'Generator (day hire)',        price: 250, unit: 'flat fee',  notes: 'Where mains unavailable' },
-      { id: 'i74', name: 'AV / PA System',              price: 300, unit: 'flat fee',  notes: 'Speakers, mic, mixer' },
-      { id: 'i75', name: 'Portable Toilet Unit',        price: 180, unit: 'per item',  notes: 'Outdoor events' },
-      { id: 'i76', name: 'Patio Heater',                price: 45,  unit: 'per item',  notes: '' },
-      { id: 'i77', name: 'Cool Box / Ice Storage',      price: 30,  unit: 'per item',  notes: '' },
+      { id: 'i45', name: 'Local job (within 20 mi)',         price: 0,   unit: 'flat fee',   notes: 'No travel charge' },
+      { id: 'i46', name: 'Travel fee (20–40 mi)',            price: 100, unit: 'flat fee',   notes: '' },
+      { id: 'i47', name: 'Travel fee (40+ mi)',              price: 200, unit: 'flat fee',   notes: '' },
+      { id: 'i48', name: 'Mileage rate',                     price: 0.67, unit: 'per mile',  notes: 'IRS standard 2024' },
     ],
   },
 
@@ -153,68 +128,19 @@ const SEED = [
   {
     id: 'cat-9', name: 'Service & Administration', color: 'slate', collapsed: true,
     items: [
-      { id: 'i78', name: 'Initial Consultation',        price: 0,   unit: 'flat fee',  notes: 'Complimentary (1 hr)' },
-      { id: 'i79', name: 'Menu Tasting Session',        price: 150, unit: 'flat fee',  notes: 'Up to 4 guests' },
-      { id: 'i80', name: 'Site Visit / Recce',          price: 80,  unit: 'flat fee',  notes: 'Outside local area +travel' },
-      { id: 'i81', name: 'Event Planning & Admin',      price: 250, unit: 'flat fee',  notes: 'Full event management' },
-      { id: 'i82', name: 'Risk Assessment & Method Statement', price: 120, unit: 'flat fee', notes: '' },
-      { id: 'i83', name: 'Public Liability Insurance',  price: 95,  unit: 'flat fee',  notes: 'Per event (if not covered)' },
-      { id: 'i84', name: 'Menu Design & Printing',      price: 75,  unit: 'flat fee',  notes: 'Per 50 menus' },
-      { id: 'i85', name: 'Service Charge',              price: 12.5, unit: 'per person', notes: 'Optional gratuity' },
-      { id: 'i86', name: 'Rush / Last-Minute Fee',      price: 200, unit: 'flat fee',  notes: '< 1 week notice' },
-      { id: 'i87', name: 'Cancellation Fee (30 days)',  price: 25,  unit: 'per person', notes: '25% of agreed total' },
-    ],
-  },
-
-  // ── Dietary & Special Requirements ───────────────────────────────────────
-  {
-    id: 'cat-10', name: 'Dietary & Special Requirements', color: 'orange', collapsed: true,
-    items: [
-      { id: 'i88', name: 'Allergen Management (14)',    price: 75,  unit: 'flat fee',  notes: 'Full allergen assessment' },
-      { id: 'i89', name: 'Vegan Menu Supplement',       price: 4,   unit: 'per person', notes: 'Per vegan guest' },
-      { id: 'i90', name: 'Gluten-Free Prep Surcharge',  price: 5,   unit: 'per person', notes: 'Dedicated prep area' },
-      { id: 'i91', name: 'Halal Certified Menu',        price: 6,   unit: 'per person', notes: 'Certified supplier' },
-      { id: 'i92', name: 'Kosher Catering',             price: 12,  unit: 'per person', notes: 'Requires licensed kitchen' },
-      { id: 'i93', name: 'Children\'s Menu',            price: 18,  unit: 'per person', notes: 'Under-12s' },
-      { id: 'i94', name: 'Nut-Free Kitchen Protocol',   price: 50,  unit: 'flat fee',  notes: '' },
-    ],
-  },
-
-  // ── Décor & Presentation ─────────────────────────────────────────────────
-  {
-    id: 'cat-11', name: 'Décor & Presentation', color: 'pink', collapsed: true,
-    items: [
-      { id: 'i95', name: 'Floral Centrepiece (table)',  price: 45,  unit: 'per table', notes: 'Fresh flowers' },
-      { id: 'i96', name: 'Balloon Arch / Display',      price: 180, unit: 'flat fee',  notes: '' },
-      { id: 'i97', name: 'Themed Table Backdrop',       price: 250, unit: 'flat fee',  notes: '' },
-      { id: 'i98', name: 'Printed Menu Cards',          price: 2,   unit: 'per person', notes: 'Personalised' },
-      { id: 'i99', name: 'Place Name Cards',            price: 1.5, unit: 'per person', notes: '' },
-      { id: 'i100', name: 'Table Number Stands',        price: 5,   unit: 'per table', notes: '' },
-      { id: 'i101', name: 'Candle / Tealight Package',  price: 3,   unit: 'per table', notes: '' },
-      { id: 'i102', name: 'Charger Plates (per 10)',    price: 30,  unit: 'per item',  notes: 'Decorative base plate' },
-      { id: 'i103', name: 'Photo / Display Board',      price: 95,  unit: 'flat fee',  notes: 'Welcome / seating display' },
-    ],
-  },
-
-  // ── Logistics & Transport ────────────────────────────────────────────────
-  {
-    id: 'cat-12', name: 'Logistics & Transport', color: 'emerald', collapsed: true,
-    items: [
-      { id: 'i104', name: 'Refrigerated Van (day hire)', price: 180, unit: 'flat fee', notes: 'Temperature-controlled' },
-      { id: 'i105', name: 'Standard Catering Van',       price: 120, unit: 'flat fee', notes: '' },
-      { id: 'i106', name: 'Cold Storage Unit (on-site)', price: 90,  unit: 'flat fee', notes: 'Day hire' },
-      { id: 'i107', name: 'Load-In Labour (per person)', price: 60,  unit: 'per shift', notes: '2-hr load-in' },
-      { id: 'i108', name: 'Load-Out Labour (per person)', price: 60, unit: 'per shift', notes: '2-hr load-out' },
-      { id: 'i109', name: 'Waste Removal & Recycling',   price: 80,  unit: 'flat fee', notes: 'Licensed waste carrier' },
-      { id: 'i110', name: 'Food Waste Disposal',         price: 40,  unit: 'flat fee', notes: 'Compliant disposal' },
-      { id: 'i111', name: 'Specialist Equipment Courier', price: 150, unit: 'flat fee', notes: 'Large/fragile items' },
+      { id: 'i49', name: 'Free estimate / site visit',       price: 0,   unit: 'flat fee',   notes: 'Complimentary' },
+      { id: 'i50', name: 'Permit filing fee',                price: 150, unit: 'flat fee',   notes: 'Pulled from county' },
+      { id: 'i51', name: 'Site inspection & report',         price: 120, unit: 'flat fee',   notes: 'Written damage assessment' },
+      { id: 'i52', name: 'Insurance claim assistance',       price: 0,   unit: 'flat fee',   notes: 'No extra charge' },
+      { id: 'i53', name: 'Extended warranty (10 yr)',        price: 350, unit: 'flat fee',   notes: 'Workmanship warranty' },
+      { id: 'i54', name: 'Cancellation fee',                 price: 250, unit: 'flat fee',   notes: '< 7 days before start' },
     ],
   },
 ];
 
 const UNITS = [
-  'per person', 'per shift', 'flat fee', 'per hour', 'per table',
-  'per item', 'per mile', 'per day', 'per event',
+  'per square', 'per linear ft', 'flat fee', 'per hour', 'per shift',
+  'per item', 'per mile', 'per storey', 'per day',
 ];
 
 // ─── Component ────────────────────────────────────────────────────────────────

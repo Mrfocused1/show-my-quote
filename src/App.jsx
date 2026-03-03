@@ -68,33 +68,33 @@ function makeCallUi(c) {
 
 const MOCK_MENUS = [
   {
-    id: 'm1', name: 'Classic Elegance', type: 'Plated', basePrice: 85, tags: ['Standard'],
-    description: 'A timeless plated dinner experience with refined presentation and personalized service.',
-    minGuests: 50, maxGuests: 300,
+    id: 'm1', name: 'Standard Reroof', type: 'Full Replacement', basePrice: 180, tags: ['Most Popular'],
+    description: 'Full tear-off and replacement with 30-year architectural shingles. Includes underlayment, drip edge, and ridge cap.',
+    minGuests: 15, maxGuests: 60,
     courses: [
-      { name: 'Starters', items: ['Caesar Salad', 'French Onion Soup', 'Shrimp Cocktail'] },
-      { name: 'Mains', items: ['Filet Mignon', 'Pan-Seared Salmon', 'Chicken Marsala'] },
-      { name: 'Desserts', items: ['Crème Brûlée', 'Chocolate Lava Cake', 'Seasonal Sorbet'] },
+      { name: 'Materials', items: ['30-yr architectural shingles', 'Synthetic underlayment', 'Drip edge & flashing'] },
+      { name: 'Labor', items: ['Tear-off & disposal', 'Installation labor', 'Ridge cap & vents'] },
+      { name: 'Extras', items: ['Permit filing', 'Debris cleanup', 'Final inspection'] },
     ]
   },
   {
-    id: 'm2', name: 'Rustic Italian Feast', type: 'Family Style', basePrice: 65, tags: ['Popular'],
-    description: 'Generous family-style platters inspired by the Italian countryside. Perfect for weddings and celebrations.',
-    minGuests: 40, maxGuests: 250,
+    id: 'm2', name: 'Premium Reroof', type: 'Full Replacement', basePrice: 220, tags: ['Popular'],
+    description: 'Full replacement with impact-resistant Class 4 shingles and lifetime workmanship warranty. Ideal for hail-prone areas.',
+    minGuests: 15, maxGuests: 60,
     courses: [
-      { name: 'Antipasti', items: ['Bruschetta Board', 'Burrata & Prosciutto', 'Caprese Salad'] },
-      { name: 'Mains', items: ['Braised Short Rib', 'Eggplant Parmigiana', 'Rosemary Roast Chicken'] },
-      { name: 'Desserts', items: ['Tiramisu', 'Cannoli', 'Panna Cotta'] },
+      { name: 'Materials', items: ['Class 4 impact-resistant shingles', 'Ice & water shield', 'Architectural ridge cap'] },
+      { name: 'Labor', items: ['Full tear-off & disposal', 'Installation labor', 'Flashing & valleys'] },
+      { name: 'Warranty', items: ['Lifetime workmanship warranty', 'Manufacturer warranty (Class 4)', 'Final walkthrough'] },
     ]
   },
   {
-    id: 'm3', name: 'Modern Mediterranean', type: 'Buffet', basePrice: 55, tags: ['Healthy'],
-    description: 'A fresh, vibrant buffet drawing from Mediterranean traditions. Great for corporate events.',
-    minGuests: 20, maxGuests: 500,
+    id: 'm3', name: 'Repair Package', type: 'Spot Repair', basePrice: 45, tags: ['Quick'],
+    description: 'Targeted repairs for leaks, flashing, pipe boots, and minor shingle damage. Same-day or next-day response.',
+    minGuests: 1, maxGuests: 10,
     courses: [
-      { name: 'Salads & Dips', items: ['Greek Salad', 'Hummus & Pita', 'Tabbouleh'] },
-      { name: 'Mains', items: ['Lamb Kofta', 'Grilled Sea Bass', 'Stuffed Peppers'] },
-      { name: 'Desserts', items: ['Baklava', 'Halva', 'Fresh Fruit Platter'] },
+      { name: 'Common Repairs', items: ['Valley re-flash', 'Pipe boot replacement', 'Shingle blow-off repair'] },
+      { name: 'Labor', items: ['Half-day labor', 'Attic moisture check', 'Sealant & caulking'] },
+      { name: 'Add-ons', items: ['Full inspection report', 'Photo documentation', 'Insurance scope letter'] },
     ]
   },
 ];
@@ -115,10 +115,10 @@ function saveStoredMenus(menus) {
 }
 
 const MOCK_RULES_INITIAL = [
-  { id: 'r1', condition: 'serviceStyle = Plated',        action: 'Multiply staff labor by 1.4',  expression: 'staffCost × 1.4',            raw: 'multiply staff labor by 1.4 for plated service' },
-  { id: 'r2', condition: 'guests > 150',                 action: 'Apply 5% volume discount',     expression: 'total × 0.95',               raw: 'apply 5% discount if guests exceed 150' },
-  { id: 'r3', condition: 'dietary requirements > 0',     action: 'Add £5 per dietary req',       expression: 'total += dietaryCount × £5',  raw: 'charge £5 per dietary requirement' },
-  { id: 'r4', condition: 'venueZone = Outside Metro',    action: 'Add flat travel fee £150',     expression: 'total += £150',              raw: 'add £150 travel fee for outside metro venues' },
+  { id: 'r1', condition: 'pitch > 8:12',                 action: 'Add 25% steep pitch surcharge', expression: 'laborCost × 1.25',           raw: 'add 25% surcharge for steep pitch above 8:12' },
+  { id: 'r2', condition: 'stories > 1',                  action: 'Add $150 per extra storey',     expression: 'total += (stories - 1) × 150', raw: 'add $150 per storey above 1' },
+  { id: 'r3', condition: 'material = Impact-resistant',  action: 'Add 22% material uplift',       expression: 'materialCost × 1.22',        raw: 'add 22% for impact-resistant shingles' },
+  { id: 'r4', condition: 'distance > 30 miles',          action: 'Add flat travel fee $150',      expression: 'total += 150',               raw: 'add $150 travel fee for jobs over 30 miles' },
 ];
 
 
@@ -983,39 +983,36 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
 // Demo sequence: each entry fires at `delay` ms after call connects.
 // `fills` populates form fields; `line` adds a transcript line.
 const DEMO_SEQUENCE = [
-  { delay: 1800,  line: { speaker: 'Agent',  text: "Thanks for calling Elite Catering Co. How can I help you today?" } },
-  { delay: 4500,  line: { speaker: 'Caller', text: "Hi, my name is Sarah Jenkins. I'm looking to organise catering for my wedding." },
-    fills: [{ field: 'name', value: 'Sarah Jenkins' }] },
-  { delay: 8000,  line: { speaker: 'Agent',  text: "Congratulations! Do you have a date and venue in mind?" } },
-  { delay: 11000, line: { speaker: 'Caller', text: "Yes — June 15th 2027 at River Grove Estate, in Berkshire." },
-    fills: [{ field: 'eventDate', value: 'June 15, 2027' }, { field: 'venue', value: 'River Grove Estate' }, { field: 'address', value: 'River Grove Estate, Berkshire, RG8 7JT' }] },
-  { delay: 15000, line: { speaker: 'Agent',  text: "Lovely! What time does the event start and how long do you need us on site?" } },
-  { delay: 18000, line: { speaker: 'Caller', text: "Ceremony is at 2pm, then dinner at 7:30pm. We'd probably need you for about eight hours." },
-    fills: [{ field: 'startTime', value: '14:00 (ceremony) · Dinner 19:30' }, { field: 'duration', value: '8 hours on site' }] },
-  { delay: 22000, line: { speaker: 'Agent',  text: "Got it. How many guests and what style of service were you thinking?" } },
-  { delay: 25000, line: { speaker: 'Caller', text: "Around 120 guests — plated sit-down for the wedding breakfast." },
-    fills: [{ field: 'guestCount', value: '120' }, { field: 'eventType', value: 'Wedding Reception' }, { field: 'serviceStyle', value: 'Plated sit-down' }] },
-  { delay: 29000, line: { speaker: 'Agent',  text: "And for drinks — are you thinking an open bar, wine packages, or something else?" } },
-  { delay: 32000, line: { speaker: 'Caller', text: "Open bar for four hours would be ideal, with a welcome drink on arrival." },
-    fills: [{ field: 'barRequirements', value: 'Open bar (4 hrs) · Welcome drink on arrival' }] },
-  { delay: 36000, line: { speaker: 'Agent',  text: "Perfect. Any dietary requirements we should be aware of?" } },
-  { delay: 38500, line: { speaker: 'Caller', text: "Yes — my sister has a severe nut allergy and we'd love a few vegan options." },
-    fills: [{ field: 'dietary', value: 'Nut allergy (severe) · Vegan options required' }] },
-  { delay: 42500, line: { speaker: 'Agent',  text: "Will there be any children attending?" } },
-  { delay: 44500, line: { speaker: 'Caller', text: "Yes, around 10 children — mostly under 12, so a children's menu would be great." },
-    fills: [{ field: 'childrenCount', value: '10 children (under 12) · Children\'s menu needed' }] },
-  { delay: 48500, line: { speaker: 'Agent',  text: "What budget are you roughly working to for the day?" } },
-  { delay: 51000, line: { speaker: 'Caller', text: "Somewhere between twelve and fifteen thousand pounds all in." },
-    fills: [{ field: 'budget', value: '£12,000 – £15,000' }] },
-  { delay: 55000, line: { speaker: 'Agent',  text: "And can I ask — how did you hear about Elite Catering?" } },
-  { delay: 57500, line: { speaker: 'Caller', text: "A friend recommended you — Emma Davis. She used you for her wedding last year." },
-    fills: [{ field: 'referralSource', value: 'Referral — Emma Davis (wedding, 2024)' }] },
-  { delay: 61500, line: { speaker: 'Agent',  text: "Wonderful — Emma was a lovely event! Any special requests we haven't covered?" } },
-  { delay: 64000, line: { speaker: 'Caller', text: "We'd love a cheese station as a late-night snack, and a chocolate fountain if possible." },
-    fills: [{ field: 'specialRequests', value: 'Late-night cheese station · Chocolate fountain' }] },
-  { delay: 68000, line: { speaker: 'Agent',  text: "Brilliant. Lastly, can I take your email and best contact number?" } },
-  { delay: 71000, line: { speaker: 'Caller', text: "Yes — sarah.jenkins@gmail.com and my mobile is 07700 900123." },
-    fills: [{ field: 'email', value: 'sarah.jenkins@gmail.com' }, { field: 'phone', value: '07700 900123' }] },
+  { delay: 1800,  line: { speaker: 'Agent',  text: "Thanks for calling — how can I help you today?" } },
+  { delay: 4500,  line: { speaker: 'Caller', text: "Hey, this is Mike Harris. I need a full roof replacement — it's done." },
+    fills: [{ field: 'name', value: 'Mike Harris' }, { field: 'eventType', value: 'Full replacement' }] },
+  { delay: 8000,  line: { speaker: 'Agent',  text: "Got it, Mike. What's the property address?" } },
+  { delay: 11000, line: { speaker: 'Caller', text: "4821 Westgate Drive, Houston, Texas." },
+    fills: [{ field: 'address', value: '4821 Westgate Dr, Houston TX' }, { field: 'venue', value: 'Houston TX' }] },
+  { delay: 15000, line: { speaker: 'Agent',  text: "How many stories is the house, and any idea on the roof size?" } },
+  { delay: 18000, line: { speaker: 'Caller', text: "Two stories. I'd guess about 28 squares, maybe 2,800 square feet." },
+    fills: [{ field: 'startTime', value: '2 stories' }, { field: 'duration', value: '~28 squares' }, { field: 'guestCount', value: '28' }] },
+  { delay: 22000, line: { speaker: 'Agent',  text: "What's the pitch — steep or more moderate?" } },
+  { delay: 25000, line: { speaker: 'Caller', text: "Moderate — maybe a 6:12 slope." },
+    fills: [{ field: 'serviceStyle', value: '6:12 (moderate)' }] },
+  { delay: 29000, line: { speaker: 'Agent',  text: "And what material were you thinking — architectural shingles, metal, or something else?" } },
+  { delay: 32000, line: { speaker: 'Caller', text: "30-year architectural shingles. And you'll need to do a full tear-off — one layer." },
+    fills: [{ field: 'dietary', value: '30-yr architectural shingles' }, { field: 'barRequirements', value: 'Full tear-off — 1 layer' }] },
+  { delay: 36000, line: { speaker: 'Agent',  text: "Any add-ons while we're up there — gutters, fascia, ridge ventilation?" } },
+  { delay: 38500, line: { speaker: 'Caller', text: "The gutters are pretty old. Go ahead and include a gutter replacement." },
+    fills: [{ field: 'childrenCount', value: 'Gutter replacement included' }] },
+  { delay: 42500, line: { speaker: 'Agent',  text: "Do you need a rough budget range or is this an insurance job?" } },
+  { delay: 44500, line: { speaker: 'Caller', text: "Not insurance — just a regular job. Happy to get a proper quote." },
+    fills: [{ field: 'budget', value: 'Cash job — quote required' }] },
+  { delay: 48500, line: { speaker: 'Agent',  text: "How did you hear about us?" } },
+  { delay: 51000, line: { speaker: 'Caller', text: "Your truck was in the neighbourhood last week — neighbour on Westfield recommended you." },
+    fills: [{ field: 'referralSource', value: 'Neighbour referral — Westfield Dr' }] },
+  { delay: 55000, line: { speaker: 'Agent',  text: "Great. Any other damage we should know about before we come out?" } },
+  { delay: 57500, line: { speaker: 'Caller', text: "The fascia on the front looks a bit rotten too. Worth checking while you're there." },
+    fills: [{ field: 'specialRequests', value: 'Check fascia — front elevation' }] },
+  { delay: 61500, line: { speaker: 'Agent',  text: "No problem. Best email and number to reach you on?" } },
+  { delay: 64000, line: { speaker: 'Caller', text: "mike.harris@gmail.com and mobile is 713-555-0142." },
+    fills: [{ field: 'email', value: 'mike.harris@gmail.com' }, { field: 'phone', value: '713-555-0142' }] },
 ];
 
 function LiveCallModal({ onClose, navigateTo }) {
@@ -2073,7 +2070,7 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
                       type="text"
                       value={form.event_type}
                       onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
-                      placeholder="e.g. Wedding Photographer, VIP Client"
+                      placeholder="e.g. Roofing Contractor, VIP Client"
                       className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
                     />
                   </div>
@@ -2213,7 +2210,7 @@ function CallDetailView({ call, navigateTo }) {
               if (!value || (Array.isArray(value) && value.length === 0)) return null;
               return (
                 <div key={key} className="group border-b border-slate-100 pb-3 last:border-0 hover:bg-slate-50 p-2 -mx-2 rounded transition-colors">
-                  <div className="text-xs text-slate-500 capitalize mb-1">{key.replace(/([A-Z])/g, ' £1').trim()}</div>
+                  <div className="text-xs text-slate-500 capitalize mb-1">{key.replace(/([A-Z])/g, ' $1').trim()}</div>
                   <div className="font-medium text-slate-900 flex items-center justify-between">
                     {Array.isArray(value) ? (
                       <div className="flex gap-2 flex-wrap">
@@ -2287,7 +2284,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
         <div className="mb-8">
           <input
             type="text"
-            value={quoteState.clientName ? `${quoteState.clientName} — Catering Quote` : 'Untitled Quote'}
+            value={quoteState.clientName ? `${quoteState.clientName} — Roofing Quote` : 'Untitled Quote'}
             onChange={(e) => handleUpdate('clientName', e.target.value.split(' —')[0])}
             className="text-4xl font-bold text-slate-900 w-full outline-none placeholder-slate-300 border-b border-transparent focus:border-slate-200 transition-colors"
             placeholder="Quote Title"
@@ -2295,14 +2292,14 @@ function QuoteBuilderView({ initialData, navigateTo }) {
         </div>
 
         <div className="space-y-10">
-          {/* Event Details */}
+          {/* Job Details */}
           <div className="group relative">
             <h3 className="text-lg font-semibold border-b border-slate-100 pb-2 mb-4 flex items-center">
-              <Calendar className="w-5 h-5 mr-2 text-slate-400" /> Event Details
+              <Calendar className="w-5 h-5 mr-2 text-slate-400" /> Job Details
             </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
               <div>
-                <label className="block text-slate-500 mb-1">Guest Count</label>
+                <label className="block text-slate-500 mb-1">Roof Squares</label>
                 <input
                   type="number"
                   value={quoteState.guestCount}
@@ -2311,25 +2308,25 @@ function QuoteBuilderView({ initialData, navigateTo }) {
                 />
               </div>
               <div>
-                <label className="block text-slate-500 mb-1">Service Style</label>
+                <label className="block text-slate-500 mb-1">Work Type</label>
                 <select
                   value={quoteState.serviceStyle}
                   onChange={(e) => handleUpdate('serviceStyle', e.target.value)}
                   className="w-full p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
                 >
-                  <option value="">Select style…</option>
-                  <option>Buffet</option>
-                  <option>Family Style</option>
-                  <option>Plated</option>
+                  <option value="">Select type…</option>
+                  <option>Full Replacement</option>
+                  <option>Repair</option>
+                  <option>Storm / Insurance</option>
                 </select>
               </div>
             </div>
           </div>
 
-          {/* Menu */}
+          {/* Service Selection */}
           <div>
             <h3 className="text-lg font-semibold border-b border-slate-100 pb-2 mb-4 flex items-center">
-              <Package className="w-5 h-5 mr-2 text-slate-400" /> Menu Selection
+              <Package className="w-5 h-5 mr-2 text-slate-400" /> Service Package
             </h3>
             <div className="space-y-3">
               {menus.length === 0 && (
@@ -2350,33 +2347,33 @@ function QuoteBuilderView({ initialData, navigateTo }) {
                       <div className="font-semibold text-slate-900">{m.name}</div>
                       <div className="text-sm text-slate-500">{m.type}</div>
                     </div>
-                    <div className="font-medium text-slate-900">£{m.basePrice} <span className="text-slate-500 text-sm font-normal">/pp</span></div>
+                    <div className="font-medium text-slate-900">${m.basePrice} <span className="text-slate-500 text-sm font-normal">/sq</span></div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Dietary */}
+          {/* Notes */}
           <div>
             <h3 className="text-lg font-semibold border-b border-slate-100 pb-2 mb-4 flex items-center">
-              <AlertCircle className="w-5 h-5 mr-2 text-slate-400" /> Dietary & Special Requirements
+              <AlertCircle className="w-5 h-5 mr-2 text-slate-400" /> Job Notes
             </h3>
             <textarea
               value={quoteState.dietaryNotes}
               onChange={(e) => handleUpdate('dietaryNotes', e.target.value)}
-              placeholder="e.g. 5 Vegans, 1 Nut Allergy. Surcharges apply automatically."
+              placeholder="e.g. 2-storey, steep pitch, existing 1 layer. Rules apply automatically."
               className="w-full p-3 border border-slate-200 rounded-lg bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all min-h-[80px] text-sm"
             />
           </div>
 
-          {/* Rentals */}
+          {/* Extras */}
           <div>
             <h3 className="text-lg font-semibold border-b border-slate-100 pb-2 mb-4 flex items-center">
-              <Tag className="w-5 h-5 mr-2 text-slate-400" /> Rentals & Equipment
+              <Tag className="w-5 h-5 mr-2 text-slate-400" /> Extras & Add-ons
             </h3>
             <div className="text-sm">
-              <label className="block text-slate-500 mb-1">Rentals Total (£)</label>
+              <label className="block text-slate-500 mb-1">Extras Total ($)</label>
               <input
                 type="number"
                 value={quoteState.rentalsAmount}
@@ -2384,7 +2381,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
                 placeholder="0"
                 className="w-full sm:w-1/2 p-2 border border-slate-200 rounded bg-slate-50 focus:bg-white focus:ring-1 focus:ring-slate-900 outline-none transition-all"
               />
-              <p className="text-slate-400 text-xs mt-1">Tables, linens, glassware, AV, etc.</p>
+              <p className="text-slate-400 text-xs mt-1">Gutters, fascia, decking, gutter guards, etc.</p>
             </div>
           </div>
         </div>
@@ -2400,46 +2397,46 @@ function QuoteBuilderView({ initialData, navigateTo }) {
 
           <div className="space-y-4 text-sm">
             <div className="flex justify-between text-slate-600">
-              <span>Food Base ({quoteState.guestCount} @ £{menu.basePrice})</span>
-              <span className="font-medium text-slate-900">£{baseFoodCost.toLocaleString()}</span>
+              <span>Materials ({quoteState.guestCount} sq @ ${menu.basePrice})</span>
+              <span className="font-medium text-slate-900">${baseFoodCost.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-slate-600">
               <div className="flex items-center">
-                Staffing Labor
+                Labor
                 <span className="ml-2 bg-slate-200 text-slate-600 text-[10px] px-1.5 rounded uppercase font-bold tracking-wide">
                   {quoteState.serviceStyle}
                 </span>
               </div>
-              <span className="font-medium text-slate-900">£{Math.round(staffingCost).toLocaleString()}</span>
+              <span className="font-medium text-slate-900">${Math.round(staffingCost).toLocaleString()}</span>
             </div>
             {quoteState.rentalsAmount > 0 && (
               <div className="flex justify-between text-slate-600">
-                <span>Rentals & Equipment</span>
-                <span className="font-medium text-slate-900">£{quoteState.rentalsAmount.toLocaleString()}</span>
+                <span>Extras & Add-ons</span>
+                <span className="font-medium text-slate-900">${quoteState.rentalsAmount.toLocaleString()}</span>
               </div>
             )}
             {dietarySurcharge > 0 && (
               <div className="flex justify-between text-slate-600">
-                <span>Dietary Adjustments</span>
-                <span className="font-medium text-slate-900">£{dietarySurcharge.toLocaleString()}</span>
+                <span>Surcharges</span>
+                <span className="font-medium text-slate-900">${dietarySurcharge.toLocaleString()}</span>
               </div>
             )}
             <div className="border-t border-slate-200 pt-4 mt-2">
               <div className="flex justify-between text-slate-800 font-medium">
                 <span>Subtotal</span>
-                <span>£{Math.round(subtotal).toLocaleString()}</span>
+                <span>${Math.round(subtotal).toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-slate-500 mt-2 text-xs">
                 <span>Service & Admin (18%)</span>
-                <span>£{Math.round(adminFee).toLocaleString()}</span>
+                <span>${Math.round(adminFee).toLocaleString()}</span>
               </div>
             </div>
             <div className="border-t-2 border-slate-900 pt-4 flex justify-between items-end">
               <div>
                 <div className="text-xl font-bold text-slate-900">Total</div>
-                <div className="text-xs text-slate-500 mt-1">Deposit (25%): £{Math.round(total * 0.25).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">Deposit (25%): ${Math.round(total * 0.25).toLocaleString()}</div>
               </div>
-              <div className="text-2xl font-bold text-slate-900">£{Math.round(total).toLocaleString()}</div>
+              <div className="text-2xl font-bold text-slate-900">${Math.round(total).toLocaleString()}</div>
             </div>
           </div>
 
@@ -2484,7 +2481,7 @@ function ClientPreviewModal({ quoteState, menu, total, subtotal, adminFee, staff
         <div className="p-8">
           <div className="flex justify-between items-start mb-6">
             <div>
-              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Elite Catering Co.</div>
+              <div className="text-xs text-slate-400 uppercase tracking-wider mb-1">Show My Quote</div>
               <h2 className="text-2xl font-bold text-slate-900">{quoteState.clientName || 'Your'} Event Quote</h2>
               <div className="text-sm text-slate-500 mt-1">Quote #GMQ-{Date.now().toString().slice(-5)} · Valid 30 days</div>
             </div>
@@ -2499,15 +2496,15 @@ function ClientPreviewModal({ quoteState, menu, total, subtotal, adminFee, staff
           </div>
 
           <div className="space-y-3 text-sm mb-6">
-            <div className="flex justify-between"><span className="text-slate-600">Food & Beverage</span><span>£{Math.round(baseFoodCost).toLocaleString()}</span></div>
-            <div className="flex justify-between"><span className="text-slate-600">Staffing & Service</span><span>£{Math.round(staffingCost).toLocaleString()}</span></div>
-            {quoteState.rentalsAmount > 0 && <div className="flex justify-between"><span className="text-slate-600">Rentals</span><span>£{quoteState.rentalsAmount.toLocaleString()}</span></div>}
-            {dietarySurcharge > 0 && <div className="flex justify-between"><span className="text-slate-600">Dietary Prep</span><span>£{dietarySurcharge.toLocaleString()}</span></div>}
-            <div className="flex justify-between text-slate-500 border-t border-slate-100 pt-3"><span>Service & Admin</span><span>£{Math.round(adminFee).toLocaleString()}</span></div>
+            <div className="flex justify-between"><span className="text-slate-600">Materials</span><span>${Math.round(baseFoodCost).toLocaleString()}</span></div>
+            <div className="flex justify-between"><span className="text-slate-600">Labor</span><span>${Math.round(staffingCost).toLocaleString()}</span></div>
+            {quoteState.rentalsAmount > 0 && <div className="flex justify-between"><span className="text-slate-600">Extras & Add-ons</span><span>${quoteState.rentalsAmount.toLocaleString()}</span></div>}
+            {dietarySurcharge > 0 && <div className="flex justify-between"><span className="text-slate-600">Surcharges</span><span>${dietarySurcharge.toLocaleString()}</span></div>}
+            <div className="flex justify-between text-slate-500 border-t border-slate-100 pt-3"><span>Service & Admin</span><span>${Math.round(adminFee).toLocaleString()}</span></div>
             <div className="flex justify-between font-bold text-slate-900 text-lg border-t-2 border-slate-900 pt-3">
-              <span>Total</span><span>£{Math.round(total).toLocaleString()}</span>
+              <span>Total</span><span>${Math.round(total).toLocaleString()}</span>
             </div>
-            <div className="text-xs text-slate-400">Deposit required to book: £{Math.round(total * 0.25).toLocaleString()}</div>
+            <div className="text-xs text-slate-400">Deposit required to book: ${Math.round(total * 0.25).toLocaleString()}</div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -2587,7 +2584,7 @@ function QuotesView({ navigateTo, quotes = [] }) {
                 <td className="px-6 py-4 text-sm text-slate-600">{quote.eventType}</td>
                 <td className="px-6 py-4 text-sm text-slate-600">{quote.eventDate}</td>
                 <td className="px-6 py-4 text-sm text-slate-500">{quote.menu}</td>
-                <td className="px-6 py-4 text-sm font-medium text-slate-900">£{quote.amount.toLocaleString()}</td>
+                <td className="px-6 py-4 text-sm font-medium text-slate-900">${quote.amount.toLocaleString()}</td>
                 <td className="px-6 py-4">
                   <span className={`px-2 py-0.5 rounded text-xs font-medium capitalize ${STATUS_STYLES[quote.status]}`}>
                     {quote.status}
@@ -3280,7 +3277,7 @@ function MenusView() {
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-6">
             <div>
               <h1 className="text-xl md:text-2xl font-bold text-slate-900">Menus & Packages</h1>
-              <p className="text-slate-500 text-sm mt-1">Manage your catering menu offerings and per-person pricing.</p>
+              <p className="text-slate-500 text-sm mt-1">Manage your roofing service types and per-square pricing.</p>
             </div>
             <button
               onClick={handleNewMenu}
@@ -3306,8 +3303,8 @@ function MenusView() {
                     <span key={tag} className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">{tag}</span>
                   ))}
                 </div>
-                <div className="text-2xl font-bold text-slate-900 mb-1">£{menu.basePrice}<span className="text-sm font-normal text-slate-500">/pp</span></div>
-                <div className="text-xs text-slate-400">{menu.minGuests}–{menu.maxGuests} guests</div>
+                <div className="text-2xl font-bold text-slate-900 mb-1">${menu.basePrice}<span className="text-sm font-normal text-slate-500">/sq</span></div>
+                <div className="text-xs text-slate-400">{menu.minGuests}–{menu.maxGuests} squares</div>
                 {menu.description && <p className="text-xs text-slate-500 mt-3 line-clamp-2">{menu.description}</p>}
               </div>
             ))}
@@ -3321,7 +3318,7 @@ function MenusView() {
           <div className="p-6 border-b border-slate-200 flex justify-between items-center">
             <div>
               <h2 className="font-semibold text-slate-900">{editing ? 'Edit Menu' : selected.name}</h2>
-              {!editing && <div className="text-sm text-slate-500 mt-0.5">£{selected.basePrice}/pp · {selected.type}</div>}
+              {!editing && <div className="text-sm text-slate-500 mt-0.5">${selected.basePrice}/sq · {selected.type}</div>}
             </div>
             <div className="flex items-center gap-2">
               {!editing && (
@@ -3340,9 +3337,9 @@ function MenusView() {
               <div className="space-y-4 text-sm">
                 {[
                   { label: 'Menu Name', field: 'name', type: 'text' },
-                  { label: 'Base Price (£/pp)', field: 'basePrice', type: 'number' },
-                  { label: 'Min Guests', field: 'minGuests', type: 'number' },
-                  { label: 'Max Guests', field: 'maxGuests', type: 'number' },
+                  { label: 'Base Price ($/sq)', field: 'basePrice', type: 'number' },
+                  { label: 'Min Squares', field: 'minGuests', type: 'number' },
+                  { label: 'Max Squares', field: 'maxGuests', type: 'number' },
                 ].map(({ label, field, type }) => (
                   <div key={field}>
                     <label className="block text-slate-500 mb-1">{label}</label>
@@ -3413,64 +3410,60 @@ function parseNaturalRule(text) {
   const fix = n => parseFloat(n);
   const fmtMultiplier = n => (fix(n) % 1 === 0 ? fix(n).toString() : fix(n).toFixed(3).replace(/0+$/, '').replace(/\.$/, ''));
 
-  // add £X for every N guests
-  let m = low.match(/(?:add|charge|include)\s+£(\d+(?:\.\d+)?)\s+(?:for\s+)?every\s+(\d+)\s+(?:guests?|people|persons?)/);
-  if (m) return { condition: 'guests > 0', action: `Add £${m[1]} per ${m[2]} guests`, expression: `⌊guests ÷ ${m[2]}⌋ × £${m[1]}`, confidence: 'high' };
+  // add $X per storey above N
+  let m = low.match(/(?:add|charge)\s+\$(\d+(?:\.\d+)?)\s+per\s+stor(?:ey|y)\s+(?:above|over|beyond)\s+(\d+)/);
+  if (m) return { condition: `stories > ${m[2]}`, action: `Add $${m[1]} per storey above ${m[2]}`, expression: `(stories - ${m[2]}) × $${m[1]}`, confidence: 'high' };
 
-  // add/apply X% surcharge if guests exceed/over N
-  m = low.match(/(?:add|apply|charge)\s+(\d+(?:\.\d+)?)%\s*(?:surcharge|markup|extra|more)?\s+(?:if|when)\s+guests?\s+(?:exceed|over|more\s+than|is\s+over|goes\s+over|>)\s*(\d+)/);
-  if (m) return { condition: `guests > ${m[2]}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
+  // add/apply X% surcharge for steep pitch
+  m = low.match(/(?:add|apply|charge)\s+(\d+(?:\.\d+)?)%\s*(?:surcharge|markup|extra)?\s+for\s+(?:steep|high)\s+pitch/);
+  if (m) return { condition: 'pitch > 8:12', action: `Add ${m[1]}% steep pitch surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
 
-  // apply X% discount if guests exceed N (volume)
-  m = low.match(/(?:apply|give|add|offer)\s+(\d+(?:\.\d+)?)%\s+(?:volume\s+)?discount\s+(?:if|when|for)\s+guests?\s+(?:exceed|over|more\s+than|>)\s*(\d+)/);
-  if (m) return { condition: `guests > ${m[2]}`, action: `Apply ${m[1]}% discount`, expression: `total × ${fmtMultiplier(1 - fix(m[1]) / 100)}`, confidence: 'high' };
+  // add/apply X% surcharge if squares exceed N
+  m = low.match(/(?:add|apply|charge)\s+(\d+(?:\.\d+)?)%\s*(?:surcharge|markup|extra|more)?\s+(?:if|when)\s+squares?\s+(?:exceed|over|more\s+than|>)\s*(\d+)/);
+  if (m) return { condition: `squares > ${m[2]}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
 
-  // apply X% discount if guests below N
-  m = low.match(/(?:apply|give|add|offer)\s+(\d+(?:\.\d+)?)%\s+discount\s+(?:if|when|for)\s+guests?\s+(?:below|under|less\s+than|<)\s*(\d+)/);
-  if (m) return { condition: `guests < ${m[2]}`, action: `Apply ${m[1]}% discount`, expression: `total × ${fmtMultiplier(1 - fix(m[1]) / 100)}`, confidence: 'high' };
+  // apply X% discount if squares exceed N (volume)
+  m = low.match(/(?:apply|give|add|offer)\s+(\d+(?:\.\d+)?)%\s+(?:volume\s+)?discount\s+(?:if|when|for)\s+squares?\s+(?:exceed|over|more\s+than|>)\s*(\d+)/);
+  if (m) return { condition: `squares > ${m[2]}`, action: `Apply ${m[1]}% discount`, expression: `total × ${fmtMultiplier(1 - fix(m[1]) / 100)}`, confidence: 'high' };
 
-  // add £X if guests exceed N
-  m = low.match(/(?:add|charge|apply)\s+(?:a\s+)?(?:flat\s+)?£(\d+(?:\.\d+)?)\s+(?:fee\s+)?(?:if|when)\s+guests?\s+(?:exceed|over|more\s+than|>|is\s+over)\s*(\d+)/);
-  if (m) return { condition: `guests > ${m[2]}`, action: `Add flat fee £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' };
+  // add $X if squares exceed N
+  m = low.match(/(?:add|charge|apply)\s+(?:a\s+)?(?:flat\s+)?\$(\d+(?:\.\d+)?)\s+(?:fee\s+)?(?:if|when)\s+squares?\s+(?:exceed|over|more\s+than|>)\s*(\d+)/);
+  if (m) return { condition: `squares > ${m[2]}`, action: `Add flat fee $${m[1]}`, expression: `total += $${m[1]}`, confidence: 'high' };
 
-  // minimum quote/total of £X
-  m = low.match(/minimum\s+(?:quote|total|price|charge|order)?\s*(?:of\s+)?£(\d+(?:\.\d+)?)/);
-  if (m) return { condition: `total < £${m[1]}`, action: `Enforce minimum of £${m[1]}`, expression: `total = max(total, £${m[1]})`, confidence: 'high' };
+  // minimum quote/total of $X
+  m = low.match(/minimum\s+(?:quote|total|price|charge|order)?\s*(?:of\s+)?\$(\d+(?:\.\d+)?)/);
+  if (m) return { condition: `total < $${m[1]}`, action: `Enforce minimum of $${m[1]}`, expression: `total = max(total, $${m[1]})`, confidence: 'high' };
 
-  // charge £X per person/head/pp
-  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+per\s+(?:person|head|pp|guest)/);
-  if (m) return { condition: 'guests > 0', action: `Add £${m[1]} per person`, expression: `total += guests × £${m[1]}`, confidence: 'high' };
+  // charge $X per square
+  m = low.match(/(?:add|charge)\s+\$(\d+(?:\.\d+)?)\s+per\s+(?:square|sq)/);
+  if (m) return { condition: 'squares > 0', action: `Add $${m[1]} per square`, expression: `total += squares × $${m[1]}`, confidence: 'high' };
 
-  // X% surcharge for plated/buffet/family style
-  m = low.match(/(\d+(?:\.\d+)?)%\s+(?:surcharge|markup|extra)\s+for\s+(plated|buffet|family\s+style|cocktail)/);
-  if (m) { const s = m[2].replace(/\b\w/g, c => c.toUpperCase()).replace('Style', 'Style'); return { condition: `serviceStyle = ${s}`, action: `Apply ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' }; }
+  // add $X for travel/mileage
+  m = low.match(/(?:add|charge)\s+\$(\d+(?:\.\d+)?)\s+(?:travel\s+fee|for\s+travel|for\s+jobs?\s+(?:over|beyond|more\s+than))\s*(?:(\d+)\s*miles?)?/);
+  if (m) { const miles = m[2] || '30'; return { condition: `distance > ${miles} miles`, action: `Add travel fee $${m[1]}`, expression: `total += $${m[1]}`, confidence: 'high' }; }
 
-  // add £X for plated/buffet/family style
-  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+for\s+(plated|buffet|family\s+style|cocktail)/);
-  if (m) { const s = m[2].replace(/\b\w/g, c => c.toUpperCase()).replace('Style', 'Style'); return { condition: `serviceStyle = ${s}`, action: `Add flat fee £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' }; }
+  // add X% for material type (impact/class 4)
+  m = low.match(/(?:add|charge|apply)\s+(\d+(?:\.\d+)?)%\s+(?:for\s+)?(?:impact.resistant|class\s+4|premium\s+shingle)/);
+  if (m) return { condition: 'material = Impact-resistant', action: `Add ${m[1]}% material uplift`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
 
-  // add £X for weekend/bank holiday
-  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+for\s+(?:weekend|bank\s+holiday|public\s+holiday)/);
-  if (m) { const type = low.includes('weekend') ? 'Weekend' : 'Bank holiday'; return { condition: `day = ${type}`, action: `Add ${type} surcharge £${m[1]}`, expression: `total += £${m[1]}`, confidence: 'high' }; }
+  // add X% for multi-storey / 2-storey / two-storey
+  m = low.match(/(?:add|apply|charge)\s+(\d+(?:\.\d+)?)%\s+(?:surcharge\s+)?for\s+(?:multi.stor(?:ey|y)|2.stor(?:ey|y)|two.stor(?:ey|y))/);
+  if (m) return { condition: 'stories > 1', action: `Add ${m[1]}% multi-storey surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' };
 
-  // charge £X per dietary requirement
-  m = low.match(/(?:add|charge)\s+£(\d+(?:\.\d+)?)\s+per\s+(?:dietary|vegan|allergy|requirement|special\s+requirement)/);
-  if (m) return { condition: 'dietaryCount > 0', action: `Add £${m[1]} per dietary req`, expression: `total += dietaryCount × £${m[1]}`, confidence: 'high' };
-
-  // multiply [total/food/staff] by X
-  m = low.match(/multiply\s+(?:total|food|staff|labor|labour)\s+by\s+(\d+(?:\.\d+)?)/);
+  // multiply [total/labor] by X
+  m = low.match(/multiply\s+(?:total|labor|labour|materials?)\s+by\s+(\d+(?:\.\d+)?)/);
   if (m) return { condition: 'always', action: `Multiply total by ${m[1]}`, expression: `total × ${m[1]}`, confidence: 'high' };
 
-  // reduce/subtract/deduct £X if/when
-  m = low.match(/(?:reduce|subtract|deduct|remove)\s+£(\d+(?:\.\d+)?)\s+(?:if|when|for)\s+(.+)/);
-  if (m) return { condition: m[2].trim(), action: `Deduct £${m[1]}`, expression: `total -= £${m[1]}`, confidence: 'medium' };
+  // reduce/subtract/deduct $X if/when
+  m = low.match(/(?:reduce|subtract|deduct|remove)\s+\$(\d+(?:\.\d+)?)\s+(?:if|when|for)\s+(.+)/);
+  if (m) return { condition: m[2].trim(), action: `Deduct $${m[1]}`, expression: `total -= $${m[1]}`, confidence: 'medium' };
 
-  // add X% for [event type]
-  m = low.match(/add\s+(\d+(?:\.\d+)?)%\s+(?:surcharge\s+)?for\s+(wedding|corporate|birthday|social)/);
-  if (m) { const et = m[2].charAt(0).toUpperCase() + m[2].slice(1); return { condition: `eventType = ${et}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' }; }
+  // add X% for [work type]
+  m = low.match(/add\s+(\d+(?:\.\d+)?)%\s+(?:surcharge\s+)?for\s+(replacement|repair|emergency|commercial|residential)/);
+  if (m) { const et = m[2].charAt(0).toUpperCase() + m[2].slice(1); return { condition: `workType = ${et}`, action: `Add ${m[1]}% surcharge`, expression: `total × ${fmtMultiplier(1 + fix(m[1]) / 100)}`, confidence: 'high' }; }
 
-  // fallback — has a £ amount but pattern unknown
-  if (/£\d+/.test(low) && t.length > 8) return { condition: '—', action: t, expression: 'Pattern not recognised', confidence: 'low' };
+  // fallback — has a $ amount but pattern unknown
+  if (/\$\d+/.test(low) && t.length > 8) return { condition: '—', action: t, expression: 'Pattern not recognised', confidence: 'low' };
 
   return { condition: '—', action: t, expression: 'Pattern not recognised', confidence: 'low' };
 }
@@ -3494,12 +3487,12 @@ function PricingRulesView() {
   const deleteRule = id => setRules(prev => prev.filter(r => r.id !== id));
 
   const EXAMPLES = [
-    'add £100 for every 30 guests',
-    'apply 10% discount if guests exceed 150',
-    'add 15% surcharge for plated service',
-    'minimum quote of £2000',
-    'charge £50 per dietary requirement',
-    'add £200 for weekend events',
+    'add $150 per storey above 1',
+    'add 25% surcharge for steep pitch',
+    'apply 5% discount if squares exceed 35',
+    'minimum quote of $2000',
+    'add $150 travel fee for jobs over 30 miles',
+    'add 22% for impact-resistant shingles',
   ];
 
   const CONF = {
@@ -3594,7 +3587,7 @@ function PricingRulesView() {
                 </div>
               ) : (
                 <p className="text-xs text-red-600">
-                  Try: "add £X for every N guests", "apply X% surcharge if guests exceed N", "minimum quote of £X", etc.
+                  Try: "add $150 per storey above 1", "add 25% for steep pitch", "minimum quote of $2000", etc.
                 </p>
               )}
             </div>
@@ -3988,7 +3981,7 @@ function InvoiceView({ call }) {
   const [sigCopied,   setSigCopied]   = useState(false);
   const [items, setItems] = useState(() => {
     if (call.invoice?.items?.length) return call.invoice.items.map(it => ({ desc: it.desc, qty: 1, rate: it.amount, amount: it.amount }));
-    const desc = [call.extracted?.eventType, call.extracted?.guestCount ? `${call.extracted.guestCount} guests` : null].filter(Boolean).join(' — ') || 'Catering Services';
+    const desc = [call.extracted?.eventType, call.extracted?.roofSquares ? `${call.extracted.roofSquares} squares` : null].filter(Boolean).join(' — ') || 'Roofing Services';
     return [{ desc, qty: 1, rate: call.invoice?.amount || call.quote?.amount || 0, amount: call.invoice?.amount || call.quote?.amount || 0 }];
   });
 
@@ -3997,7 +3990,7 @@ function InvoiceView({ call }) {
     if (key === 'qty' || key === 'rate') next[i].amount = (Number(next[i].qty)||0) * (Number(next[i].rate)||0);
     setItems(next);
   };
-  const fmt = n => '£' + (Number(n)||0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const fmt = n => '$' + (Number(n)||0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const subtotal  = items.reduce((s, it) => s + (Number(it.amount)||0), 0);
   const vatAmount = showVatLine ? subtotal * (vatRate / 100) : 0;
   const total     = subtotal + vatAmount;
@@ -4034,7 +4027,7 @@ function InvoiceView({ call }) {
     const logoHtml = (inv.showLogo && logo)
       ? `<img src="${logo}" style="max-height:56px;max-width:160px;object-fit:contain;" />`
       : `<div style="font-size:18px;font-weight:800;color:#0f172a;">${biz.name}</div>`;
-    const numFmt = n => '£' + (Number(n)||0).toLocaleString('en-GB',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const numFmt = n => '$' + (Number(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
     const html = `<!DOCTYPE html><html><head><title>Invoice ${invoiceNum}</title><style>
 *{box-sizing:border-box;margin:0;padding:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;color:#1e293b;background:white;padding:32px;max-width:760px;margin:0 auto;font-size:13px}
 .header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:28px;padding-bottom:24px;border-bottom:1px solid #e2e8f0}
@@ -4291,12 +4284,12 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
   const fmt = s => `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
 
   const LIVE_DEMO = [
-    { speaker: 'You',    text: "Thanks for calling Elite Catering. How can I help?" },
-    { speaker: 'Client', text: "Hi, I'm looking for catering for a wedding next summer." },
-    { speaker: 'You',    text: "Wonderful! Do you have a date and venue in mind?" },
-    { speaker: 'Client', text: "June 15th at River Grove Estate, around 120 guests." },
-    { speaker: 'You',    text: "Perfect. Plated dinner or buffet?" },
-    { speaker: 'Client', text: "Plated dinner — and we need some vegan options too." },
+    { speaker: 'You',    text: "Thanks for calling — how can I help you today?" },
+    { speaker: 'Client', text: "Hi, I need a full roof replacement quote — two-storey house, about 28 squares." },
+    { speaker: 'You',    text: "Great — what's the address and how many storeys?" },
+    { speaker: 'Client', text: "4821 Westgate Drive, Houston. Two storeys, about 28 squares." },
+    { speaker: 'You',    text: "And is this a tear-off or going over existing shingles?" },
+    { speaker: 'Client', text: "Full tear-off — one layer. I want 30-year architectural." },
   ];
 
   const startLiveCall = () => {
@@ -4847,7 +4840,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                     <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
                       <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
                         <div>
-                          <div className="font-semibold text-slate-900">{selected.caller} — Catering Quote</div>
+                          <div className="font-semibold text-slate-900">{selected.caller} — Roofing Quote</div>
                           <div className="text-xs text-slate-400 mt-0.5">
                             {selected.extracted?.eventType} · {selected.extracted?.guestCount} guests · {selected.extracted?.serviceStyle}
                           </div>
@@ -4860,7 +4853,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
                         <div className="flex items-end justify-between mb-5">
                           <div>
                             <div className="text-xs text-slate-400">Total estimate</div>
-                            <div className="text-3xl font-bold text-slate-900">£{selected.quote.amount.toLocaleString()}</div>
+                            <div className="text-3xl font-bold text-slate-900">${selected.quote.amount.toLocaleString()}</div>
                           </div>
                           <button
                             onClick={() => navigateTo('quote-builder', selected.extracted)}
@@ -5142,7 +5135,7 @@ function SearchOverlay({ onClose, navigateTo, callLogs = [], quotes = [] }) {
   const allItems = [
     ...callLogs.map(c => ({ type: 'Call', label: c.caller, sub: `${c.date}`, action: () => navigateTo('calls', c.id) })),
     ...quotes.map(q => ({ type: 'Quote', label: q.client || q.id, sub: `${q.status}`, action: () => navigateTo('quotes') })),
-    ...getStoredMenus().map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • £${m.basePrice}/pp`, action: () => navigateTo('menus') })),
+    ...getStoredMenus().map(m => ({ type: 'Menu', label: m.name, sub: `${m.type} • $${m.basePrice}/sq`, action: () => navigateTo('menus') })),
   ];
 
   const results = query.length > 1
@@ -5211,33 +5204,33 @@ const P1_SEQUENCE = [
   { at: 19800, speaker: 'Client', text: "I ask whether they want ceremony only, ceremony and reception, or the full day." },
   { at: 23500, addField: { key: 'coverage', label: 'Coverage Required', type: 'select', options: ['Ceremony Only', 'Ceremony + Reception', 'Full Day'] } },
   { at: 25000, speaker: 'Client', text: "And budget — I ask for a rough range so I can match them to the right package." },
-  { at: 28200, addField: { key: 'budget', label: 'Budget Range', type: 'text', placeholder: 'e.g. £2,500 – £4,000' } },
+  { at: 28200, addField: { key: 'budget', label: 'Budget Range', type: 'text', placeholder: 'e.g. $4,500 – $6,000' } },
   { at: 29800, speaker: 'Client', text: "Last one — any special requests. Golden hour portraits, specific locations, that kind of thing." },
   { at: 33500, addField: { key: 'requests', label: 'Special Requests', type: 'textarea', placeholder: 'e.g. golden hour portraits, woodland walk...' } },
   { at: 35500, speaker: 'You',    text: "That's your entire intake form — built live from our conversation. Ready to see it fill itself?" },
 ];
 
 const P2_SEQUENCE = [
-  { at: 1200,  speaker: 'You',    text: "Hi, I'm looking for a wedding photographer for next year." },
-  { at: 4000,  speaker: 'Client', text: "Wonderful! Let me take a few details. What's your wedding date?" },
-  { at: 7000,  speaker: 'You',    text: "It's the 14th of September 2026." },
-  { at: 9000,  fillField: { key: 'date', value: '14 Sep 2026' } },
-  { at: 11000, speaker: 'Client', text: "Lovely. Do you have a venue confirmed?" },
-  { at: 13500, speaker: 'You',    text: "Yes — Cliveden House, in Berkshire." },
-  { at: 16000, fillField: { key: 'venue', value: 'Cliveden House, Berkshire' } },
-  { at: 18000, speaker: 'Client', text: "Beautiful venue. How many guests are you expecting?" },
-  { at: 21000, speaker: 'You',    text: "Around 85." },
-  { at: 22500, fillField: { key: 'guests', value: '85' } },
-  { at: 24500, speaker: 'Client', text: "And are you looking for ceremony coverage only, or the full day?" },
-  { at: 27500, speaker: 'You',    text: "We'd love the full day — from getting ready all the way through to the evening." },
-  { at: 30000, fillField: { key: 'coverage', value: 'Full Day' } },
-  { at: 32000, speaker: 'Client', text: "Perfect. Do you have a rough budget in mind?" },
-  { at: 35000, speaker: 'You',    text: "We're thinking around three to three and a half thousand pounds." },
-  { at: 37500, fillField: { key: 'budget', value: '£3,000 – £3,500' } },
-  { at: 39500, speaker: 'Client', text: "Great. Any special requests — golden hour, particular locations, anything like that?" },
-  { at: 42500, speaker: 'You',    text: "Golden hour portraits by the river would be amazing, and a woodland walk if possible." },
-  { at: 45500, fillField: { key: 'requests', value: 'Golden hour portraits by the river, woodland walk' } },
-  { at: 47500, speaker: 'Client', text: "That all sounds wonderful. I'll put a package together and send it over today!" },
+  { at: 1200,  speaker: 'You',    text: "Hey, I need a full roof replacement — two-storey, about 28 squares." },
+  { at: 4000,  speaker: 'Client', text: "Got it. What's the property address?" },
+  { at: 7000,  speaker: 'You',    text: "4821 Westgate Drive, Houston, Texas." },
+  { at: 9000,  fillField: { key: 'date', value: '4821 Westgate Dr, Houston TX' } },
+  { at: 11000, speaker: 'Client', text: "And the pitch — steep or more moderate?" },
+  { at: 13500, speaker: 'You',    text: "Moderate, maybe a 6:12." },
+  { at: 16000, fillField: { key: 'venue', value: '6:12 (moderate)' } },
+  { at: 18000, speaker: 'Client', text: "What material are you looking for?" },
+  { at: 21000, speaker: 'You',    text: "30-year architectural shingles." },
+  { at: 22500, fillField: { key: 'guests', value: '30-yr architectural' } },
+  { at: 24500, speaker: 'Client', text: "And full tear-off — how many layers currently?" },
+  { at: 27500, speaker: 'You',    text: "Just the one layer." },
+  { at: 30000, fillField: { key: 'coverage', value: 'Tear-off — 1 layer' } },
+  { at: 32000, speaker: 'Client', text: "Any add-ons while we're up there — gutters, fascia, ventilation?" },
+  { at: 35000, speaker: 'You',    text: "Go ahead and include gutter replacement — they're well overdue." },
+  { at: 37500, fillField: { key: 'budget', value: 'Gutter replacement add-on' } },
+  { at: 39500, speaker: 'Client', text: "Great. Anything else we should check while we're on site?" },
+  { at: 42500, speaker: 'You',    text: "Fascia on the front looks rotten too — worth noting in the quote." },
+  { at: 45500, fillField: { key: 'requests', value: 'Check front fascia — possible replacement' } },
+  { at: 47500, speaker: 'Client', text: "Perfect. I'll get you a detailed quote over before end of day." },
 ];
 
 function OnboardingExample() {
@@ -5731,11 +5724,11 @@ function OnboardingWorking() {
     { key: 'dcf_name',    label: 'Customer Name',          type: 'text',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
     { key: 'dcf_email',   label: 'Email Address',          type: 'email',       options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
     { key: 'dcf_phone',   label: 'Phone Number',           type: 'phone',       options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
-    { key: 'dcf_etype',   label: 'Event Type',             type: 'select',      options: ['Wedding','Corporate','Birthday','Social','Other'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
-    { key: 'dcf_date',    label: 'Event Date',             type: 'date',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
-    { key: 'dcf_guests',  label: 'Guest Count',            type: 'number',      options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
-    { key: 'dcf_venue',   label: 'Venue',                  type: 'text',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
-    { key: 'dcf_style',   label: 'Service Style',          type: 'select',      options: ['Plated','Buffet','Family Style','Canapés','BBQ'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_etype',   label: 'Work Type',              type: 'select',      options: ['Full Replacement','Repair','Inspection','Emergency','New Construction'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_date',    label: 'Job Date',               type: 'date',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_guests',  label: 'Roof Squares',           type: 'number',      options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_venue',   label: 'Job Address',            type: 'text',        options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
+    { key: 'dcf_style',   label: 'Material',               type: 'select',      options: ['30-yr Architectural','Impact-Resistant (Class 4)','Metal','TPO','EPDM'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
     { key: 'dcf_budget',  label: 'Budget',                 type: 'currency',    options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
     { key: 'dcf_dietary', label: 'Dietary Requirements',   type: 'multi-check', options: ['Vegan','Vegetarian','Gluten Free','Nut Free','Halal','Kosher'], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
     { key: 'dcf_notes',   label: 'Special Requirements',   type: 'long-text',   options: [], price: 0, priceUnit: 'per_head', formulaExpression: '', content: '', suggested: false },
@@ -6236,7 +6229,7 @@ function OnboardingWorking() {
           <div className="mt-1">
             {isEditingPrice ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm text-slate-500 font-medium">£</span>
+                <span className="text-sm text-slate-500 font-medium">$</span>
                 <input
                   autoFocus
                   type="number"
@@ -6261,7 +6254,7 @@ function OnboardingWorking() {
                 className="flex items-center gap-2 text-sm text-amber-700 bg-amber-50 px-3 py-1.5 rounded-lg hover:bg-amber-100 transition-colors border border-amber-200"
               >
                 <DollarSign className="w-3.5 h-3.5" />
-                <span className="font-semibold">{field.price > 0 ? `£${field.price}` : 'Set price'}</span>
+                <span className="font-semibold">{field.price > 0 ? `$${field.price}` : 'Set price'}</span>
                 {field.price > 0 && <span className="text-amber-500 font-normal">{field.priceUnit === 'per_head' ? 'per head' : 'flat rate'}</span>}
                 <Edit3 className="w-3 h-3 text-amber-400 ml-1" />
               </button>
@@ -6420,7 +6413,7 @@ function OnboardingWorking() {
           <div className="flex items-center gap-3 flex-wrap">
             <div className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-sm font-semibold ${filled ? 'bg-amber-50 border-amber-200 text-amber-800' : 'bg-slate-50 border-slate-200 text-slate-500'}`}>
               <DollarSign className="w-3.5 h-3.5" />
-              £{field.price || '—'} <span className="font-normal text-xs">{field.priceUnit === 'per_head' ? 'per head' : 'flat'}</span>
+              ${field.price || '—'} <span className="font-normal text-xs">{field.priceUnit === 'per_head' ? 'per head' : 'flat'}</span>
             </div>
             <div className="flex items-center gap-2">
               <button onClick={() => setVal(field.key, Math.max(0, (parseInt(val)||0) - 1))} className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors flex items-center justify-center text-slate-700 font-bold text-lg leading-none">−</button>
@@ -6429,7 +6422,7 @@ function OnboardingWorking() {
             </div>
             {field.price > 0 && (parseInt(val)||0) > 0 && (
               <span className="text-sm font-bold text-green-700 bg-green-50 px-3 py-1.5 rounded-xl">
-                = £{(field.price * (parseInt(val)||0)).toFixed(2)}
+                = ${(field.price * (parseInt(val)||0)).toFixed(2)}
               </span>
             )}
           </div>
@@ -6437,7 +6430,7 @@ function OnboardingWorking() {
 
         {field.type === 'currency' && (
           <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">£</span>
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">$</span>
             <input type="number" value={val || ''} onChange={e => setVal(field.key, e.target.value)} placeholder="0.00" className={`${inputCls} pl-8`} />
           </div>
         )}
@@ -6551,8 +6544,8 @@ function OnboardingWorking() {
                     <FileText className={`w-4 h-4 ${selectedTemplateId === 'default' ? 'text-green-700' : 'text-slate-400'}`} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm font-semibold ${selectedTemplateId === 'default' ? 'text-green-900' : 'text-slate-700'}`}>Default catering template</div>
-                    <div className="text-[11px] text-slate-400">11 standard fields — name, event, guests, venue, dietary…</div>
+                    <div className={`text-sm font-semibold ${selectedTemplateId === 'default' ? 'text-green-900' : 'text-slate-700'}`}>Default roofing template</div>
+                    <div className="text-[11px] text-slate-400">8 standard fields — name, address, work type, squares, pitch, material…</div>
                   </div>
                   {selectedTemplateId === 'default' && <Check className="w-4 h-4 text-green-600 flex-shrink-0" />}
                 </button>
@@ -6869,7 +6862,7 @@ function OnboardingWorking() {
                   {newField.type === 'priced-item' && (
                     <div className="flex items-center gap-2 p-3 bg-amber-50 rounded-xl border border-amber-200">
                       <DollarSign className="w-4 h-4 text-amber-600 flex-shrink-0" />
-                      <span className="text-sm text-amber-700 font-medium">£</span>
+                      <span className="text-sm text-amber-700 font-medium">$</span>
                       <input type="number" value={newField.price} onChange={e => setNewField(f => ({...f, price: e.target.value}))}
                         placeholder="0.00" className="w-24 px-2 py-1.5 rounded-lg border border-amber-300 text-sm outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
                       <select value={newField.priceUnit} onChange={e => setNewField(f => ({...f, priceUnit: e.target.value}))}
@@ -6994,14 +6987,14 @@ function buildInvoiceHTML(inv, sessionName) {
   const subtotal = inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0);
   const depositAmt = inv.depositPct > 0 ? subtotal * inv.depositPct / 100 : 0;
   const itemRows = inv.lineItems.map(i =>
-    `<tr><td>${i.description}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">£${Number(i.unitPrice).toFixed(2)}</td><td style="text-align:right">£${(i.qty * i.unitPrice).toFixed(2)}</td></tr>`
+    `<tr><td>${i.description}</td><td style="text-align:center">${i.qty}</td><td style="text-align:right">$${Number(i.unitPrice).toFixed(2)}</td><td style="text-align:right">$${(i.qty * i.unitPrice).toFixed(2)}</td></tr>`
   ).join('');
   const notesBlock = (inv.eventType || inv.eventDate || inv.venue || inv.guestCount || inv.notes) ? `
-    <div class="notes"><div class="nlabel">Event Details &amp; Notes</div>
-      ${inv.eventType ? `<p><strong>Event:</strong> ${inv.eventType}</p>` : ''}
+    <div class="notes"><div class="nlabel">Job Details &amp; Notes</div>
+      ${inv.eventType ? `<p><strong>Work Type:</strong> ${inv.eventType}</p>` : ''}
       ${inv.eventDate ? `<p><strong>Date:</strong> ${inv.eventDate}</p>` : ''}
-      ${inv.venue ? `<p><strong>Venue:</strong> ${inv.venue}</p>` : ''}
-      ${inv.guestCount ? `<p><strong>Guests:</strong> ${inv.guestCount}</p>` : ''}
+      ${inv.venue ? `<p><strong>Job Address:</strong> ${inv.venue}</p>` : ''}
+      ${inv.guestCount ? `<p><strong>Roof Size:</strong> ${inv.guestCount}</p>` : ''}
       ${inv.notes ? `<p style="margin-top:8px">${inv.notes}</p>` : ''}
     </div>` : '';
   return `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>Quote</title><style>
@@ -7041,9 +7034,9 @@ table.tot tr.grand td{font-weight:800;font-size:16px;border-top:2px solid #111;p
 </div>
 ${inv.lineItems.length ? `<table class="items"><thead><tr><th>Description</th><th style="text-align:center;width:70px">Qty</th><th style="text-align:right;width:110px">Unit Price</th><th style="text-align:right;width:110px">Total</th></tr></thead><tbody>${itemRows}</tbody></table>
 <div class="tw"><table class="tot">
-${inv.lineItems.length > 1 ? `<tr><td>Subtotal</td><td style="text-align:right">£${subtotal.toFixed(2)}</td></tr>` : ''}
-${depositAmt > 0 ? `<tr><td>Deposit (${inv.depositPct}%)</td><td style="text-align:right">£${depositAmt.toFixed(2)}</td></tr>` : ''}
-<tr class="grand"><td>Total</td><td style="text-align:right">£${subtotal.toFixed(2)}</td></tr>
+${inv.lineItems.length > 1 ? `<tr><td>Subtotal</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>` : ''}
+${depositAmt > 0 ? `<tr><td>Deposit (${inv.depositPct}%)</td><td style="text-align:right">$${depositAmt.toFixed(2)}</td></tr>` : ''}
+<tr class="grand"><td>Total</td><td style="text-align:right">$${subtotal.toFixed(2)}</td></tr>
 </table></div>` : ''}
 ${notesBlock}
 <div class="footer">This quote is valid for ${inv.validDays || 14} days from the date issued. To accept, please reply by email or phone.</div>
@@ -7162,17 +7155,17 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
       yourPhone:    prev?.yourPhone    || '',
       logoDataUrl:  prev?.logoDataUrl  || '',
       // Client — checked by type first, then label
-      clientName:  get('client name', 'full name', 'your name', 'name', 'customer name', 'contact name', 'bride', 'groom', 'booker'),
+      clientName:  get('client name', 'full name', 'your name', 'name', 'customer name', 'contact name', 'booker'),
       clientEmail: byType('email') || get('email', 'client email', 'email address'),
       clientPhone: byType('phone') || get('phone', 'mobile', 'contact number', 'telephone'),
-      // Event
-      eventType:  get('event type', 'type of event', 'type', 'occasion', 'function', 'event'),
-      eventDate:  byType('date') || byType('datetime') || get('event date', 'date', 'wedding date', 'function date', 'booking date'),
-      venue:      get('venue', 'location', 'event location', 'venue name', 'address'),
-      guestCount: get('guests', 'guest count', 'number of guests', 'head count', 'covers', 'pax', 'attendees'),
+      // Job
+      eventType:  get('work type', 'job type', 'type of work', 'type', 'service type', 'event type'),
+      eventDate:  byType('date') || byType('datetime') || get('job date', 'date', 'start date', 'booking date'),
+      venue:      get('job address', 'address', 'location', 'venue', 'site address', 'property address'),
+      guestCount: get('roof size', 'roof squares', 'squares', 'size', 'square footage', 'guest count'),
       // Items & notes
       lineItems,
-      notes: get('special requirements', 'dietary requirements', 'notes', 'requirements', 'additional information', 'allergies', 'special needs', 'other'),
+      notes: get('notes', 'special requirements', 'requirements', 'additional information', 'special needs', 'other'),
       validDays:  prev?.validDays  ?? 14,
       depositPct: prev?.depositPct ?? 0,
     }));
@@ -7202,10 +7195,10 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
       inv.guestCount ? `Guests: ${inv.guestCount}` : null,
       inv.lineItems.length ? '' : null,
       inv.lineItems.length ? '── Items ──' : null,
-      ...inv.lineItems.map(i => `${i.description}: ${i.qty} x £${Number(i.unitPrice).toFixed(2)} = £${(i.qty * i.unitPrice).toFixed(2)}`),
+      ...inv.lineItems.map(i => `${i.description}: ${i.qty} x $${Number(i.unitPrice).toFixed(2)} = $${(i.qty * i.unitPrice).toFixed(2)}`),
       '',
-      `Total: £${total.toFixed(2)}`,
-      inv.depositPct > 0 ? `Deposit required: £${(total * inv.depositPct / 100).toFixed(2)} (${inv.depositPct}%)` : null,
+      `Total: $${total.toFixed(2)}`,
+      inv.depositPct > 0 ? `Deposit required: $${(total * inv.depositPct / 100).toFixed(2)} (${inv.depositPct}%)` : null,
       '',
       inv.notes ? `Notes: ${inv.notes}` : null,
       '',
@@ -7225,7 +7218,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
       `Hi ${inv.clientName || 'there'}, here is a quick summary of your quote from ${inv.yourBusiness || 'us'}:`,
       inv.eventType && `${inv.eventType}${inv.eventDate ? ` on ${inv.eventDate}` : ''}`,
       inv.guestCount && `${inv.guestCount} guests`,
-      inv.lineItems.length > 0 && `Total: £${total.toFixed(2)}`,
+      inv.lineItems.length > 0 && `Total: $${total.toFixed(2)}`,
       'Full quote sent to your email. Reply to confirm or ask any questions.',
     ].filter(Boolean);
     navigator.clipboard.writeText(parts.join(' · ')).catch(() => {});
@@ -7239,8 +7232,8 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
     if (v === undefined || v === '') return <span className="text-slate-300 italic text-xs">—</span>;
     if (f.type === 'toggle') return <span className={v ? 'text-green-700' : 'text-slate-400'}>{v ? 'Yes' : 'No'}</span>;
     if (f.type === 'multi-check') return Array.isArray(v) && v.length ? v.join(', ') : null;
-    if (f.type === 'priced-item') { const qty = parseInt(v)||0; return `${qty}${f.price>0?` × £${f.price} = £${(f.price*qty).toFixed(2)}`:''}` ; }
-    if (f.type === 'currency') return `£${v}`;
+    if (f.type === 'priced-item') { const qty = parseInt(v)||0; return `${qty}${f.price>0?` × $${f.price} = $${(f.price*qty).toFixed(2)}`:''}` ; }
+    if (f.type === 'currency') return `$${v}`;
     if (f.type === 'percentage') return `${v}%`;
     if (f.type === 'rating') return `${v} / 5 ★`;
     if (f.type === 'duration') return v?.hours !== undefined ? `${v.hours||0}h ${v.minutes||0}m` : String(v);
@@ -7354,7 +7347,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                   <p className="text-xs font-bold text-amber-700 uppercase tracking-wider">Estimated total</p>
                   <p className="text-[11px] text-amber-600 mt-0.5">Based on priced items filled</p>
                 </div>
-                <p className="text-2xl font-black text-amber-800">£{pricedTotal.toFixed(2)}</p>
+                <p className="text-2xl font-black text-amber-800">${pricedTotal.toFixed(2)}</p>
               </div>
             )}
 
@@ -7445,7 +7438,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                           {editField.type === 'priced-item' && (
                             <div className="grid grid-cols-2 gap-2">
                               <input type="number" value={editField.price || ''} onChange={e => setEditField(v => ({ ...v, price: parseFloat(e.target.value) || 0 }))}
-                                placeholder="Price £"
+                                placeholder="Price $"
                                 className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
                               <select value={editField.priceUnit || 'per_head'} onChange={e => setEditField(v => ({ ...v, priceUnit: e.target.value }))}
                                 className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-sm outline-none focus:ring-2 focus:ring-slate-900">
@@ -7642,13 +7635,13 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                     <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mb-2">Event</p>
                     <div className="grid grid-cols-2 gap-2">
                       <input value={inv.eventType} onChange={e => setInv(v => ({ ...v, eventType: e.target.value }))}
-                        placeholder="Event type"
+                        placeholder="Work type"
                         className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
                       <input value={inv.eventDate} onChange={e => setInv(v => ({ ...v, eventDate: e.target.value }))}
-                        placeholder="Event date"
+                        placeholder="Job date"
                         className="px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
                       <input value={inv.venue} onChange={e => setInv(v => ({ ...v, venue: e.target.value }))}
-                        placeholder="Venue / location"
+                        placeholder="Job address / location"
                         className="col-span-2 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900 transition" />
                     </div>
                   </div>
@@ -7677,7 +7670,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                             value={item.unitPrice}
                             onChange={e => { const val = Number(e.target.value); setInv(v => ({ ...v, lineItems: v.lineItems.map((r, i) => i === idx ? { ...r, unitPrice: val } : r) })); }}
                             className="text-sm text-slate-800 w-full px-1 py-1 rounded border border-slate-200 bg-white outline-none focus:ring-1 focus:ring-slate-400 text-right transition" />
-                          <span className="text-sm text-slate-500 text-right tabular-nums">£{(item.qty * item.unitPrice).toFixed(2)}</span>
+                          <span className="text-sm text-slate-500 text-right tabular-nums">${(item.qty * item.unitPrice).toFixed(2)}</span>
                           <button onClick={() => setInv(v => ({ ...v, lineItems: v.lineItems.filter((_, i) => i !== idx) }))}
                             className="text-slate-300 hover:text-red-400 flex items-center justify-end transition-colors">
                             <X className="w-3.5 h-3.5" />
@@ -7695,7 +7688,7 @@ function PostCallScreen({ mode, sessionName, fields, onFieldsChange, fieldValues
                       <div className="flex justify-end mt-2 pr-1">
                         <div className="text-right">
                           <p className="text-[10px] text-slate-400 uppercase tracking-wider">Total</p>
-                          <p className="text-xl font-black text-slate-900">£{inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toFixed(2)}</p>
+                          <p className="text-xl font-black text-slate-900">${inv.lineItems.reduce((s, i) => s + i.qty * i.unitPrice, 0).toFixed(2)}</p>
                         </div>
                       </div>
                     )}

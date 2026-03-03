@@ -38,7 +38,7 @@ function BrandIcon({ slug, color }) {
   );
 }
 
-const ROTATING_WORDS = ['quote', 'admin', 'typing', 'counting', 'paperwork', 'invoicing'];
+const ROTATING_WORDS = ['quote', 'paperwork', 'typing', 'measuring', 'admin', 'follow-up'];
 
 function RotatingWord() {
   const [index, setIndex] = useState(0);
@@ -90,48 +90,40 @@ function IntegrationTicker() {
 // ─── Demo data ────────────────────────────────────────────────────────────────
 
 const FORM_FIELDS = [
-  { key: 'name',     label: 'Client Name',    placeholder: 'Listening…', half: false },
-  { key: 'date',     label: 'Wedding Date',   placeholder: 'Listening…', half: true  },
-  { key: 'venue',    label: 'Venue',          placeholder: 'Listening…', half: true  },
-  { key: 'package',  label: 'Package',        placeholder: 'Listening…', half: true  },
-  { key: 'coverage', label: 'Coverage',       placeholder: 'Listening…', half: true  },
-  { key: 'guests',   label: 'Guest Count',    placeholder: 'Listening…', half: false },
-  { key: 'extras',   label: 'Add-ons',        placeholder: 'Listening…', half: true  },
-  { key: 'budget',   label: 'Budget',         placeholder: 'Listening…', half: true  },
+  { key: 'name',     label: 'Customer Name',   placeholder: 'Listening…', half: false },
+  { key: 'address',  label: 'Job Address',     placeholder: 'Listening…', half: false },
+  { key: 'type',     label: 'Work Type',       placeholder: 'Listening…', half: true  },
+  { key: 'size',     label: 'Roof Size',       placeholder: 'Listening…', half: true  },
+  { key: 'pitch',    label: 'Pitch / Slope',   placeholder: 'Listening…', half: true  },
+  { key: 'stories',  label: 'Storeys',         placeholder: 'Listening…', half: true  },
+  { key: 'material', label: 'Material',        placeholder: 'Listening…', half: true  },
+  { key: 'tearoff',  label: 'Tear-off',        placeholder: 'Listening…', half: true  },
 ];
 
 const DEMO_SEQUENCE = [
   { delay: 1200,
-    line: { speaker: 'You', text: "Thanks for calling! How can I help you today?" } },
+    line: { speaker: 'You', text: "Thanks for calling — what can I help you with today?" } },
   { delay: 5000,
-    line: { speaker: 'Client', text: "Hi, I'm Emma Clarke — we're getting married next summer and looking for a photographer." },
-    fills: [{ field: 'name', value: 'Emma Clarke' }] },
-  { delay: 9500,
-    line: { speaker: 'Client', text: "We've already got our venue — Aynhoe Park in Oxfordshire." },
-    fills: [{ field: 'venue', value: 'Aynhoe Park, Oxfordshire' }] },
-  { delay: 13500,
-    line: { speaker: 'You', text: "Lovely! What date have you set for the wedding?" } },
-  { delay: 17000,
-    line: { speaker: 'Client', text: "Saturday the 21st of June — ceremony at 2pm." },
-    fills: [{ field: 'date', value: 'Sat 21 Jun, 2pm ceremony' }] },
-  { delay: 22000,
-    line: { speaker: 'You', text: "Are you thinking full-day coverage, from bridal prep through to the evening?" } },
-  { delay: 24500,
-    line: { speaker: 'Client', text: "Yes — full day, prep to first dance. And around 120 guests." },
-    fills: [{ field: 'coverage', value: 'Full day (prep → first dance)' }, { field: 'guests', value: '120' }] },
-  { delay: 29000,
-    line: { speaker: 'You', text: "Would you like a second shooter, or solo coverage?" } },
-  { delay: 31500,
-    line: { speaker: 'Client', text: "A second shooter, please — and the Premium package." },
-    fills: [{ field: 'package', value: 'Premium Collection' }] },
-  { delay: 36000,
-    line: { speaker: 'Client', text: "We'd also love a wedding film and an engagement shoot beforehand." },
-    fills: [{ field: 'extras', value: 'Wedding film · Engagement shoot' }] },
-  { delay: 40500,
-    line: { speaker: 'You', text: "Wonderful. And what's your rough budget for photography?" } },
-  { delay: 43000,
-    line: { speaker: 'Client', text: "We're thinking around three and a half thousand pounds." },
-    fills: [{ field: 'budget', value: '~£3,500' }] },
+    line: { speaker: 'Client', text: "Hey, this is Mike Harris. My roof's had it — I need a full replacement." },
+    fills: [{ field: 'name', value: 'Mike Harris' }, { field: 'type', value: 'Full replacement' }] },
+  { delay: 10000,
+    line: { speaker: 'Client', text: "Property's at 4821 Westgate Drive, Houston." },
+    fills: [{ field: 'address', value: '4821 Westgate Dr, Houston TX' }] },
+  { delay: 14500,
+    line: { speaker: 'You', text: "Got it. How many stories, and any idea on the roof size?" } },
+  { delay: 18000,
+    line: { speaker: 'Client', text: "Two stories. I'd say about 28 squares." },
+    fills: [{ field: 'stories', value: '2 stories' }, { field: 'size', value: '~28 squares' }] },
+  { delay: 23000,
+    line: { speaker: 'You', text: "What's the pitch like — is it steep or more moderate?" } },
+  { delay: 26500,
+    line: { speaker: 'Client', text: "Moderate, maybe a 6:12. And I want architectural shingles, 30-year." },
+    fills: [{ field: 'pitch', value: '6:12 (moderate)' }, { field: 'material', value: '30-yr architectural' }] },
+  { delay: 32000,
+    line: { speaker: 'You', text: "We'll need to tear off the old one — is it a single layer?" } },
+  { delay: 34500,
+    line: { speaker: 'Client', text: "Yeah, just the one layer. How soon can you get out there?" },
+    fills: [{ field: 'tearoff', value: 'Yes — 1 layer' }] },
 ];
 
 const LOOP_TOTAL = DEMO_SEQUENCE[DEMO_SEQUENCE.length - 1].delay + 5500;
@@ -218,8 +210,8 @@ function LiveCallDemo() {
           <div className="absolute inset-0 rounded-full border-2 border-green-500/40 animate-ping" />
         </div>
         <div className="text-center">
-          <div className="text-slate-900 font-bold text-sm">Emma Clarke</div>
-          <div className="text-slate-400 text-xs mt-0.5">+44 7700 900142</div>
+          <div className="text-slate-900 font-bold text-sm">Mike Harris</div>
+          <div className="text-slate-400 text-xs mt-0.5">+1 (713) 555-0142</div>
           <div className="text-slate-400 text-xs mt-2 animate-pulse">Connecting…</div>
         </div>
       </div>
@@ -390,7 +382,7 @@ function AppMockup() {
             <span className="text-[10px] font-semibold text-slate-800 px-1">Live Call</span>
           </div>
           <div className="ml-auto w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-[9px] font-semibold border border-slate-300">
-            EC
+            MH
           </div>
         </div>
 
@@ -406,28 +398,28 @@ function AppMockup() {
 // ─── Features Section ─────────────────────────────────────────────────────────
 
 const DEMO_PACKAGES = [
-  { id: 'p1', name: 'Essential', hours: 6,  price: 1200 },
-  { id: 'p2', name: 'Classic',   hours: 8,  price: 1800 },
-  { id: 'p3', name: 'Premium',   hours: 10, price: 2500 },
+  { id: 'p1', name: 'Repair',   desc: 'Spot fix',      price: 850  },
+  { id: 'p2', name: 'Re-roof',  desc: '28 squares',    price: 4800 },
+  { id: 'p3', name: 'Premium',  desc: 'Lifetime warr', price: 6200 },
 ];
 const DEMO_TEAM = [
-  { id: 'solo',   label: 'Solo photographer', multiplier: 1.0  },
-  { id: 'second', label: '+ Second shooter',  multiplier: 1.35 },
+  { id: 'standard', label: '30-yr architectural shingles', multiplier: 1.0  },
+  { id: 'impact',   label: 'Impact-resistant (Class 4)',   multiplier: 1.22 },
 ];
 const DEMO_ADDONS = [
-  { id: 'film',       label: 'Wedding film',     price: 800 },
-  { id: 'engagement', label: 'Engagement shoot', price: 350 },
-  { id: 'album',      label: 'Luxury album',     price: 450 },
-  { id: 'prints',     label: 'Print package',    price: 200 },
+  { id: 'gutters', label: 'Gutter replacement', price: 1200 },
+  { id: 'fascia',  label: 'Fascia & soffit',    price: 650  },
+  { id: 'ridge',   label: 'Ridge ventilation',  price: 420  },
+  { id: 'decking', label: 'Decking repair',     price: 380  },
 ];
 
 const CUSTOM_STEPS = [
-  { delay: 1500,  change: { packageId: 'p2' },                                 flash: 'package' },
-  { delay: 4000,  change: { packageId: 'p3' },                                 flash: 'package' },
-  { delay: 7000,  change: { teamId: 'second' },                                flash: 'team'    },
-  { delay: 10000, change: { addons: ['film'] },                                flash: 'addons'  },
-  { delay: 12500, change: { addons: ['film', 'engagement'] },                  flash: 'addons'  },
-  { delay: 15000, change: { addons: ['film', 'engagement', 'album'] },         flash: 'addons'  },
+  { delay: 1500,  change: { packageId: 'p2' },                                  flash: 'package' },
+  { delay: 4000,  change: { packageId: 'p3' },                                  flash: 'package' },
+  { delay: 7000,  change: { teamId: 'impact' },                                 flash: 'team'    },
+  { delay: 10000, change: { addons: ['gutters'] },                              flash: 'addons'  },
+  { delay: 12500, change: { addons: ['gutters', 'fascia'] },                    flash: 'addons'  },
+  { delay: 15000, change: { addons: ['gutters', 'fascia', 'ridge'] },           flash: 'addons'  },
 ];
 const CUSTOM_LOOP = CUSTOM_STEPS[CUSTOM_STEPS.length - 1].delay + 5000;
 
@@ -460,7 +452,7 @@ function CustomisationDemo() {
   const team       = DEMO_TEAM.find(t => t.id === teamId);
   const addonTotal = DEMO_ADDONS.filter(a => addons.includes(a.id)).reduce((s, a) => s + a.price, 0);
   const subtotal   = Math.round(pkg.price * team.multiplier) + addonTotal;
-  const bundle     = addons.includes('film') && teamId === 'second' ? 0.05 : 0;
+  const bundle     = addons.includes('gutters') && teamId === 'impact' ? 0.05 : 0;
   const total      = Math.round(subtotal * (1 - bundle));
   const hl = key => flash === key
     ? 'border-green-400 bg-[#F0F0EE] shadow-sm shadow-green-100'
@@ -472,8 +464,8 @@ function CustomisationDemo() {
       {/* Header */}
       <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between">
         <div>
-          <p className="text-sm font-bold text-slate-900">Build Your Package</p>
-          <p className="text-xs text-slate-400 mt-0.5">Emma Clarke · June Wedding</p>
+          <p className="text-sm font-bold text-slate-900">Build Your Quote</p>
+          <p className="text-xs text-slate-400 mt-0.5">Mike Harris · Full Reroof</p>
         </div>
         <span className="text-[10px] bg-[#F0F0EE] text-green-700 border border-green-100 px-2 py-0.5 rounded-full font-semibold">
           Live preview
@@ -484,7 +476,7 @@ function CustomisationDemo() {
 
         {/* Package */}
         <div className={`rounded-xl border p-3 transition-all duration-500 ${hl('package')}`}>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Photography Package</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Service Type</p>
           <div className="space-y-1.5">
             {DEMO_PACKAGES.map(p => (
               <div key={p.id}
@@ -498,9 +490,9 @@ function CustomisationDemo() {
                     {p.id === packageId && <div className="w-full h-full rounded-full bg-slate-900 scale-50" />}
                   </div>
                   <span className="font-medium">{p.name}</span>
-                  <span className={`text-[10px] ${p.id === packageId ? 'text-slate-400' : 'text-slate-400'}`}>{p.hours} hrs</span>
+                  <span className={`text-[10px] ${p.id === packageId ? 'text-slate-400' : 'text-slate-400'}`}>{p.desc}</span>
                 </div>
-                <span className={p.id === packageId ? 'text-slate-300' : 'text-slate-400'}>£{p.price.toLocaleString()}</span>
+                <span className={p.id === packageId ? 'text-slate-300' : 'text-slate-400'}>${p.price.toLocaleString()}</span>
               </div>
             ))}
           </div>
@@ -508,7 +500,7 @@ function CustomisationDemo() {
 
         {/* Team */}
         <div className={`rounded-xl border p-3 transition-all duration-500 ${hl('team')}`}>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Photography Team</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-2">Material Grade</p>
           <div className="space-y-1">
             {DEMO_TEAM.map(t => (
               <div key={t.id}
@@ -517,7 +509,7 @@ function CustomisationDemo() {
                 }`}>
                 <div className={`w-2 h-2 rounded-full border flex-shrink-0 ${t.id === teamId ? 'border-white bg-white' : 'border-slate-300'}`} />
                 {t.label}
-                {t.id !== 'solo' && t.id === teamId && (
+                {t.id !== 'standard' && t.id === teamId && (
                   <span className="ml-auto text-slate-400 text-[9px]">+{Math.round((t.multiplier - 1) * 100)}%</span>
                 )}
               </div>
@@ -542,7 +534,7 @@ function CustomisationDemo() {
                     {on && <span className="text-white text-[8px] font-bold">✓</span>}
                   </div>
                   <span className="font-medium truncate">{a.label}</span>
-                  <span className="ml-auto text-[9px] text-slate-400">+£{a.price}</span>
+                  <span className="ml-auto text-[9px] text-slate-400">+${a.price.toLocaleString()}</span>
                 </div>
               );
             })}
@@ -552,30 +544,30 @@ function CustomisationDemo() {
         {/* Price breakdown */}
         <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 space-y-1.5">
           <div className="flex justify-between text-xs text-slate-500">
-            <span>{pkg.name} ({pkg.hours} hrs)</span>
-            <span>£{pkg.price.toLocaleString()}</span>
+            <span>{pkg.name} ({pkg.desc})</span>
+            <span>${pkg.price.toLocaleString()}</span>
           </div>
-          {teamId !== 'solo' && (
+          {teamId !== 'standard' && (
             <div className="flex justify-between text-xs text-slate-500 anim-slide-up">
-              <span>Second shooter (+{Math.round((team.multiplier - 1) * 100)}%)</span>
-              <span>+£{Math.round(pkg.price * (team.multiplier - 1)).toLocaleString()}</span>
+              <span>Impact-resistant upgrade (+{Math.round((team.multiplier - 1) * 100)}%)</span>
+              <span>+${Math.round(pkg.price * (team.multiplier - 1)).toLocaleString()}</span>
             </div>
           )}
           {addonTotal > 0 && (
             <div className="flex justify-between text-xs text-slate-500 anim-slide-up">
               <span>Add-ons</span>
-              <span>+£{addonTotal.toLocaleString()}</span>
+              <span>+${addonTotal.toLocaleString()}</span>
             </div>
           )}
           {bundle > 0 && (
             <div className="flex justify-between text-xs text-green-600 font-medium anim-slide-up">
               <span>Bundle discount (5%)</span>
-              <span>−£{Math.round(subtotal * bundle).toLocaleString()}</span>
+              <span>−${Math.round(subtotal * bundle).toLocaleString()}</span>
             </div>
           )}
           <div className="border-t border-slate-200 pt-1.5 mt-1 flex justify-between items-center">
             <span className="text-sm font-bold text-slate-900">Total</span>
-            <span className="text-lg font-black text-slate-900">£{total.toLocaleString()}</span>
+            <span className="text-lg font-black text-slate-900">${total.toLocaleString()}</span>
           </div>
         </div>
       </div>
@@ -586,30 +578,30 @@ function CustomisationDemo() {
 const LEFT_FEATURES = [
   {
     title: 'AI listens while you talk',
-    desc: 'Our AI works silently in the background — transcribing every word as you lead the conversation.',
+    desc: 'Our AI works silently in the background — transcribing every word while you lead the conversation. No headset, no typing, no second screen.',
   },
   {
-    title: 'Forms fill themselves',
-    desc: 'Wedding date, venue, package preferences, add-ons — detected from what\'s said and entered automatically. No typing.',
+    title: 'Quote fields fill themselves',
+    desc: 'Customer name, address, roof size, pitch, material, tear-off — all captured from what\'s said and entered into your quote automatically.',
   },
   {
-    title: 'Quote built instantly',
-    desc: 'A complete, itemised quote is ready before you even hang up — generated from the live conversation.',
+    title: 'Quote built before you hang up',
+    desc: 'A complete, itemised roofing quote is ready before the call ends — pulled straight from the conversation. Nothing to type after.',
   },
 ];
 
 const RIGHT_FEATURES = [
   {
-    title: 'Your packages, your prices',
-    desc: 'Set your own packages and pricing rules — every quote reflects exactly what you charge.',
+    title: 'Your rates, your materials',
+    desc: 'Set your own price per square, material markups and labour rates — every quote reflects exactly what you charge.',
   },
   {
-    title: 'Full enquiry pipeline',
-    desc: 'Every call logged, every lead tracked — from first enquiry to confirmed booking, in one place.',
+    title: 'Full lead pipeline',
+    desc: 'Every call logged, every lead tracked — from first inquiry to signed job, in one place.',
   },
   {
     title: 'Send in one click',
-    desc: 'A branded PDF quote is ready the moment you hang up. Send it to the client straight from the call.',
+    desc: 'A professional PDF quote is ready the moment you hang up. Send it before a competitor even calls them back.',
   },
 ];
 
@@ -625,7 +617,7 @@ function FeaturesSection({ onBookDemo }) {
             Everything you need to quote faster
           </h2>
           <p className="text-slate-500 text-base md:text-lg max-w-lg mx-auto">
-            You stay in the conversation. Show My Quote works silently in the background — transcribing, filling forms and building quotes in real time.
+            You handle the conversation. Show My Quote works in the background — transcribing, auto-filling your quote form and calculating the total in real time.
           </p>
         </div>
 
@@ -671,7 +663,7 @@ function FeaturesSection({ onBookDemo }) {
 // ─── How It Works Section ────────────────────────────────────────────────────
 
 function DataEntriesAnim() {
-  const ITEMS = ['Waiters', 'Soft drinks', '3 course meal', 'Cutlery', 'Celebration cake'];
+  const ITEMS = ['Shingles (28 sq)', 'Underlayment', 'Flashing', 'Labor', 'Disposal & haul-off'];
   const [activeRow, setActiveRow] = useState(-1);
   const [chars, setChars] = useState(0);
   const [done, setDone] = useState(false);
@@ -724,11 +716,11 @@ function DataEntriesAnim() {
 
 function PricingAnim() {
   const ITEMS = [
-    { label: 'Waiters',          price: '£450'  },
-    { label: 'Soft drinks',      price: '£8pp'  },
-    { label: '3 course meal',    price: '£65pp' },
-    { label: 'Cutlery',          price: '£120'  },
-    { label: 'Celebration cake', price: '£280'  },
+    { label: 'Shingles (28 sq)',    price: '$2,520' },
+    { label: 'Underlayment',        price: '$420'   },
+    { label: 'Flashing',            price: '$280'   },
+    { label: 'Labor',               price: '$1,680' },
+    { label: 'Disposal & haul-off', price: '$350'   },
   ];
   const [activePrice, setActivePrice] = useState(-1);
   const [chars, setChars] = useState(0);
@@ -776,7 +768,7 @@ function PricingAnim() {
 }
 
 function LogicAnim() {
-  const RULE = 'add £100 for every 30 guests';
+  const RULE = 'add $150 per storey above 1';
   const [stage, setStage] = useState(0);
   const [chars, setChars] = useState(0);
   const [priceFlash, setPriceFlash] = useState(false);
@@ -804,8 +796,8 @@ function LogicAnim() {
     }
   }, [stage]);
 
-  const guests = stage >= 5 ? (stage - 4) * 30 : 0;
-  const price  = stage >= 5 ? 280 + Math.max(0, stage - 5) * 100 : 280;
+  const guests = stage >= 5 ? (stage - 4) : 0;
+  const price  = stage >= 5 ? 1680 + Math.max(0, stage - 5) * 150 : 1680;
 
   const fadeIn = (n) => ({
     opacity:    stage >= n ? 1 : 0,
@@ -816,9 +808,9 @@ function LogicAnim() {
     <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden">
 
       <div style={fadeIn(1)} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <span className="text-xs font-medium text-slate-300">Celebration cake</span>
+        <span className="text-xs font-medium text-slate-300">Labor</span>
         <span className="text-xs font-bold" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
-          £{price}
+          ${price.toLocaleString()}
         </span>
       </div>
 
@@ -831,7 +823,7 @@ function LogicAnim() {
       </div>
 
       <div style={fadeIn(5)} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <span className="text-xs text-slate-500">Guests</span>
+        <span className="text-xs text-slate-500">Storeys</span>
         <span className="text-xs font-bold text-white">{guests}</span>
       </div>
 
@@ -841,11 +833,11 @@ function LogicAnim() {
 
 function PublishAnim() {
   const ITEMS = [
-    { label: 'Waiters',          price: 450  },
-    { label: 'Soft drinks',      price: 240  },
-    { label: '3 course meal',    price: 1950 },
-    { label: 'Cutlery',          price: 120  },
-    { label: 'Celebration cake', price: 280  },
+    { label: 'Shingles (28 sq)',    price: 2520 },
+    { label: 'Underlayment',        price: 420  },
+    { label: 'Flashing & valleys',  price: 280  },
+    { label: 'Labor',               price: 1680 },
+    { label: 'Disposal & haul-off', price: 350  },
   ];
   const [phase, setPhase] = useState(0);
   const [priceFlash, setPriceFlash] = useState(false);
@@ -875,7 +867,7 @@ function PublishAnim() {
       <div className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
         <span className="text-xs font-semibold text-slate-500">Total</span>
         <span className="text-xs font-black" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
-          {total > 0 ? `£${total.toLocaleString('en-GB')}` : '—'}
+          {total > 0 ? `$${total.toLocaleString()}` : '—'}
         </span>
       </div>
 
@@ -894,7 +886,7 @@ function PublishAnim() {
               </div>
               <span className="text-xs font-medium text-slate-300">{item.label}</span>
             </div>
-            <span className="text-xs text-slate-500">£{item.price.toLocaleString('en-GB')}</span>
+            <span className="text-xs text-slate-500">${item.price.toLocaleString()}</span>
           </div>
         );
       })}
@@ -916,26 +908,26 @@ function PublishAnim() {
 const HOW_IT_WORKS = [
   {
     step: '01',
-    title: 'Create your data entries',
-    desc:  'Add your services, packages and line items — whether you\'re a photographer building packages, a venue listing hire options, or a florist pricing arrangements.',
+    title: 'Add your services and materials',
+    desc:  'Enter your line items — shingles, underlayment, flashing, labour, disposal. Set your price per square, per unit or flat fee. Your materials, your rates.',
     Anim: DataEntriesAnim,
   },
   {
     step: '02',
-    title: 'Add pricing, timing & length',
-    desc:  'Set your prices, durations and coverage lengths against each entry. Fixed fees, per-hour rates, per-head pricing — all supported. Your rates, your rules.',
+    title: 'Set your pricing',
+    desc:  'Add prices to each line item. Per-square rates, per-unit costs, flat fees — all supported. Update them any time and every quote reflects the change instantly.',
     Anim: PricingAnim,
   },
   {
     step: '03',
-    title: 'Add logic if needed',
-    desc:  'Layer in smart rules: volume discounts, second-shooter multipliers, travel fees by distance, seasonal uplift. Applied automatically from the call.',
+    title: 'Add rules if needed',
+    desc:  'Layer in smart logic: storey surcharges, steep pitch multipliers, material upgrade markups, travel fees. Applied automatically from what\'s said on the call.',
     Anim: LogicAnim,
   },
   {
     step: '04',
-    title: 'Publish and start quoting',
-    desc:  'Go live in minutes. Show My Quote listens in the background, fills your forms and builds the quote. Send it before you hang up.',
+    title: 'Go live and start quoting',
+    desc:  'You\'re ready. Show My Quote listens on every call, fills your form and builds the quote in real time. Send it before you hang up.',
     Anim: PublishAnim,
   },
 ];
@@ -976,94 +968,94 @@ function HowItWorksSection() {
 
 const USE_CASES = [
   {
-    title: 'Wedding photography',
-    desc:  'Turn enquiry calls into itemised photography packages — coverage hours, second shooters, films and albums quoted before you hang up.',
-    cta:   'See photography quoting',
+    title: 'Residential re-roof',
+    desc:  'Quote full replacements on the call — roof size, pitch, material, tear-off and decking all captured before you hang up.',
+    cta:   'See reroof quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <rect x="8" y="26" width="64" height="40" rx="5" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <rect x="28" y="14" width="20" height="14" rx="3" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <circle cx="40" cy="46" r="14" fill="white" stroke="#16a34a" strokeWidth="2"/>
-        <circle cx="40" cy="46" r="8" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <rect x="56" y="30" width="8" height="6" rx="1.5" fill="#16a34a" opacity="0.5" stroke="#16a34a" strokeWidth="1.5"/>
-        <circle cx="18" cy="34" r="3" fill="#16a34a" opacity="0.4"/>
+        <rect x="16" y="36" width="48" height="32" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <path d="M8 38 L40 10 L72 38Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
+        <line x1="16" y1="32" x2="30" y2="20" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+        <line x1="26" y1="36" x2="40" y2="22" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+        <line x1="36" y1="38" x2="50" y2="24" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+        <line x1="46" y1="37" x2="60" y2="27" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
+        <rect x="32" y="50" width="16" height="18" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
       </svg>
     ),
   },
   {
-    title: 'Wedding venues',
-    desc:  'Quote venue hire, exclusive use packages and add-ons in real time — every detail captured from the call without needing to follow up.',
-    cta:   'See venue quoting',
+    title: 'Storm damage & insurance',
+    desc:  'Scope hail and wind damage on the call, build an insurance-ready quote and get it to the homeowner before the adjuster shows up.',
+    cta:   'See storm damage quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <rect x="14" y="28" width="52" height="40" rx="3" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <path d="M8 30 L40 6 L72 30Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M32 68 L32 52 Q32 44 40 44 Q48 44 48 52 L48 68Z" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
-        <rect x="18" y="36" width="10" height="10" rx="1.5" fill="#16a34a" opacity="0.3" stroke="#16a34a" strokeWidth="1.5"/>
-        <rect x="52" y="36" width="10" height="10" rx="1.5" fill="#16a34a" opacity="0.3" stroke="#16a34a" strokeWidth="1.5"/>
+        <rect x="16" y="36" width="48" height="32" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <path d="M8 38 L40 10 L72 38Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
+        <rect x="32" y="50" width="16" height="18" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
+        <ellipse cx="46" cy="14" rx="9" ry="7" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
+        <path d="M48 18 L43 28 L47 28 L42 40 L52 26 L47 26Z" fill="#16a34a" opacity="0.7"/>
       </svg>
     ),
   },
   {
-    title: 'Floral & styling',
-    desc:  'From bridal bouquets to full venue decoration — capture the vision on the call and produce a detailed floral quote instantly.',
-    cta:   'See floral quoting',
+    title: 'Roof repairs',
+    desc:  'Quote spot repairs, flashing, valleys and leak fixes in minutes — not after a follow-up visit. Capture the scope while you have them on the line.',
+    cta:   'See repair quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <line x1="40" y1="70" x2="40" y2="42" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"/>
-        <path d="M40 55 C30 50 22 40 28 30 C34 38 40 48 40 55Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" transform="rotate(60 40 33)" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" transform="rotate(120 40 33)" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" transform="rotate(180 40 33)" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" transform="rotate(240 40 33)" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="24" rx="5" ry="9" transform="rotate(300 40 33)" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
-        <circle cx="40" cy="33" r="6" fill="#16a34a"/>
+        <rect x="16" y="36" width="48" height="32" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <path d="M8 38 L40 10 L72 38Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
+        <rect x="32" y="50" width="16" height="18" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
+        <circle cx="56" cy="22" r="10" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
+        <path d="M52 20 Q54 16 58 18 L60 26 L52 24Z" fill="#16a34a" opacity="0.5"/>
+        <line x1="56" y1="26" x2="62" y2="32" stroke="#16a34a" strokeWidth="2.5" strokeLinecap="round"/>
       </svg>
     ),
   },
   {
-    title: 'Wedding planning',
-    desc:  'Turn initial consultations into comprehensive service proposals — every planning requirement noted and priced before the call ends.',
-    cta:   'See planning quoting',
+    title: 'Commercial flat roofing',
+    desc:  'Handle TPO, EPDM and metal panel enquiries — quote by square footage, membrane type and warranty tier while you\'re still on the call.',
+    cta:   'See commercial quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <rect x="16" y="14" width="48" height="56" rx="4" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <rect x="28" y="8" width="24" height="12" rx="3" fill="white" stroke="#16a34a" strokeWidth="2"/>
-        <circle cx="27" cy="32" r="3" fill="#16a34a"/>
-        <line x1="35" y1="32" x2="55" y2="32" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round"/>
-        <circle cx="27" cy="44" r="3" fill="#16a34a" opacity="0.5"/>
-        <line x1="35" y1="44" x2="55" y2="44" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.5"/>
-        <circle cx="27" cy="56" r="3" fill="#16a34a" opacity="0.3"/>
-        <line x1="35" y1="56" x2="48" y2="56" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round" opacity="0.3"/>
+        <rect x="8" y="30" width="64" height="38" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <rect x="8" y="22" width="64" height="12" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <rect x="20" y="40" width="12" height="16" rx="1" fill="white" stroke="#16a34a" strokeWidth="1.5" opacity="0.7"/>
+        <rect x="36" y="40" width="12" height="16" rx="1" fill="white" stroke="#16a34a" strokeWidth="1.5" opacity="0.7"/>
+        <rect x="52" y="40" width="12" height="16" rx="1" fill="white" stroke="#16a34a" strokeWidth="1.5" opacity="0.7"/>
+        <rect x="30" y="14" width="8" height="10" rx="1" fill="#16a34a" opacity="0.4" stroke="#16a34a" strokeWidth="1.5"/>
+        <rect x="46" y="14" width="8" height="10" rx="1" fill="#16a34a" opacity="0.4" stroke="#16a34a" strokeWidth="1.5"/>
       </svg>
     ),
   },
   {
-    title: 'Entertainment & music',
-    desc:  'Quote DJ sets, live bands, ceremony musicians and sound equipment — set times, travel and extras captured automatically.',
-    cta:   'See entertainment quoting',
+    title: 'Gutter & fascia',
+    desc:  'Quote gutters, fascia, soffit and downspouts as standalone jobs or alongside roofing work — all line items ready from a single call.',
+    cta:   'See gutter quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <path d="M34 14 L34 52 Q34 60 26 60 Q18 60 18 52 Q18 44 26 44 Q30 44 34 47 L34 20 L62 14 L62 48 Q62 56 54 56 Q46 56 46 48 Q46 40 54 40 Q58 40 62 43 L62 20 Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
-        <path d="M68 18 L69.5 22 L74 22 L70.5 25 L72 29 L68 26.5 L64 29 L65.5 25 L62 22 L66.5 22Z" fill="#16a34a" opacity="0.5"/>
-        <path d="M12 26 L13 29 L16 29 L13.5 31 L14.5 34 L12 32.5 L9.5 34 L10.5 31 L8 29 L11 29Z" fill="#16a34a" opacity="0.3"/>
+        <rect x="16" y="36" width="48" height="32" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <path d="M8 38 L40 10 L72 38Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
+        <rect x="14" y="36" width="52" height="5" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
+        <rect x="14" y="40" width="4" height="26" rx="1" fill="#dcfce7" stroke="#16a34a" strokeWidth="1.5"/>
+        <rect x="32" y="50" width="16" height="18" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
+        <ellipse cx="16" cy="67" rx="3.5" ry="2.5" fill="#16a34a" opacity="0.3"/>
       </svg>
     ),
   },
   {
-    title: 'Wedding catering',
-    desc:  'Handle complex catering enquiries with dietary needs, guest counts and service styles — all quoted before the call ends.',
-    cta:   'See catering quoting',
+    title: 'Emergency & leak response',
+    desc:  'On a leak call? Capture the address, damage scope and urgency while you dispatch. Quote the repair before the truck arrives.',
+    cta:   'See emergency quoting',
     Icon: () => (
       <svg viewBox="0 0 80 72" fill="none" className="w-full h-full">
-        <ellipse cx="40" cy="50" rx="28" ry="6" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <path d="M12 50 Q12 22 40 22 Q68 22 68 50Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
-        <rect x="36" y="13" width="8" height="10" rx="3" fill="#16a34a" opacity="0.5" stroke="#16a34a" strokeWidth="1.5"/>
-        <ellipse cx="40" cy="58" rx="30" ry="5" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
-        <line x1="18" y1="30" x2="18" y2="58" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round"/>
-        <path d="M14 30 L22 30" stroke="#16a34a" strokeWidth="1.5" strokeLinecap="round"/>
-        <line x1="62" y1="30" x2="62" y2="58" stroke="#16a34a" strokeWidth="1.8" strokeLinecap="round"/>
+        <rect x="16" y="36" width="48" height="32" rx="2" fill="#dcfce7" stroke="#16a34a" strokeWidth="2"/>
+        <path d="M8 38 L40 10 L72 38Z" fill="#dcfce7" stroke="#16a34a" strokeWidth="2" strokeLinejoin="round"/>
+        <rect x="32" y="50" width="16" height="18" rx="2" fill="white" stroke="#16a34a" strokeWidth="1.5"/>
+        <path d="M37 20 L40 28 L38.5 28 L41.5 36" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" opacity="0.6"/>
+        <ellipse cx="40" cy="52" rx="3" ry="4" fill="#16a34a" opacity="0.4"/>
+        <ellipse cx="32" cy="57" rx="2.5" ry="3.5" fill="#16a34a" opacity="0.3"/>
+        <ellipse cx="48" cy="55" rx="2" ry="3" fill="#16a34a" opacity="0.3"/>
       </svg>
     ),
   },
@@ -1072,263 +1064,260 @@ const USE_CASES = [
 // ─── Vendor Sheet Data ────────────────────────────────────────────────────────
 
 const SHEET_DATA = {
-  'Wedding photography': {
-    desc: 'Turn every enquiry call into a detailed, itemised photography package — coverage hours, second shooters, films and albums all quoted before you hang up.',
-    stats: [
-      { value: '< 4 min', label: 'Average quote time' },
-      { value: '93%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per booking' },
-    ],
-    steps: [
-      { step: '1', title: 'You take the enquiry call',              desc: 'No AI agent. You lead the conversation — coverage needs, venue details, package preferences. Our AI listens silently and captures every detail.' },
-      { step: '2', title: 'AI fills your form in real time',        desc: 'Wedding date, venue, coverage hours, team size and add-ons — all extracted from the conversation and entered into your quote template automatically.' },
-      { step: '3', title: 'Package quote ready before you hang up', desc: 'A branded, itemised photography quote is generated from the call and ready to send the moment it ends. No typing, no follow-up admin.' },
-    ],
-    quote: {
-      client:   'Emma & James Clarke',
-      subtitle: 'Full-Day Wedding Photography · Sat 21 Jun · Aynhoe Park, Oxfordshire',
-      flags:    ['Second shooter', 'Wedding film'],
-      lines: [
-        { label: 'Premium Collection — full day, 10 hrs coverage', price: '£2,500'   },
-        { label: 'Second shooter (+35%)',                           price: '+£875'    },
-        { label: 'Cinematic wedding film',                          price: '+£800'    },
-        { label: 'Engagement session (60 min)',                     price: '+£350'    },
-        { label: 'Online gallery — unlimited downloads',            price: 'Included' },
-        { label: 'Print credit & luxury album',                     price: '+£450'    },
-      ],
-      note:          null,
-      meta:          '10 hrs · 2 photographers · Aynhoe Park',
-      strikethrough: null,
-      total:         '£4,975',
-      sentIn:        '0:52',
-    },
-    features: [
-      { title: 'Package tier builder',    desc: 'Essential, Classic and Premium packages pre-set with hours, team size and deliverables — select on the call, priced instantly.' },
-      { title: 'Second shooter pricing',  desc: 'Your second shooter rate is pre-set as a percentage or fixed fee. Mentioned on the call — added to the quote automatically.' },
-      { title: 'Film & album add-ons',    desc: 'Wedding films, engagement shoots, luxury albums and print credits are pre-built add-ons ready to quote with a single mention.' },
-      { title: 'Travel fee automation',   desc: 'Distance to the venue is captured on the call and your travel rate applied as a line item automatically — no separate calculation.' },
-    ],
-    featuresLabel: 'Photography-specific features',
-    cta: {
-      headline: 'Quote your next wedding enquiry in under 4 minutes.',
-      sub:      'Book a demo and see how Show My Quote turns a photography enquiry call into a sent quote.',
-    },
-  },
-
-  'Wedding venues': {
-    desc: 'Quote venue hire, exclusive use packages, catering allowances and extras in real time — every detail captured from the call without needing to follow up.',
+  'Residential re-roof': {
+    desc: 'Quote full roof replacements on the call — size, pitch, material, tear-off and decking all captured automatically so you can send a price before a competitor calls them back.',
     stats: [
       { value: '< 5 min', label: 'Average quote time' },
-      { value: '91%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per enquiry' },
+      { value: '94%',     label: 'Enquiries converted to quote' },
+      { value: '$0',      label: 'Extra admin per job' },
     ],
     steps: [
-      { step: '1', title: 'You take the venue enquiry',           desc: 'No AI agent. You lead the conversation — wedding date, guest count, spaces required, catering preferences. Our AI listens silently throughout.' },
-      { step: '2', title: 'AI fills your form in real time',      desc: 'Date, guest headcount, package tier, catering allowance and extras — all extracted and entered into your quote template as the call progresses.' },
-      { step: '3', title: 'Venue quote ready before you hang up', desc: 'A full venue hire quote — spaces, packages, catering and extras — is generated from the call and ready to send immediately.' },
+      { step: '1', title: 'You take the homeowner call',            desc: 'No AI agent. You lead the conversation — address, roof size, pitch, material preferences, tear-off details. Our AI listens silently and captures every detail.' },
+      { step: '2', title: 'AI fills your form in real time',        desc: 'Customer name, address, squares, pitch, material grade, layers and add-ons — all extracted from the conversation and entered into your quote template automatically.' },
+      { step: '3', title: 'Quote ready before you hang up',         desc: 'A branded, itemised reroof quote is generated from the call. Review it, adjust if needed, and send it straight from the app.' },
     ],
     quote: {
-      client:   'Sophie & Daniel Whitmore',
-      subtitle: 'Exclusive Use Venue Hire · Sat 14 Sep · Thornfield Manor, Kent',
-      flags:    ['Exclusive use', 'Civil ceremony'],
+      client:   'Mike Harris',
+      subtitle: 'Full Roof Replacement · 4821 Westgate Dr, Houston TX',
+      flags:    ['28 squares', 'Tear-off included'],
       lines: [
-        { label: 'Exclusive use hire — full day (ceremony to midnight)', price: '£8,500'  },
-        { label: 'Bridal suite & getting-ready room',                    price: '+£600'   },
-        { label: 'Ceremony room setup & chair hire',                     price: '+£850'   },
-        { label: 'Catering allowance (150 guests)',                      price: '+£9,750' },
-        { label: 'Evening reception extension (midnight → 1am)',         price: '+£750'   },
-        { label: 'Grounds & garden hire for outdoor ceremony',           price: '+£500'   },
+        { label: '30-yr architectural shingles — 28 squares', price: '$2,520' },
+        { label: 'Synthetic underlayment',                    price: '+$420'  },
+        { label: 'Drip edge & flashing',                      price: '+$280'  },
+        { label: 'Labor — 2-storey, moderate pitch',          price: '+$1,680'},
+        { label: 'Tear-off & disposal (1 layer)',              price: '+$350'  },
+        { label: 'Ridge cap & vents',                          price: '+$220'  },
       ],
       note:          null,
-      meta:          '150 guests · full day · Thornfield Manor, Kent',
+      meta:          '28 sq · 6:12 pitch · 2-storey · Houston TX',
       strikethrough: null,
-      total:         '£20,950',
-      sentIn:        '1:08',
+      total:         '$5,470',
+      sentIn:        '1:02',
     },
     features: [
-      { title: 'Package tier selector',    desc: 'Midweek, weekend and exclusive use packages are pre-set with pricing. Guest count auto-adjusts the catering allowance line item.' },
-      { title: 'Capacity-based pricing',   desc: 'Guest headcount is captured on the call and catering allowances, staffing and table hire costs calculated automatically.' },
-      { title: 'Space & room add-ons',     desc: 'Ceremony rooms, bridal suites, garden hire and marquee spaces are pre-built add-ons — mentioned on the call, added to the quote instantly.' },
-      { title: 'Catering allowance logic', desc: 'Your per-head catering rate is pre-set. Guest count captured on the call multiplies automatically into the catering line item.' },
+      { title: 'Square footage auto-calc',    desc: 'Roof size is captured on the call — or estimated from the address. Price-per-square rates apply instantly to every line item.' },
+      { title: 'Pitch & storey surcharges',   desc: 'Steep pitch and multi-storey multipliers are pre-set in your rules. Captured on the call, applied to the quote automatically.' },
+      { title: 'Material tier selection',     desc: '3-tab, architectural, impact-resistant — your material options and markups are pre-set. Mentioned on the call, added to the quote.' },
+      { title: 'Tear-off & disposal costing', desc: 'Number of existing layers is captured and your per-layer disposal rate applied as a line item. No separate calculation.' },
     ],
-    featuresLabel: 'Venue-specific features',
+    featuresLabel: 'Re-roof specific features',
     cta: {
-      headline: 'Quote every venue enquiry before the call ends.',
-      sub:      'Book a demo and see how Show My Quote handles complex venue hire enquiries in real time.',
+      headline: 'Quote your next reroof call before you hang up.',
+      sub:      'Book a demo and see how Show My Quote turns a homeowner call into a sent quote.',
     },
   },
 
-  'Floral & styling': {
-    desc: 'From bridal bouquets to full venue transformation — capture the vision on the call and produce a detailed, itemised floral quote before you hang up.',
+  'Storm damage & insurance': {
+    desc: 'Scope hail and wind damage live on the call, build an insurance-ready line-by-line quote and get it to the homeowner before the adjuster even shows up.',
     stats: [
-      { value: '< 6 min', label: 'Average quote time' },
-      { value: '88%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per booking' },
+      { value: '< 6 min', label: 'Average scope time' },
+      { value: '91%',     label: 'Quotes match adjuster scope' },
+      { value: '$0',      label: 'Extra admin per claim' },
     ],
     steps: [
-      { step: '1', title: "You discuss the couple's vision",         desc: "No AI agent. You lead the consultation — colour palette, flower preferences, venue spaces, styling scale. Our AI listens and captures every detail." },
-      { step: '2', title: 'AI builds the floral brief automatically', desc: 'Bridal party sizes, arrangement types, table count and styling elements — all extracted from conversation and entered into your quote template.' },
-      { step: '3', title: 'Itemised floral quote ready instantly',   desc: 'A detailed, line-by-line floral and styling quote is generated from the call and ready to send the moment you hang up.' },
+      { step: '1', title: 'You take the damage call',          desc: 'No AI agent. You talk through the damage — date of loss, affected areas, hail size, granule loss, dents. Our AI captures every detail in real time.' },
+      { step: '2', title: 'AI builds the scope automatically', desc: 'Damage areas, replacement materials, quantities and add-ons — extracted from the call and entered into your insurance quote template.' },
+      { step: '3', title: 'Insurance quote ready immediately', desc: 'A line-by-line scope of loss is generated from the call — formatted for insurance submission and ready to send before the homeowner calls another roofer.' },
     ],
     quote: {
-      client:   'Olivia & Marcus Pemberton',
-      subtitle: 'Full Wedding Florals · Fri 6 Sep · The Old Rectory, Suffolk',
-      flags:    ['Seasonal blooms', 'Church + reception'],
+      client:   'Dave & Kim Schultz',
+      subtitle: 'Hail Damage Claim · 2240 Creekside Blvd, Katy TX',
+      flags:    ['Hail damage', 'Insurance claim'],
       lines: [
-        { label: 'Bridal bouquet — garden-style, mixed florals', price: '£350'    },
-        { label: 'Bridesmaid bouquets ×4',                       price: '+£560'   },
-        { label: 'Buttonholes ×8 (groom, groomsmen, fathers)',   price: '+£160'   },
-        { label: 'Ceremony arch — full floral draping',          price: '+£1,200' },
-        { label: 'Church pew ends ×16',                          price: '+£480'   },
-        { label: 'Table centrepieces ×20 (reception)',           price: '+£1,800' },
-        { label: 'Delivery, setup & breakdown',                  price: '+£350'   },
+        { label: 'Full roof replacement — 32 sq (hail damaged)',  price: '$4,160' },
+        { label: 'Synthetic underlayment',                        price: '+$480'  },
+        { label: 'Impact-resistant shingles upgrade (Class 4)',   price: '+$960'  },
+        { label: 'Ridge vent replacement',                        price: '+$280'  },
+        { label: 'Gutters & downspouts (hail dented)',            price: '+$1,440'},
+        { label: 'Fascia board replacement — 60 lin ft',          price: '+$540'  },
+        { label: 'Tear-off & disposal',                           price: '+$400'  },
       ],
-      note:          null,
-      meta:          '20 tables · Church + reception · The Old Rectory, Suffolk',
+      note:          'Insurance scope of loss — Katy TX',
+      meta:          '32 sq · hail damage · Katy TX',
       strikethrough: null,
-      total:         '£4,900',
-      sentIn:        '1:14',
+      total:         '$8,260',
+      sentIn:        '1:18',
     },
     features: [
-      { title: 'Item-by-item floral quoting', desc: 'Bouquets, buttonholes, ceremony arches, pew ends and centrepieces are pre-built items in your price list — quoted per unit on the call.' },
-      { title: 'Table count auto-pricing',    desc: 'Reception table count is captured on the call and your centrepiece rate multiplied automatically — no manual calculation needed.' },
-      { title: 'Bridal party sizing',         desc: 'Number of bridesmaids, groomsmen and flower girls is captured and bouquets, buttonholes and corsages added to the quote per head.' },
-      { title: 'Delivery & setup costing',    desc: 'Your delivery, setup and breakdown rates are pre-set. Distance to venue is noted and travel cost added automatically.' },
+      { title: 'Insurance-ready line items',  desc: 'Each item is formatted as a scope of loss line — matching the detail insurers and adjusters expect to see on a claim submission.' },
+      { title: 'Damage area capture',         desc: 'Affected roof sections, gutters, fascia and skylights are noted on the call and quoted as separate line items automatically.' },
+      { title: 'Class 4 upgrade pricing',     desc: 'Impact-resistant shingle upgrades are pre-built in your price list — mentioned on the call, added to the quote with your mark-up.' },
+      { title: 'Date of loss & policy notes', desc: 'Storm date, policy number and adjuster name are captured on the call and included in the quote header automatically.' },
     ],
-    featuresLabel: 'Floral-specific features',
+    featuresLabel: 'Insurance claim features',
     cta: {
-      headline: 'Quote your next floral consultation before you hang up.',
-      sub:      'Book a demo and see how Show My Quote handles the detail of wedding floral enquiries.',
+      headline: 'Be the first quote in the homeowner\'s inbox.',
+      sub:      'Book a demo and see how Show My Quote turns a storm damage call into a sent insurance scope.',
     },
   },
 
-  'Wedding planning': {
-    desc: 'Turn initial consultations into comprehensive service proposals — every planning requirement noted and priced before the call ends, with no follow-up admin.',
-    stats: [
-      { value: '< 5 min', label: 'Average quote time' },
-      { value: '96%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per booking' },
-    ],
-    steps: [
-      { step: '1', title: 'You lead the initial consultation',      desc: 'No AI agent. You guide the conversation — service scope, wedding scale, supplier needs, timeline. Our AI listens and builds the brief in real time.' },
-      { step: '2', title: 'AI captures the full planning scope',    desc: 'Service tier, guest count, supplier coordination needs, day-of management and extras — all extracted and entered into your proposal template automatically.' },
-      { step: '3', title: 'Service proposal ready before you hang up', desc: 'A clear, itemised planning proposal is generated from the call and ready to send the moment it ends — no admin required.' },
-    ],
-    quote: {
-      client:   'Charlotte & Ben Ashworth',
-      subtitle: 'Full Wedding Planning Service · Aug 2025 · Bamburgh Castle, Northumberland',
-      flags:    ['Full planning', 'Supplier coordination'],
-      lines: [
-        { label: 'Full planning service — conception to day-of',      price: '£4,800'   },
-        { label: 'Supplier sourcing & coordination (12 suppliers)',    price: '+£1,200'  },
-        { label: 'On-the-day coordination team (2 coordinators)',      price: '+£800'    },
-        { label: 'Rehearsal dinner planning & management',             price: '+£400'    },
-        { label: 'Guest communication & RSVP management',             price: '+£350'    },
-        { label: 'Budget tracking & payment schedule management',      price: 'Included' },
-      ],
-      note:          null,
-      meta:          '180 guests · full service · Bamburgh Castle',
-      strikethrough: null,
-      total:         '£7,550',
-      sentIn:        '0:56',
-    },
-    features: [
-      { title: 'Service tier builder',        desc: 'Full planning, partial planning and day-of coordination tiers are pre-set. Select the right scope on the call and the quote builds itself.' },
-      { title: 'Supplier count pricing',      desc: 'Number of suppliers to coordinate is captured on the call and your per-supplier coordination rate applied automatically.' },
-      { title: 'Add-on service modules',      desc: 'Rehearsal dinner planning, RSVP management, seating plans and décor coordination are pre-built add-ons ready to quote on mention.' },
-      { title: 'Payment schedule generation', desc: 'Your deposit and instalment schedule is automatically included in the proposal — based on months to wedding and service tier.' },
-    ],
-    featuresLabel: 'Planning-specific features',
-    cta: {
-      headline: 'Deliver your service proposal before you end the call.',
-      sub:      'Book a demo and see how Show My Quote turns a planning consultation into a sent proposal.',
-    },
-  },
-
-  'Entertainment & music': {
-    desc: 'Quote DJ sets, live bands, ceremony musicians and sound equipment — set times, travel fees and extras captured automatically from every enquiry call.',
+  'Roof repairs': {
+    desc: 'Quote spot repairs, flashing replacements, valley re-runs and leak fixes in minutes — not after a follow-up visit. Capture the details while you have the customer on the line.',
     stats: [
       { value: '< 3 min', label: 'Average quote time' },
-      { value: '94%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per booking' },
+      { value: '89%',     label: 'First-call conversions' },
+      { value: '$0',      label: 'Extra admin per repair' },
     ],
     steps: [
-      { step: '1', title: 'You take the entertainment enquiry',     desc: 'No AI agent. You lead the conversation — event type, timings, venue, act preferences, sound requirements. Our AI listens silently and captures everything.' },
-      { step: '2', title: 'AI fills the booking form in real time', desc: 'Set times, performance hours, equipment needs, travel distance and extras — all extracted from the call and entered into your quote template automatically.' },
-      { step: '3', title: 'Entertainment quote ready instantly',    desc: 'A detailed performance and equipment quote is generated from the call and ready to send the moment you hang up.' },
+      { step: '1', title: 'Customer calls about a leak or damage', desc: 'No AI agent. You ask the diagnostic questions — where the leak is, how long it\'s been happening, what\'s visible. Our AI listens and records every answer.' },
+      { step: '2', title: 'AI builds the repair scope',            desc: 'Repair type, area size, materials and any related work are extracted from the call and entered into your repair quote template automatically.' },
+      { step: '3', title: 'Repair quote sent on the call',         desc: 'A clear, itemised repair quote is generated and ready to send the moment you hang up — so the customer can approve while the problem is fresh in their mind.' },
     ],
     quote: {
-      client:   'Lucy & Tom Richardson',
-      subtitle: 'Wedding Entertainment Package · Sat 29 Mar · Elmore Court, Gloucestershire',
-      flags:    ['DJ + Live band', 'Ceremony music'],
+      client:   'Randy Collins',
+      subtitle: 'Roof Repair · 8845 Hollow Oak Dr, Sugar Land TX',
+      flags:    ['Valley flashing', 'Active leak'],
       lines: [
-        { label: 'Live band — 3-piece (2 × 45 min sets)',      price: '£2,400' },
-        { label: 'DJ set — ceremony to close (6 hrs)',          price: '+£1,200'},
-        { label: 'Ceremony acoustic duo (ceremony & drinks)',   price: '+£600'  },
-        { label: 'Full PA & lighting rig',                     price: '+£800'  },
-        { label: 'Wireless mic for speeches',                  price: '+£150'  },
-        { label: 'Travel & transport (145 miles)',              price: '+£290'  },
+        { label: 'Valley re-flash — 18 linear ft',                 price: '$420'  },
+        { label: 'Shingle replacement — storm lifted (12 sq ft)',   price: '+$240' },
+        { label: 'Pipe boot replacement ×2',                       price: '+$180' },
+        { label: 'Attic inspection & moisture check',              price: '+$120' },
+        { label: 'Labor — half day',                               price: '+$450' },
       ],
       note:          null,
-      meta:          '6 hrs performance · full PA · Elmore Court, Gloucestershire',
+      meta:          'Valley + pipe boots · Sugar Land TX',
       strikethrough: null,
-      total:         '£5,440',
-      sentIn:        '0:44',
+      total:         '$1,410',
+      sentIn:        '0:48',
     },
     features: [
-      { title: 'Set time & hour pricing',   desc: 'Performance hours and set lengths are captured on the call and your hourly or fixed-set rates applied automatically to the quote.' },
-      { title: 'Equipment hire line items', desc: 'PA systems, lighting rigs, wireless mics and screens are pre-priced in your settings and added to the quote when mentioned on the call.' },
-      { title: 'Travel fee automation',     desc: 'Venue distance is captured and your mileage rate applied automatically as a line item — no separate calculation required.' },
-      { title: 'Multi-act quoting',         desc: 'Bands, DJs, acoustic duos and ceremony musicians are quoted as separate line items — combined into a single clear quote from one call.' },
+      { title: 'Repair type library',         desc: 'Valley flashing, pipe boots, skylights, ridge damage, blow-offs — your common repair types are pre-priced and ready to quote on mention.' },
+      { title: 'Linear ft & sq ft pricing',   desc: 'Flashing by the linear foot, shingle repair by the square foot — both pricing models supported. Dimensions captured on the call.' },
+      { title: 'Diagnostic fee option',       desc: 'Include an inspection fee as a separate line item — with the option to credit it back against the repair if they proceed.' },
+      { title: 'Photo note capture',          desc: 'Mention of photos or video sent by the customer is logged against the job automatically so nothing slips through.' },
     ],
-    featuresLabel: 'Entertainment-specific features',
+    featuresLabel: 'Repair-specific features',
     cta: {
-      headline: 'Quote your next entertainment enquiry before you hang up.',
-      sub:      'Book a demo and see how Show My Quote turns a wedding entertainment call into a sent quote.',
+      headline: 'Quote the repair before you hang up.',
+      sub:      'Book a demo and see how Show My Quote handles repair calls in real time.',
     },
   },
 
-  'Wedding catering': {
-    desc: 'Handle complex catering enquiries with dietary needs, guest counts and service styles — every detail captured live on the call and quoted before you hang up.',
+  'Commercial flat roofing': {
+    desc: 'Handle TPO, EPDM, modified bitumen and metal panel enquiries — quote by square footage, membrane type and warranty tier while you\'re still on the call with the building owner.',
     stats: [
-      { value: '< 4 min', label: 'Average quote time' },
-      { value: '94%',     label: 'Enquiries converted to quote' },
-      { value: '£0',      label: 'Extra admin per booking' },
+      { value: '< 7 min', label: 'Average quote time' },
+      { value: '86%',     label: 'Quotes sent same day' },
+      { value: '$0',      label: 'Extra admin per job' },
     ],
     steps: [
-      { step: '1', title: 'You answer and lead the call',    desc: 'No AI agent. You speak with the couple naturally — asking about guest count, menu preferences and dietary requirements. Our AI simply listens in the background.' },
-      { step: '2', title: 'AI fills your form in real time', desc: "Guest count, venue, dietary needs, service style and menu choices — detected from what's said and entered into your quote template automatically." },
-      { step: '3', title: 'Quote ready before you hang up',  desc: 'A branded, itemised catering quote is generated from the call and ready to send the moment it ends. No typing, no follow-up admin.' },
+      { step: '1', title: 'Building owner calls for a quote',   desc: 'No AI agent. You discuss the roof — building type, square footage, membrane, drainage, existing warranty. Our AI records every detail silently.' },
+      { step: '2', title: 'AI builds the commercial scope',     desc: 'Roof area, membrane type, insulation, drainage upgrades and warranty tier — all captured and entered into your commercial quote template.' },
+      { step: '3', title: 'Commercial quote ready immediately', desc: 'A detailed scope and price is ready to send before you hang up — professional enough for a facilities manager or property owner.' },
     ],
     quote: {
-      client:   'Sarah & James Thompson',
-      subtitle: 'Wedding Reception Catering · Sat 12 Jul · The Orchid Barn, Surrey',
-      flags:    ['Gluten-free ×4', 'Vegan ×6', 'Nut allergy ×1'],
+      client:   'Peakstone Properties',
+      subtitle: 'TPO Re-roof · 450 Commerce Park Dr, Houston TX',
+      flags:    ['60-mil TPO', 'Warranty 20yr'],
       lines: [
-        { label: 'Classic Elegance — Plated 3-course (120 guests)', price: '£10,200' },
-        { label: 'Plated service uplift (+40%)',                     price: '+£4,080' },
-        { label: 'Welcome drinks reception',                         price: '+£960'   },
-        { label: 'Evening canapé station',                           price: '+£1,440' },
-        { label: 'Bar package (per head)',                           price: '+£3,000' },
-        { label: 'Dietary alternates (GF / Vegan / Nut-free)',      price: '+£480'   },
-        { label: 'Lead manager + 14 staff (8 hrs)',                 price: '+£3,200' },
+        { label: '60-mil TPO membrane — 85 squares',      price: '$12,750' },
+        { label: '2" polyiso insulation board',           price: '+$3,400' },
+        { label: 'Tapered insulation — drain areas',      price: '+$1,200' },
+        { label: 'Seam welding & adhesive',               price: '+$1,700' },
+        { label: 'Curb flashing & penetrations',          price: '+$850'   },
+        { label: '20-year manufacturer warranty',         price: '+$900'   },
+        { label: 'Tear-off & disposal',                   price: '+$1,275' },
       ],
-      note:          'Volume discount (5%) applied',
-      meta:          '120 guests · 8 hrs · The Orchid Barn',
-      strikethrough: '£23,360',
-      total:         '£22,192',
-      sentIn:        '0:47',
+      note:          null,
+      meta:          '85 sq · TPO 60-mil · Commerce Park Dr',
+      strikethrough: null,
+      total:         '$22,075',
+      sentIn:        '1:24',
     },
     features: [
-      { title: 'Dietary flag detection',    desc: 'Gluten-free, vegan, nut allergies and more are extracted from the call and priced as alternates automatically.' },
-      { title: 'Tiered staffing ratios',    desc: 'Staff headcount auto-scales to guest count and service style — your exact ratios, your rates.' },
-      { title: 'Multi-course menu builder', desc: 'Canapés, plated dinners, evening buffets and late-night snacks quoted as discrete line items from a single call.' },
-      { title: 'Venue & date capture',      desc: 'Venue name and event date are captured live and displayed on the quote so nothing is missed.' },
+      { title: 'Membrane type selector',        desc: 'TPO, EPDM, modified bitumen and metal panel — each membrane type has its own pricing schedule. One mention on the call selects it.' },
+      { title: 'Insulation & build-up options', desc: 'Polyiso, EPS and tapered insulation layers are pre-priced per square and added to the quote when discussed on the call.' },
+      { title: 'Warranty tier pricing',         desc: 'NDL, 10-year, 15-year and 20-year manufacturer warranties are pre-built add-ons. Selected on the call, priced and added automatically.' },
+      { title: 'Penetration & curb count',      desc: 'Number of HVAC curbs, pipes and penetrations is captured and your per-unit flashing rate applied automatically as a line item.' },
     ],
-    featuresLabel: 'Catering-specific features',
+    featuresLabel: 'Commercial roofing features',
     cta: {
-      headline: 'Quote your next catering enquiry before the call ends.',
-      sub:      'Book a demo and see how Show My Quote handles complex wedding catering enquiries in real time.',
+      headline: 'Quote commercial jobs without the back-and-forth.',
+      sub:      'Book a demo and see how Show My Quote handles flat roofing scopes in real time.',
+    },
+  },
+
+  'Gutter & fascia': {
+    desc: 'Quote gutters, fascia, soffit and downspouts as standalone jobs or alongside roofing work — all line items ready from a single call, no follow-up needed.',
+    stats: [
+      { value: '< 3 min', label: 'Average quote time' },
+      { value: '92%',     label: 'Same-day quote rate' },
+      { value: '$0',      label: 'Extra admin per job' },
+    ],
+    steps: [
+      { step: '1', title: 'Customer calls about gutters or fascia', desc: 'No AI agent. You ask the questions — linear footage, gutter profile, downspout count, fascia condition. Our AI listens and logs the answers.' },
+      { step: '2', title: 'AI fills the quote form',                desc: 'Linear feet, profile, colour, downspout count and any fascia or soffit work — extracted from the call and entered into your quote template automatically.' },
+      { step: '3', title: 'Quote ready to send immediately',        desc: 'A clear, itemised gutter and fascia quote is ready before the call ends. Send it while you have the customer\'s attention.' },
+    ],
+    quote: {
+      client:   'Tom Garland',
+      subtitle: 'Gutters & Fascia · 1122 Pecan Grove Rd, Pearland TX',
+      flags:    ['K-style 6"', 'Fascia replacement'],
+      lines: [
+        { label: 'K-style 6" seamless aluminium gutters — 140 lin ft', price: '$1,820' },
+        { label: 'Downspout installation ×5',                          price: '+$350'  },
+        { label: 'Gutter guard / leaf protection — 140 lin ft',        price: '+$840'  },
+        { label: 'Fascia board replacement — 140 lin ft',              price: '+$980'  },
+        { label: 'Soffit repair — 4 panels',                           price: '+$320'  },
+      ],
+      note:          null,
+      meta:          '140 lin ft · K-style · Pearland TX',
+      strikethrough: null,
+      total:         '$4,310',
+      sentIn:        '0:54',
+    },
+    features: [
+      { title: 'Linear foot pricing',   desc: 'Gutter and fascia pricing by the linear foot is pre-set in your rate card. Footage captured on the call multiplies automatically.' },
+      { title: 'Profile & size options', desc: 'K-style and half-round in 5" and 6" profiles — each pre-priced. Mentioned on the call, selected and added to the quote instantly.' },
+      { title: 'Gutter guard add-on',   desc: 'Your gutter guard product and per-linear-foot rate is pre-built. Add it to any gutter job with a single mention on the call.' },
+      { title: 'Downspout count',       desc: 'Number of downspouts is captured on the call and your per-unit installation rate applied automatically to the line item.' },
+    ],
+    featuresLabel: 'Gutter & fascia features',
+    cta: {
+      headline: 'Quote gutters and fascia jobs before you hang up.',
+      sub:      'Book a demo and see how Show My Quote handles gutter enquiries in real time.',
+    },
+  },
+
+  'Emergency & leak response': {
+    desc: 'On an emergency leak call? Capture the address, damage scope and urgency while you dispatch your crew. Quote the repair before the truck arrives.',
+    stats: [
+      { value: '< 2 min', label: 'Quote time on the call' },
+      { value: '97%',     label: 'Emergency calls converted' },
+      { value: '$0',      label: 'Admin while dispatching' },
+    ],
+    steps: [
+      { step: '1', title: 'Customer calls with a leak emergency',  desc: 'No AI agent. You triage on the call — location, severity, how long it\'s been leaking, any visible interior damage. Our AI captures everything.' },
+      { step: '2', title: 'AI builds the emergency scope',         desc: 'Address, damage area, tarp size, emergency call-out fee and estimated repair scope — all entered into your quote template as you talk.' },
+      { step: '3', title: 'Quote sent before the truck arrives',   desc: 'The emergency response and estimated repair quote is generated and sent. Customer knows the cost before your crew shows up.' },
+    ],
+    quote: {
+      client:   'Sandra Park',
+      subtitle: 'Emergency Leak Response · 3310 Heather Glen Dr, Rosenberg TX',
+      flags:    ['Active leak', 'Same-day dispatch'],
+      lines: [
+        { label: 'Emergency call-out fee',                        price: '$250'  },
+        { label: 'Emergency tarp — 20×30 ft',                    price: '+$380' },
+        { label: 'Temporary repair — roof penetration seal ×2',  price: '+$280' },
+        { label: 'Damaged shingle replacement — 4 squares',      price: '+$560' },
+        { label: 'Flashing repair — chimney base',               price: '+$320' },
+      ],
+      note:          'Permanent repair quote follows after full inspection',
+      meta:          'Emergency · same-day · Rosenberg TX',
+      strikethrough: null,
+      total:         '$1,790',
+      sentIn:        '0:38',
+    },
+    features: [
+      { title: 'Emergency fee as line item', desc: 'Your after-hours or emergency call-out rate is pre-set and added to the quote automatically — no awkward conversation about it.' },
+      { title: 'Tarp size pricing',          desc: 'Emergency tarp coverage is priced by size in your settings. Noted on the call, the correct tarp size and price is added to the quote.' },
+      { title: 'Dispatch address capture',   desc: 'The full address is captured immediately as the customer calls in — so your crew gets the right location before you\'ve even hung up.' },
+      { title: 'Follow-up scope reminder',   desc: 'Emergency quotes automatically include a note for follow-up full inspection — so the job stays in your pipeline.' },
+    ],
+    featuresLabel: 'Emergency response features',
+    cta: {
+      headline: 'Quote while you dispatch.',
+      sub:      'Book a demo and see how Show My Quote handles emergency roofing calls.',
     },
   },
 };
@@ -1336,101 +1325,101 @@ const SHEET_DATA = {
 // ─── Workflow Demo Data ───────────────────────────────────────────────────────
 
 const WORKFLOW_DATA = {
-  'Wedding photography': {
+  'Residential re-roof': {
     fields: [
-      { key: 'date',     label: 'Wedding date',  placeholder: 'Listening…' },
-      { key: 'venue',    label: 'Venue',         placeholder: 'Listening…' },
-      { key: 'coverage', label: 'Coverage',      placeholder: 'Listening…' },
-      { key: 'team',     label: 'Team',          placeholder: 'Listening…' },
-      { key: 'addons',   label: 'Add-ons',       placeholder: 'Listening…' },
+      { key: 'address',  label: 'Job address',  placeholder: 'Listening…' },
+      { key: 'size',     label: 'Roof size',    placeholder: 'Listening…' },
+      { key: 'pitch',    label: 'Pitch',        placeholder: 'Listening…' },
+      { key: 'material', label: 'Material',     placeholder: 'Listening…' },
+      { key: 'tearoff',  label: 'Tear-off',     placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We're getting married June 21st at Aynhoe Park in Oxfordshire.", fills: [{ key: 'date', value: 'Sat 21 Jun 2025' }, { key: 'venue', value: 'Aynhoe Park' }] },
-      { speaker: 'You',    text: "Beautiful venue! Are you thinking full-day coverage?",            fills: [] },
-      { speaker: 'Client', text: "Yes — full day. We'd love a second shooter too.",                 fills: [{ key: 'coverage', value: 'Full day · 10 hrs', price: '£2,500' }, { key: 'team', value: '2 photographers', price: '+£875' }] },
-      { speaker: 'Client', text: "Oh, and the cinematic wedding film if possible.",                 fills: [{ key: 'addons', value: 'Cinematic film', price: '+£800' }] },
+      { speaker: 'Client', text: "It's 4821 Westgate Drive, Houston — I need a full reroof.",          fills: [{ key: 'address', value: '4821 Westgate Dr, Houston TX' }] },
+      { speaker: 'You',    text: "Any idea on the roof size? And how many storeys?",                    fills: [] },
+      { speaker: 'Client', text: "About 28 squares, two-storey, moderate pitch.",                      fills: [{ key: 'size', value: '28 sq (~2,800 ft²)', price: '$2,520' }, { key: 'pitch', value: '6:12 — moderate' }] },
+      { speaker: 'Client', text: "30-year architectural shingles, full tear-off — one layer.",         fills: [{ key: 'material', value: '30-yr architectural', price: '+$420' }, { key: 'tearoff', value: 'Yes — 1 layer', price: '+$350' }] },
     ],
-    quote: { total: '£4,975', label: 'Premium + second shooter + film', sentIn: '0:52' },
+    quote: { total: '$5,470', label: '28 sq · architectural · tear-off included', sentIn: '1:02' },
   },
-  'Wedding venues': {
+  'Storm damage & insurance': {
     fields: [
-      { key: 'date',     label: 'Event date',    placeholder: 'Listening…' },
-      { key: 'guests',   label: 'Guest count',   placeholder: 'Listening…' },
-      { key: 'package',  label: 'Package',       placeholder: 'Listening…' },
-      { key: 'ceremony', label: 'Ceremony room', placeholder: 'Listening…' },
-      { key: 'bar',      label: 'Bar package',   placeholder: 'Listening…' },
+      { key: 'address',  label: 'Property',     placeholder: 'Listening…' },
+      { key: 'damage',   label: 'Damage type',  placeholder: 'Listening…' },
+      { key: 'size',     label: 'Roof size',    placeholder: 'Listening…' },
+      { key: 'gutters',  label: 'Gutters',      placeholder: 'Listening…' },
+      { key: 'upgrade',  label: 'Material',     placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We're looking at 14th September — around 150 guests.",           fills: [{ key: 'date', value: 'Sat 14 Sep' }, { key: 'guests', value: '150 guests' }] },
-      { speaker: 'You',    text: "Would you like exclusive use of the whole venue?",                fills: [] },
-      { speaker: 'Client', text: "Yes — exclusive use, and we need the civil ceremony space.",     fills: [{ key: 'package', value: 'Exclusive use', price: '£8,500' }, { key: 'ceremony', value: 'Civil ceremony', price: '+£850' }] },
-      { speaker: 'Client', text: "Can we also add the full-day bar package?",                      fills: [{ key: 'bar', value: 'Full day bar', price: '+£3,000' }] },
+      { speaker: 'Client', text: "2240 Creekside, Katy — we got hammered by hail last week.",          fills: [{ key: 'address', value: '2240 Creekside, Katy TX' }, { key: 'damage', value: 'Hail damage' }] },
+      { speaker: 'You',    text: "Roughly how big is the roof — and did the gutters take a hit?",      fills: [] },
+      { speaker: 'Client', text: "About 32 squares. Gutters are dented all the way round.",            fills: [{ key: 'size', value: '32 sq', price: '$4,160' }, { key: 'gutters', value: 'Full replacement', price: '+$1,440' }] },
+      { speaker: 'Client', text: "Can we upgrade to impact-resistant while we're at it?",              fills: [{ key: 'upgrade', value: 'Class 4 impact-resistant', price: '+$960' }] },
     ],
-    quote: { total: '£20,950', label: 'Exclusive use · 150 guests · civil ceremony', sentIn: '1:08' },
+    quote: { total: '$8,260', label: 'Storm damage · 32 sq · gutters + Class 4 upgrade', sentIn: '1:18' },
   },
-  'Floral & styling': {
+  'Roof repairs': {
     fields: [
-      { key: 'bridesmaids', label: 'Bridal party',     placeholder: 'Listening…' },
-      { key: 'arch',        label: 'Ceremony arch',    placeholder: 'Listening…' },
-      { key: 'tables',      label: 'Reception tables', placeholder: 'Listening…' },
-      { key: 'church',      label: 'Church flowers',   placeholder: 'Listening…' },
-      { key: 'delivery',    label: 'Delivery to',      placeholder: 'Listening…' },
+      { key: 'address',  label: 'Location',     placeholder: 'Listening…' },
+      { key: 'issue',    label: 'Issue',        placeholder: 'Listening…' },
+      { key: 'flashing', label: 'Flashing',     placeholder: 'Listening…' },
+      { key: 'shingles', label: 'Shingles',     placeholder: 'Listening…' },
+      { key: 'extras',   label: 'Add-ons',      placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "I have 4 bridesmaids — 8 in the wedding party total.",           fills: [{ key: 'bridesmaids', value: '4 bridesmaids · 8 party', price: '£720' }] },
-      { speaker: 'You',    text: "Are you thinking a full floral arch for the ceremony?",           fills: [] },
-      { speaker: 'Client', text: "Yes, full arch — and 20 tables at the reception.",               fills: [{ key: 'arch', value: 'Full floral arch', price: '+£1,200' }, { key: 'tables', value: '20 tables', price: '+£1,800' }] },
-      { speaker: 'Client', text: "Church pew ends too — it's at The Old Rectory, Suffolk.",        fills: [{ key: 'church', value: 'Church + pew ends ×16', price: '+£480' }, { key: 'delivery', value: 'The Old Rectory, Suffolk', price: '+£350' }] },
+      { speaker: 'Client', text: "8845 Hollow Oak Drive, Sugar Land — I've got a leak in the valley.", fills: [{ key: 'address', value: '8845 Hollow Oak, Sugar Land' }, { key: 'issue', value: 'Active valley leak' }] },
+      { speaker: 'You',    text: "We'll re-flash the valley. Any missing or lifted shingles too?",     fills: [] },
+      { speaker: 'Client', text: "Yeah, a few blown off on the back slope.",                           fills: [{ key: 'flashing', value: 'Valley re-flash 18 ft', price: '$420' }, { key: 'shingles', value: 'Blown-off replacement', price: '+$240' }] },
+      { speaker: 'Client', text: "Two pipe boots are cracked and leaking as well.",                    fills: [{ key: 'extras', value: 'Pipe boots ×2', price: '+$180' }] },
     ],
-    quote: { total: '£4,900', label: 'Full arch + 20 tables + church + delivery', sentIn: '1:14' },
+    quote: { total: '$1,410', label: 'Valley re-flash · blown-off shingles · pipe boots', sentIn: '0:48' },
   },
-  'Wedding planning': {
+  'Commercial flat roofing': {
     fields: [
-      { key: 'tier',      label: 'Service tier',  placeholder: 'Listening…' },
-      { key: 'guests',    label: 'Guest count',   placeholder: 'Listening…' },
-      { key: 'venue',     label: 'Venue',         placeholder: 'Listening…' },
-      { key: 'suppliers', label: 'Suppliers',     placeholder: 'Listening…' },
-      { key: 'dayof',     label: 'Day-of team',   placeholder: 'Listening…' },
+      { key: 'address',    label: 'Building',    placeholder: 'Listening…' },
+      { key: 'size',       label: 'Roof area',   placeholder: 'Listening…' },
+      { key: 'membrane',   label: 'Membrane',    placeholder: 'Listening…' },
+      { key: 'insulation', label: 'Insulation',  placeholder: 'Listening…' },
+      { key: 'warranty',   label: 'Warranty',    placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We need full planning from start to day-of — it's a big one.",   fills: [{ key: 'tier', value: 'Full planning service', price: '£4,800' }] },
-      { speaker: 'You',    text: "How many guests are you expecting?",                              fills: [] },
-      { speaker: 'Client', text: "Around 180 guests at Bamburgh Castle in Northumberland.",         fills: [{ key: 'guests', value: '180 guests' }, { key: 'venue', value: 'Bamburgh Castle' }] },
-      { speaker: 'Client', text: "We have 12 suppliers that will all need coordinating.",           fills: [{ key: 'suppliers', value: '12 suppliers', price: '+£1,200' }, { key: 'dayof', value: '2 coordinators', price: '+£800' }] },
+      { speaker: 'Client', text: "450 Commerce Park Drive — we need the whole flat roof replaced.",    fills: [{ key: 'address', value: '450 Commerce Park Dr, Houston' }] },
+      { speaker: 'You',    text: "Roughly how many squares, and what membrane are you looking for?",   fills: [] },
+      { speaker: 'Client', text: "About 85 squares — 60-mil TPO with polyiso insulation.",            fills: [{ key: 'size', value: '85 sq', price: '$12,750' }, { key: 'membrane', value: '60-mil TPO' }, { key: 'insulation', value: 'Polyiso 2"', price: '+$3,400' }] },
+      { speaker: 'Client', text: "And we need a 20-year manufacturer warranty on this one.",           fills: [{ key: 'warranty', value: '20-year NDL warranty', price: '+$900' }] },
     ],
-    quote: { total: '£7,550', label: 'Full planning · 12 suppliers · 2 coordinators', sentIn: '0:56' },
+    quote: { total: '$22,075', label: '85 sq · TPO 60-mil · polyiso · 20-yr warranty', sentIn: '1:24' },
   },
-  'Entertainment & music': {
+  'Gutter & fascia': {
     fields: [
-      { key: 'act',       label: 'Live act',      placeholder: 'Listening…' },
-      { key: 'sets',      label: 'Set times',     placeholder: 'Listening…' },
-      { key: 'dj',        label: 'DJ coverage',   placeholder: 'Listening…' },
-      { key: 'equipment', label: 'Equipment',     placeholder: 'Listening…' },
-      { key: 'travel',    label: 'Travel',        placeholder: 'Listening…' },
+      { key: 'address',  label: 'Property',     placeholder: 'Listening…' },
+      { key: 'gutters',  label: 'Gutters',      placeholder: 'Listening…' },
+      { key: 'downsp',   label: 'Downspouts',   placeholder: 'Listening…' },
+      { key: 'guard',    label: 'Gutter guard', placeholder: 'Listening…' },
+      { key: 'fascia',   label: 'Fascia',       placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "We'd love a 3-piece live band — two 45-minute sets.",             fills: [{ key: 'act', value: '3-piece live band', price: '£2,400' }, { key: 'sets', value: '2 × 45 min sets' }] },
-      { speaker: 'You',    text: "And do you need DJ cover for the rest of the evening?",            fills: [] },
-      { speaker: 'Client', text: "Yes — DJ from first dance to midnight, full PA and lighting.",     fills: [{ key: 'dj', value: 'DJ · 6 hrs', price: '+£1,200' }, { key: 'equipment', value: 'Full PA + lighting rig', price: '+£800' }] },
-      { speaker: 'Client', text: "We're at Elmore Court in Gloucestershire — about 145 miles.",     fills: [{ key: 'travel', value: '145 miles', price: '+£290' }] },
+      { speaker: 'Client', text: "1122 Pecan Grove, Pearland — gutters are sagging and rusted out.",  fills: [{ key: 'address', value: '1122 Pecan Grove, Pearland TX' }] },
+      { speaker: 'You',    text: "How many linear feet roughly, and are you wanting gutter guard?",    fills: [] },
+      { speaker: 'Client', text: "About 140 feet. Yes add the guard — and 5 downspouts.",             fills: [{ key: 'gutters', value: 'K-style 6" · 140 lin ft', price: '$1,820' }, { key: 'downsp', value: '×5 downspouts', price: '+$350' }, { key: 'guard', value: 'Guard · 140 lin ft', price: '+$840' }] },
+      { speaker: 'Client', text: "The fascia is pretty rotten too — probably needs replacing.",        fills: [{ key: 'fascia', value: 'Fascia · 140 lin ft', price: '+$980' }] },
     ],
-    quote: { total: '£5,440', label: '3-piece band + DJ + full PA · 6 hrs', sentIn: '0:44' },
+    quote: { total: '$4,310', label: '140 ft gutters + guard + fascia · Pearland TX', sentIn: '0:54' },
   },
-  'Wedding catering': {
+  'Emergency & leak response': {
     fields: [
-      { key: 'guests',  label: 'Guest count',   placeholder: 'Listening…' },
-      { key: 'menu',    label: 'Menu style',    placeholder: 'Listening…' },
-      { key: 'dietary', label: 'Dietary needs', placeholder: 'Listening…' },
-      { key: 'evening', label: 'Evening food',  placeholder: 'Listening…' },
-      { key: 'bar',     label: 'Bar package',   placeholder: 'Listening…' },
+      { key: 'address',  label: 'Address',      placeholder: 'Listening…' },
+      { key: 'issue',    label: 'Issue',        placeholder: 'Listening…' },
+      { key: 'tarp',     label: 'Tarp needed',  placeholder: 'Listening…' },
+      { key: 'repair',   label: 'Repair scope', placeholder: 'Listening…' },
+      { key: 'dispatch', label: 'Dispatch',     placeholder: 'Listening…' },
     ],
     steps: [
-      { speaker: 'Client', text: "It's 120 guests — we'd love a plated 3-course dinner.",          fills: [{ key: 'guests', value: '120 guests' }, { key: 'menu', value: 'Plated 3-course', price: '£10,200' }] },
-      { speaker: 'You',    text: "Any dietary requirements we should know about?",                  fills: [] },
-      { speaker: 'Client', text: "4 gluten free, 6 vegan, and one nut allergy.",                   fills: [{ key: 'dietary', value: 'GF ×4 · Vegan ×6 · Nut ×1', price: '+£480' }] },
-      { speaker: 'Client', text: "Can we add canapés for drinks and a bar package too?",           fills: [{ key: 'evening', value: 'Canapé station', price: '+£1,440' }, { key: 'bar', value: 'Full bar package', price: '+£3,000' }] },
+      { speaker: 'Client', text: "3310 Heather Glen, Rosenberg — water's coming through the ceiling right now.", fills: [{ key: 'address', value: '3310 Heather Glen, Rosenberg' }, { key: 'issue', value: 'Active interior leak' }] },
+      { speaker: 'You',    text: "We'll get someone out today. Do we need a tarp?",                    fills: [] },
+      { speaker: 'Client', text: "Yes please, before it rains again tonight.",                        fills: [{ key: 'tarp', value: '20×30 tarp', price: '$380' }, { key: 'dispatch', value: 'Same-day · dispatching', price: '+$250' }] },
+      { speaker: 'Client', text: "I can see cracked flashing around the chimney — probably the cause.", fills: [{ key: 'repair', value: 'Chimney flashing repair', price: '+$320' }] },
     ],
-    quote: { total: '£22,192', label: 'Plated 3-course · 120 guests · bar + canapés', sentIn: '0:47' },
+    quote: { total: '$1,790', label: 'Emergency tarp + chimney flashing + call-out', sentIn: '0:38' },
   },
 };
 
@@ -1723,7 +1712,7 @@ function UseCasesSection({ onBookDemo }) {
         <div className="flex items-end justify-between mb-10">
           <h2 className="font-black text-slate-900 leading-tight max-w-xl"
               style={{ fontSize: 'clamp(32px, 3.5vw, 52px)' }}>
-            Built for every wedding<br />vendor type
+            Built for every roofing<br />job type
           </h2>
           <div className="flex items-center space-x-3 pb-2">
             <button onClick={() => scroll(-1)}
@@ -1843,7 +1832,7 @@ function PricingSection({ onBookDemo }) {
 
               {price ? (
                 <div className="flex items-end gap-1 mb-3">
-                  <span className={`text-5xl font-black leading-none ${highlight ? 'text-white' : 'text-slate-900'}`}>£{price}</span>
+                  <span className={`text-5xl font-black leading-none ${highlight ? 'text-white' : 'text-slate-900'}`}>${price}</span>
                   <span className={`text-sm mb-1 ${highlight ? 'text-slate-400' : 'text-slate-400'}`}>/mo</span>
                 </div>
               ) : (
@@ -1904,7 +1893,7 @@ function CTASection({ onBookDemo }) {
             Quote ready before<br />you hang up.
           </h2>
           <p className="text-slate-400 text-base max-w-sm mx-auto mb-10">
-            Join wedding vendors who send professional quotes in minutes — not days.
+            Join roofing contractors who send professional quotes in minutes — not the next day.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <button onClick={onBookDemo}
@@ -2020,7 +2009,7 @@ function Footer({ onBookDemo, onEnterApp, onTerms, onPrivacy }) {
           <div className="flex-shrink-0">
             <img src="/logo.svg" alt="Show My Quote" className="h-16 w-auto mb-4" />
             <p className="text-xs text-slate-400 max-w-[200px] leading-relaxed">
-              AI-powered quoting for wedding vendors. Quote before you hang up.
+              AI-powered quoting for roofing contractors. Quote before you hang up.
             </p>
           </div>
 
@@ -2137,7 +2126,7 @@ export default function Homepage({ onEnterApp, onBookDemo, onTerms, onPrivacy, s
           </h1>
 
           <p className="text-slate-600 text-base leading-relaxed mb-6">
-            You take the call. Our AI listens in the background, transcribes the conversation and fills your forms — automatically.
+            You're on the call. Our AI listens silently, transcribes every word and fills your quote form automatically. No typing. No follow-up.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center md:items-start gap-3 mb-5">

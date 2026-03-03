@@ -8,7 +8,7 @@ const SECTIONS = [
   },
   {
     title: '2. Description of service',
-    body: `Show My Quote provides an AI-assisted quoting platform for wedding vendors. The Service listens to telephone enquiry calls, transcribes the conversation, and generates a structured quote based on information you have configured. A phone number may optionally be provided as part of the Service. Unlimited local calls and texts are included within your country of registration.`,
+    body: `Show My Quote provides an AI-assisted quoting platform for roofing contractors. The Service listens to telephone enquiry calls, transcribes the conversation, and generates a structured quote based on information you have configured. A phone number may optionally be provided as part of the Service. Unlimited local calls and texts are included within your country of registration.`,
   },
   {
     title: '3. Your account',
