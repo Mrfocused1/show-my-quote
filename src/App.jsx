@@ -3939,13 +3939,6 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
     lost:   'bg-red-100   text-red-700',
   };
 
-  const tabs = [
-    { id: 'transcript', label: 'Transcript' },
-    { id: 'quote',      label: 'Quote' },
-    { id: 'messages',   label: `Messages${(selected?.messages?.length ?? 0) > 0 ? ` (${selected.messages.length})` : ''}` },
-    { id: 'invoice',    label: 'Invoice' },
-  ];
-
   // Group calls by phone number for the sidebar
   const phoneGroups = Object.values(
     callLogs.reduce((acc, call) => {
@@ -3962,6 +3955,14 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
 
   // All calls for the currently selected phone number
   const callsForPhone = selected ? callLogs.filter(c => c.phone === selected.phone) : [];
+
+  const tabs = [
+    { id: 'transcript', label: 'Transcript' },
+    { id: 'quote',      label: 'Quote' },
+    { id: 'messages',   label: `Messages${(selected?.messages?.length ?? 0) > 0 ? ` (${selected.messages.length})` : ''}` },
+    { id: 'invoice',    label: 'Invoice' },
+    ...(callsForPhone.length > 1 ? [{ id: 'calls', label: `All Calls (${callsForPhone.length})` }] : []),
+  ];
 
   return (
     <div className="flex h-full overflow-hidden relative">
@@ -4125,22 +4126,6 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                 <button onClick={() => setSaveContactOpen(false)} className="text-slate-400 hover:text-slate-600 transition-colors flex-shrink-0">
                   <X className="w-4 h-4" />
                 </button>
-              </div>
-            )}
-
-            {/* Call switcher — shown when multiple calls exist for this number */}
-            {callsForPhone.length > 1 && (
-              <div className="px-4 md:px-6 py-2 bg-slate-50 border-b border-slate-200 flex items-center gap-2 overflow-x-auto scrollbar-none flex-shrink-0">
-                <span className="text-[11px] font-semibold text-slate-400 flex-shrink-0">Calls:</span>
-                {callsForPhone.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => { setSelectedId(c.id); setActiveTab('transcript'); }}
-                    className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium transition-colors whitespace-nowrap ${c.id === selectedId ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:border-slate-400'}`}
-                  >
-                    {c.date} · {c.duration}
-                  </button>
-                ))}
               </div>
             )}
 
@@ -4395,6 +4380,40 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
               {activeTab === 'invoice' && (
                 <div className="p-4 md:p-6">
                   <InvoiceView call={selected} />
+                </div>
+              )}
+
+              {/* ── ALL CALLS ── */}
+              {activeTab === 'calls' && (
+                <div className="p-4 md:p-6 max-w-xl">
+                  <div className="space-y-2">
+                    {callsForPhone.map(c => (
+                      <button
+                        key={c.id}
+                        onClick={() => { setSelectedId(c.id); setActiveTab('transcript'); }}
+                        className={`w-full flex items-center gap-4 px-4 py-3.5 rounded-xl border text-left transition-colors ${c.id === selectedId ? 'bg-slate-900 border-slate-900 text-white' : 'bg-white border-slate-200 text-slate-800 hover:border-slate-400'}`}
+                      >
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${c.id === selectedId ? 'bg-white/10' : 'bg-slate-100'}`}>
+                          <Phone className={`w-3.5 h-3.5 ${c.id === selectedId ? 'text-white' : 'text-slate-500'}`} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className={`text-sm font-semibold ${c.id === selectedId ? 'text-white' : 'text-slate-900'}`}>{c.date}</div>
+                          <div className={`text-xs mt-0.5 ${c.id === selectedId ? 'text-white/60' : 'text-slate-400'}`}>{c.duration}</div>
+                        </div>
+                        {c.status && (
+                          <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0 ${
+                            c.id === selectedId
+                              ? 'bg-white/20 text-white'
+                              : c.status === 'completed' ? 'bg-green-100 text-green-700'
+                              : c.status === 'missed'    ? 'bg-red-100 text-red-700'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}>
+                            {c.status.charAt(0).toUpperCase() + c.status.slice(1)}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
 
