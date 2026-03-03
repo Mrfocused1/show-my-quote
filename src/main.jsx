@@ -16,7 +16,7 @@ const SignPage     = lazy(() => import('./SignPage.jsx'))
 // Determine initial page from URL path
 function getInitialPage() {
   const path = window.location.pathname;
-  if (path === '/demo') return 'demo';
+  if (path === '/demo') return 'app';
   if (path === '/sign') return 'sign';
   return 'home';
 }
