@@ -51,6 +51,7 @@ function makeCallUi(c) {
     date,
     duration,
     createdAt: c.created_at || null,
+    niche: c.niche || null,
     status: tx.length > 0 ? 'transcribed' : (c.status === 'missed' ? 'missed' : 'new'),
     hasRecording: false,
     transcript: tx,
@@ -831,8 +832,8 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
             onDeleteCall={id => setCallLogs(prev => prev.filter(c => c.id !== id))}
             onUpdateCall={(id, updates) => setCallLogs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))}
             onSaveContact={contact => setContacts(prev => [makeContactUi(contact), ...prev])}
-            onCallAgain={phone => {
-              if (onCallAgainProp) { onCallAgainProp(phone); }
+            onCallAgain={(phone, niche) => {
+              if (onCallAgainProp) { onCallAgainProp(phone, niche); }
               else { setDialerInitNumber(phone || ''); setDialerOpen(true); }
             }}
           />}
@@ -3841,7 +3842,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
   }, []);
 
   const handleCallAgain = phone => {
-    onCallAgain?.(phone);
+    onCallAgain?.(phone, selected?.niche);
   };
 
   const fabSendSms = async () => {

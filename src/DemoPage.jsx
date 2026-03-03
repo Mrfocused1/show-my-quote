@@ -437,7 +437,7 @@ function dedupFields(newFields, existingLabels) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboard, initialPhone = '' }) {
+export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboard, initialPhone = '', initialNiche = null }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
   const watchCode = params.get('w') || params.get('watch'); // 'w' is the short form
@@ -503,6 +503,18 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   });
   const [saveName,  setSaveName]  = useState('');
   const [formSaved, setFormSaved] = useState(false);
+
+  // ── Form selector (fill-select phase dropdown) ──
+  const [selectedFormKey, setSelectedFormKey] = useState(() => {
+    // If coming from "Call again" with a known niche, pre-select it
+    if (initialNiche) return `template:${initialNiche}`;
+    // Otherwise default to first saved form or first template
+    try {
+      const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
+      if (saved.length > 0) return `saved:${saved[0].id}`;
+    } catch { /* ignore */ }
+    return 'template:wedding-photography';
+  });
 
   // ── Share ──
   const [copied, setCopied] = useState(false);
@@ -2204,170 +2216,101 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     );
   }
 
+  // ── Form selector helpers ──
+  const getPreviewFields = (key) => {
+    if (!key || key === 'blank') return [];
+    if (key.startsWith('saved:')) {
+      const id = key.slice(6);
+      return savedForms.find(f => f.id === id)?.fields?.slice(0, 5) || [];
+    }
+    if (key.startsWith('template:')) {
+      const nicheId = key.slice(9);
+      return (TEMPLATE_FORMS[nicheId] || []).slice(0, 5);
+    }
+    return [];
+  };
+
+  const handleStartWithForm = () => {
+    if (!selectedFormKey) return;
+    if (selectedFormKey === 'blank') {
+      useManualFields();
+    } else if (selectedFormKey.startsWith('saved:')) {
+      const id = selectedFormKey.slice(6);
+      const form = savedForms.find(f => f.id === id);
+      if (form) selectSavedForm(form);
+    } else if (selectedFormKey.startsWith('template:')) {
+      const nicheId = selectedFormKey.slice(9);
+      selectTemplate(nicheId);
+    }
+  };
+
   if (phase === 'fill-select') {
+    const previewFields = getPreviewFields(selectedFormKey);
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo}>
-        <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
-          <div className="max-w-3xl mx-auto">
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} onDashboard={onGoToDashboard}>
+        <div className="flex-1 flex items-center justify-center bg-[#F7F7F5] px-6 py-10">
+          <div className="w-full max-w-sm">
             {initPhoneRef.current && onEnterApp && (
               <button onClick={onEnterApp} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 mb-6 transition-colors">
                 ← Back to app
               </button>
             )}
-            <div className="mb-8">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Calling {initPhoneRef.current || 'Step 1'}</p>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">Choose a form</h2>
-              <p className="text-slate-500 text-sm">Pick a ready-made template for your niche, or build your own form with the fields you need.</p>
-            </div>
-
-            {/* Your saved forms */}
-            {savedForms.length > 0 && (
-              <div className="mb-8">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3">Your saved forms</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {savedForms.map(form => (
-                    <div key={form.id} className="bg-white rounded-2xl border border-green-200 p-5">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-bold text-slate-900 truncate">{form.name}</div>
-                          <div className="text-xs text-slate-400 mt-0.5">
-                            {form.fields.length} fields · {new Date(form.createdAt).toLocaleDateString()}
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => deleteSavedForm(form.id)}
-                          className="text-slate-300 hover:text-red-400 transition-colors ml-2 flex-shrink-0"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                      <div className="space-y-1 mb-4">
-                        {form.fields.slice(0, 4).map(f => (
-                          <div key={f.key} className="flex items-center gap-1.5 text-xs text-slate-400">
-                            <div className="w-1 h-1 bg-green-400 rounded-full flex-shrink-0" />
-                            {f.label}
-                          </div>
-                        ))}
-                        {form.fields.length > 4 && (
-                          <div className="text-xs text-slate-300">+{form.fields.length - 4} more fields</div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => selectSavedForm(form)}
-                        className="w-full py-2 bg-slate-900 text-white text-xs font-bold rounded-lg hover:bg-slate-700 transition-colors"
-                      >
-                        Use this form →
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Templates */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
-              {NICHES.filter(n => n.id !== 'custom').map(n => {
-                const tpl = TEMPLATE_FORMS[n.id] || [];
-                const Icon = n.Icon;
-                return (
-                  <button
-                    key={n.id}
-                    onClick={() => selectTemplate(n.id)}
-                    className="text-left bg-white rounded-2xl border border-slate-200 p-5 hover:border-slate-900 hover:shadow-md transition-all group"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center group-hover:bg-slate-900 transition-colors">
-                        <Icon className="w-4 h-4 text-slate-700 group-hover:text-white transition-colors" />
-                      </div>
-                      <h3 className="text-sm font-bold text-slate-900">{n.label}</h3>
-                    </div>
-                    <div className="space-y-1">
-                      {tpl.slice(0, 4).map(f => (
-                        <div key={f.key} className="flex items-center gap-1.5 text-xs text-slate-400">
-                          <div className="w-1 h-1 bg-slate-300 rounded-full" />
-                          {f.label}
-                        </div>
-                      ))}
-                      {tpl.length > 4 && (
-                        <div className="text-xs text-slate-300">+{tpl.length - 4} more fields</div>
-                      )}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Build manually */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center">
-                  <Plus className="w-4 h-4 text-slate-700" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900">Build your own</h3>
-                  <p className="text-xs text-slate-400">Add exactly the fields you need</p>
-                </div>
-              </div>
-
-              {/* Field list */}
-              {manualFields.length > 0 && (
-                <div className="space-y-2 mb-4">
-                  {manualFields.map((f, i) => (
-                    <div key={f.key} className="flex items-center gap-2 bg-slate-50 rounded-lg px-3 py-2">
-                      <span className="flex-1 text-sm text-slate-700">{f.label}</span>
-                      <span className="text-xs text-slate-400 bg-white border border-slate-200 px-2 py-0.5 rounded">{f.type}</span>
-                      <button
-                        onClick={() => setMF(prev => prev.filter((_, j) => j !== i))}
-                        className="text-slate-300 hover:text-red-500 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
+            <div className="mb-6">
+              {initPhoneRef.current && (
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5">Calling {initPhoneRef.current}</p>
               )}
+              <h2 className="text-xl font-bold text-slate-900">Choose a form</h2>
+            </div>
 
-              {/* Add field */}
-              {addingManual ? (
-                <div className="flex gap-2 mb-4">
-                  <input
-                    autoFocus
-                    value={manualLabel}
-                    onChange={e => setML(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addManualField()}
-                    placeholder="Field label, e.g. Guest Count"
-                    className="flex-1 px-3 py-2 rounded-lg border border-slate-200 text-sm outline-none focus:ring-2 focus:ring-slate-900"
-                  />
-                  <select
-                    value={manualType}
-                    onChange={e => setMT(e.target.value)}
-                    className="px-2 py-2 rounded-lg border border-slate-200 text-sm bg-white outline-none"
-                  >
-                    {['text','number','date','toggle','select','long-text'].map(t => (
-                      <option key={t} value={t}>{t}</option>
-                    ))}
-                  </select>
-                  <button onClick={addManualField} className="px-3 py-2 bg-slate-900 text-white rounded-lg text-sm font-semibold hover:bg-slate-700">Add</button>
-                  <button onClick={() => setAM(false)} className="px-3 py-2 text-slate-500 hover:text-slate-800"><X className="w-4 h-4" /></button>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setAM(true)}
-                  className="flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition-colors mb-4"
+            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
+              <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block mb-2">Form</label>
+              <div className="relative">
+                <select
+                  value={selectedFormKey}
+                  onChange={e => setSelectedFormKey(e.target.value)}
+                  className="w-full appearance-none text-sm border border-slate-200 rounded-xl px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none cursor-pointer text-slate-800"
                 >
-                  <Plus className="w-4 h-4" /> Add a field
-                </button>
-              )}
+                  {savedForms.length > 0 && (
+                    <optgroup label="Your saved forms">
+                      {savedForms.map(f => (
+                        <option key={f.id} value={`saved:${f.id}`}>{f.name}</option>
+                      ))}
+                    </optgroup>
+                  )}
+                  <optgroup label="Templates">
+                    {NICHES.filter(n => n.id !== 'custom').map(n => (
+                      <option key={n.id} value={`template:${n.id}`}>{n.label}</option>
+                    ))}
+                  </optgroup>
+                  <option value="blank">Build a form (blank)</option>
+                </select>
+                <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
 
-              <button
-                onClick={useManualFields}
-                disabled={manualFields.length === 0}
-                className="w-full py-2.5 bg-slate-900 text-white text-sm font-bold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                Use this form →
-              </button>
+              {previewFields.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-100 space-y-1.5">
+                  {previewFields.map(f => (
+                    <div key={f.key} className="flex items-center gap-1.5 text-xs text-slate-400">
+                      <div className="w-1 h-1 bg-slate-300 rounded-full flex-shrink-0" />
+                      {f.label}
+                    </div>
+                  ))}
+                  {(() => {
+                    const total = selectedFormKey.startsWith('saved:')
+                      ? (savedForms.find(f => f.id === selectedFormKey.slice(6))?.fields?.length || 0)
+                      : ((TEMPLATE_FORMS[selectedFormKey.slice(9)] || []).length);
+                    return total > 5 ? <div className="text-xs text-slate-300">+{total - 5} more fields</div> : null;
+                  })()}
+                </div>
+              )}
             </div>
+
+            <button
+              onClick={handleStartWithForm}
+              className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl transition-colors"
+            >
+              Start →
+            </button>
           </div>
         </div>
       </PageShell>

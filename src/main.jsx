@@ -37,6 +37,7 @@ function Root() {
   const [pendingSection, setPendingSection] = useState(null)
   const [tourMode, setTourMode] = useState(false)
   const [demoInitPhone, setDemoInitPhone] = useState('')
+  const [demoInitNiche, setDemoInitNiche] = useState(null)
 
   const goHome = (sectionId) => {
     setPendingSection(sectionId || null)
@@ -44,8 +45,9 @@ function Root() {
     setPage('home')
   }
 
-  const handleCallAgain = (phone) => {
+  const handleCallAgain = (phone, niche) => {
     setDemoInitPhone(phone || '')
+    setDemoInitNiche(niche || null)
     setPage('demo')
   }
 
@@ -54,7 +56,7 @@ function Root() {
   if (page === 'sign-in')   return <ErrorBoundary><Suspense fallback={null}><SignIn    onHome={goHome} onEnterApp={() => setPage('app')} /></Suspense></ErrorBoundary>
   if (page === 'terms')     return <ErrorBoundary><Suspense fallback={null}><TermsPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
   if (page === 'privacy')   return <ErrorBoundary><Suspense fallback={null}><PrivacyPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
-  if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} onGoToDashboard={() => setPage('app')} initialPhone={demoInitPhone} /></Suspense></ErrorBoundary>
+  if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} onGoToDashboard={() => setPage('app')} initialPhone={demoInitPhone} initialNiche={demoInitNiche} /></Suspense></ErrorBoundary>
   return (
     <Homepage
       scrollTo={pendingSection}
