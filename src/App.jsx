@@ -7343,9 +7343,9 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
       title: null,
       items: [
         { id: 'dashboard', icon: Home,     label: 'Dashboard' },
-        { id: 'inquiries', icon: Inbox,    label: 'Enquiries' },
         { id: 'contacts',  icon: BookOpen, label: 'Contacts' },
         { id: 'calls',     icon: History,  label: 'Call History', badge: smsBadge > 0 ? String(smsBadge) : null },
+        { id: 'inquiries', icon: Inbox,    label: 'Enquiries' },
         { id: 'settings',  icon: Settings, label: 'Settings' },
       ]
     }
