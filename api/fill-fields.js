@@ -15,6 +15,9 @@ export default async function handler(req, res) {
   const fillable = fields.filter(f => !SKIP_TYPES.includes(f.type));
   if (!fillable.length) return res.json({ fills: [] });
 
+  const today = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const currentYear = new Date().getFullYear();
+
   const fieldList = fillable.map(f =>
     `key="${f.key}" label="${f.label}" type="${f.type}"` +
     (f.options?.length ? ` options=[${f.options.join(', ')}]` : '') +
@@ -32,6 +35,7 @@ export default async function handler(req, res) {
 
   const systemPrompt = replaceAll
     ? `You analyse a full call transcript to extract form field values. Read the ENTIRE conversation and determine the best value for EACH field. Return a JSON object:
+TODAY'S DATE: ${today} (current year: ${currentYear}). When a date is mentioned without a year, use ${currentYear} unless context clearly implies a different year.
 { "fills": [ { "key": "...", "value": ... } ] }
 
 For EVERY field in the list:
@@ -73,6 +77,7 @@ Percentage handling: if guest counts are given as percentages, compute actual nu
 Available fields:
 ${fieldList}`
     : `You analyse a live intake call. Extract field values from what was just said and return a valid JSON object:
+TODAY'S DATE: ${today} (current year: ${currentYear}). When a date is mentioned without a year, use ${currentYear} unless context clearly implies a different year.
 { "fills": [ { "key": "...", "value": ... } ] }
 
 Value format by type:
