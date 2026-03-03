@@ -162,6 +162,8 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
   const [transcript, setTranscript] = useState([]);
   const [contactsOpen, setContactsOpen] = useState(false);
   const [contactSearch, setContactSearch] = useState('');
+  const swClientRef = useRef(null);
+  const swCallRef   = useRef(null);
 
   const KEYS = [
     { digit: '1', sub: '' },    { digit: '2', sub: 'ABC' }, { digit: '3', sub: 'DEF' },
@@ -178,28 +180,61 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
     return () => clearInterval(id);
   }, [status]);
 
-  useEffect(() => {
-    if (status !== 'dialing') return;
-    const t = setTimeout(() => setStatus('connected'), 2500);
-    return () => clearTimeout(t);
-  }, [status]);
+  // Cleanup on unmount
+  useEffect(() => () => {
+    try { swCallRef.current?.hangup?.(); } catch {}
+  }, []);
 
-  const DEMO_LINES = [
-    { speaker: 'You',    text: 'Thanks for calling Elite Catering, how can I help?' },
-    { speaker: 'Client', text: "Hi, I'm planning a wedding and wanted to get a quote." },
-    { speaker: 'You',    text: 'Congratulations! Do you have a date in mind?' },
-    { speaker: 'Client', text: 'June 15th next year, around 120 guests at River Grove Estate.' },
-    { speaker: 'You',    text: 'Perfect. Were you thinking a plated dinner or buffet?' },
-    { speaker: 'Client', text: 'Plated dinner please, and we need a few vegan options too.' },
-  ];
+  const startRealCall = async () => {
+    if (!number) return;
+    setStatus('dialing');
+    setTranscript([]);
+    try {
+      let client = swClientRef.current;
+      if (!client) {
+        const res = await apiFetch('/api/signalwire-token');
+        if (!res.ok) throw new Error('Token fetch failed');
+        const { token } = await res.json();
+        const { SignalWire } = await import('@signalwire/js');
+        client = await SignalWire({ token });
+        swClientRef.current = client;
+      }
+      const call = await client.dial({
+        to: number,
+        rootElement: document.getElementById('sw-dialer-media'),
+        audio: true,
+        video: false,
+      });
+      swCallRef.current = call;
+      call.on('call.state', (params) => {
+        if (params?.call_state === 'answered') setStatus('connected');
+      });
+      call.on('destroy', () => {
+        swCallRef.current = null;
+        setStatus(s => s === 'dialing' || s === 'connected' ? 'ended' : s);
+      });
+      call.start().catch(e => console.warn('[dialer] call.start:', e.message));
+    } catch (e) {
+      console.error('[dialer] call failed:', e);
+      setStatus('idle');
+      alert('Could not connect: ' + e.message);
+    }
+  };
 
-  useEffect(() => {
-    if (status !== 'connected') return;
-    const timers = DEMO_LINES.map((line, i) =>
-      setTimeout(() => setTranscript(t => [...t, line]), (i + 1) * 3500)
-    );
-    return () => timers.forEach(clearTimeout);
-  }, [status]);
+  const endCall = () => {
+    try { swCallRef.current?.hangup?.(); } catch {}
+    swCallRef.current = null;
+    setStatus('ended');
+  };
+
+  const toggleMute = () => {
+    const call = swCallRef.current;
+    if (call?.audio) {
+      if (muted) call.audio.unmute?.();
+      else call.audio.mute?.();
+    }
+    setMuted(m => !m);
+  };
 
   const press = digit => {
     if (status === 'connected' || status === 'dialing') return;
@@ -234,7 +269,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
           </div>
 
           {/* Number display */}
-          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] flex items-center justify-between">
+          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] relative flex items-center">
             <input
               type="tel"
               value={number}
@@ -244,7 +279,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
               }}
               disabled={status === 'connected' || status === 'dialing'}
               placeholder="Enter number"
-              className="font-mono text-xl tracking-widest font-bold flex-1 text-center bg-transparent outline-none text-white placeholder-slate-600 disabled:opacity-40"
+              className="font-mono text-xl tracking-widest font-bold w-full text-center bg-transparent outline-none text-white placeholder-slate-600 disabled:opacity-40 pr-8"
             />
             <button
               onClick={async () => {
@@ -255,7 +290,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
                 } catch {}
               }}
               disabled={status === 'connected' || status === 'dialing'}
-              className="text-slate-400 hover:text-white transition-colors p-1 ml-2 flex-shrink-0 disabled:opacity-30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1 disabled:opacity-30"
               title="Paste number"
             >
               <Clipboard className="w-4 h-4" />
@@ -285,7 +320,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
                 className="flex-1 h-12 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors text-lg"
               >⌫</button>
               <button
-                onClick={() => { if (number) setStatus('dialing'); }}
+                onClick={startRealCall}
                 disabled={!number}
                 className="flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold transition-colors text-sm"
               >
@@ -296,7 +331,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
 
           {status === 'dialing' && (
             <button
-              onClick={() => setStatus('ended')}
+              onClick={endCall}
               className="w-full h-12 flex items-center justify-center gap-2 rounded-xl bg-red-500 hover:bg-red-400 text-white font-semibold transition-colors text-sm"
             >
               <PhoneOff className="w-4 h-4" /> Cancel
@@ -306,7 +341,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
           {status === 'connected' && (
             <div className="flex gap-2">
               <button
-                onClick={() => setMuted(m => !m)}
+                onClick={toggleMute}
                 className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 transition-colors ${muted ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
               >
                 {muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -320,7 +355,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
                 {held ? 'Resume' : 'Hold'}
               </button>
               <button
-                onClick={() => setStatus('ended')}
+                onClick={endCall}
                 className="flex-1 h-12 flex flex-col items-center justify-center rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-medium gap-1 transition-colors"
               >
                 <PhoneOff className="w-4 h-4" /> End
@@ -399,6 +434,9 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
           </div>
         )}
       </div>
+
+      {/* Hidden audio element for SignalWire WebRTC */}
+      <div id="sw-dialer-media" className="hidden" />
 
       {/* ── Contacts bottom sheet ── */}
       {contactsOpen && (() => {
