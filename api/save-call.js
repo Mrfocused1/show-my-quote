@@ -12,29 +12,22 @@ export default async function handler(req, res) {
   const supabase = getSupabase();
   if (!supabase) return res.status(503).json({ error: 'DB not configured' });
 
-  const baseRow = {
+  const row = {
     direction:   direction || 'outbound',
     from_number: from_number || null,
     duration:    duration || null,
     transcript:  transcript || [],
     status,
+    niche:       niche || null,
   };
 
-  const doInsert = (row) => call_sid
-    ? supabase.from('calls').upsert({ call_sid, ...row }, { onConflict: 'call_sid' }).select('id').single()
-    : supabase.from('calls').insert(row).select('id').single();
+  const { data, error } = call_sid
+    ? await supabase.from('calls').upsert({ call_sid, ...row }, { onConflict: 'call_sid' }).select('id').single()
+    : await supabase.from('calls').insert(row).select('id').single();
 
-  // Try with niche first; fall back without it (column may not exist in older DB schemas)
-  let result = await doInsert({ ...baseRow, niche: niche || null });
-  if (result.error?.code === '42703') {
-    // column does not exist — retry without niche
-    result = await doInsert(baseRow);
-  }
-
-  const { data, error } = result;
   if (error) {
-    console.error('[save-call] Supabase error:', error.code, error.message, error.hint, error.details);
-    return res.status(500).json({ error: error.message, code: error.code, hint: error.hint, details: error.details });
+    console.error('[save-call] Supabase error:', error.message);
+    return res.status(500).json({ error: error.message });
   }
   res.json({ id: data.id });
 }
