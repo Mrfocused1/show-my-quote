@@ -92,3 +92,14 @@ create table if not exists sms_messages (
 alter table sms_messages enable row level security;
 
 create index if not exists sms_business_id_idx on sms_messages(business_id);
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- app_settings  (simple key-value store for server-readable config)
+-- ─────────────────────────────────────────────────────────────────────────────
+create table if not exists app_settings (
+  key        text primary key,
+  value      text,
+  updated_at timestamptz not null default now()
+);
+
+alter table app_settings enable row level security;

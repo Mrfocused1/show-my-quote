@@ -3765,7 +3765,13 @@ function SettingsView() {
     reader.readAsDataURL(file);
   };
 
-  const TABS = [{ id: 'business', label: 'Business' }, { id: 'email', label: 'Email' }, { id: 'invoice', label: 'Invoice' }, { id: 'payments', label: 'Payments' }];
+  const TABS = [{ id: 'business', label: 'Business' }, { id: 'calls', label: 'Calls' }, { id: 'email', label: 'Email' }, { id: 'invoice', label: 'Invoice' }, { id: 'payments', label: 'Payments' }];
+  const [ownerPhone, setOwnerPhone] = useState('');
+  const [ownerPhoneSaving, setOwnerPhoneSaving] = useState(false);
+  const [ownerPhoneSaved, setOwnerPhoneSaved] = useState(false);
+  useEffect(() => {
+    apiFetch('/api/app-settings').then(r => r.json()).then(d => { if (d.owner_phone) setOwnerPhone(d.owner_phone); }).catch(() => {});
+  }, []);
 
   return (
     <div className="max-w-2xl mx-auto p-4 md:p-8 pb-20">
@@ -3818,6 +3824,89 @@ function SettingsView() {
                   className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all"
                 />
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Calls tab ── */}
+      {tab === 'calls' && (
+        <div className="space-y-4">
+          {/* Simultaneous ring */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">Call Forwarding</h2>
+              <p className="text-xs text-slate-400 mt-0.5">Your phone and the browser both ring at the same time. Answer on the browser for live transcription, or on your phone if you're away.</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-slate-500 mb-1">Your mobile number</label>
+                <input
+                  type="tel"
+                  value={ownerPhone}
+                  onChange={e => { setOwnerPhone(e.target.value); setOwnerPhoneSaved(false); }}
+                  placeholder="+447700900000"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                />
+                <p className="text-xs text-slate-400 mt-1">Use full international format — e.g. +447700900000 for UK, +12125551234 for US</p>
+              </div>
+              <button
+                disabled={ownerPhoneSaving}
+                onClick={async () => {
+                  setOwnerPhoneSaving(true);
+                  try {
+                    await apiFetch('/api/app-settings', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ owner_phone: ownerPhone.trim() || null }),
+                    });
+                    setOwnerPhoneSaved(true);
+                  } catch { alert('Save failed — please try again'); }
+                  finally { setOwnerPhoneSaving(false); }
+                }}
+                className="px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-60"
+              >
+                {ownerPhoneSaving ? 'Saving…' : ownerPhoneSaved ? '✓ Saved' : 'Save'}
+              </button>
+              {ownerPhone && (
+                <div className="flex items-start gap-3 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-800">
+                  <div className="w-4 h-4 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <Check className="w-2.5 h-2.5 text-white" />
+                  </div>
+                  <div>
+                    <p className="font-semibold">Simultaneous ring active</p>
+                    <p className="mt-0.5 text-green-700">When a customer calls, both <strong>{ownerPhone}</strong> and your browser will ring at the same time. Whoever answers first gets the call.</p>
+                  </div>
+                </div>
+              )}
+              {!ownerPhone && (
+                <div className="flex items-start gap-3 p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500">
+                  <Phone className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                  <p>No mobile number set — inbound calls will only ring the browser. Add your number above so you never miss a call when you're away from your desk.</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* How it works */}
+          <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100">
+              <h2 className="font-semibold text-slate-900">How calls work</h2>
+            </div>
+            <div className="divide-y divide-slate-100">
+              {[
+                { icon: '📱', title: 'Answer on your phone', desc: 'Call connects like a normal call. No transcription — but the call is still logged.' },
+                { icon: '🌐', title: 'Answer on the browser', desc: 'Full live transcription + auto-fill. Quote builds itself while you talk.' },
+                { icon: '🔄', title: 'Both ring simultaneously', desc: 'If you're at your desk, answer the browser. If you're out, your phone is the backup. You can\'t miss a call.' },
+              ].map(({ icon, title, desc }) => (
+                <div key={title} className="flex items-start gap-4 px-5 py-4">
+                  <span className="text-xl flex-shrink-0">{icon}</span>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{title}</p>
+                    <p className="text-xs text-slate-500 mt-0.5">{desc}</p>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>

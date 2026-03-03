@@ -38,7 +38,12 @@ export default async function handler(req, res) {
     });
   }
 
-  const ownerPhone  = process.env.OWNER_PHONE_NUMBER;
+  // Read forwarding number: Supabase app_settings first, env var as fallback
+  let ownerPhone = process.env.OWNER_PHONE_NUMBER || null;
+  if (supabase) {
+    const { data } = await supabase.from('app_settings').select('value').eq('key', 'owner_phone').single();
+    if (data?.value) ownerPhone = data.value;
+  }
   const dialTimeout = ownerPhone ? 20 : 45;
 
   const transcriptionWsUrl = process.env.TRANSCRIPTION_WS_URL || 'wss://smq-transcription-production.up.railway.app';
