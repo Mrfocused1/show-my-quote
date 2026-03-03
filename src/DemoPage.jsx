@@ -506,8 +506,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Form selector (fill-select phase dropdown) ──
   const [selectedFormKey, setSelectedFormKey] = useState(() => {
-    // If coming from "Call again" with a known niche, pre-select it
-    if (initialNiche) return `template:${initialNiche}`;
+    // If coming from "Call again" with a known niche, pre-select "Continue"
+    if (initialNiche) return 'continue';
     // Otherwise default to first saved form or first template
     try {
       const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
@@ -2217,8 +2217,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   }
 
   // ── Form selector helpers ──
+  const continueNicheLabel = initialNiche ? (NICHES.find(n => n.id === initialNiche)?.label || initialNiche) : null;
+
   const getPreviewFields = (key) => {
     if (!key || key === 'blank') return [];
+    if (key === 'continue') return initialNiche ? (TEMPLATE_FORMS[initialNiche] || []).slice(0, 5) : [];
     if (key.startsWith('saved:')) {
       const id = key.slice(6);
       return savedForms.find(f => f.id === id)?.fields?.slice(0, 5) || [];
@@ -2232,7 +2235,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   const handleStartWithForm = () => {
     if (!selectedFormKey) return;
-    if (selectedFormKey === 'blank') {
+    if (selectedFormKey === 'continue') {
+      if (initialNiche) selectTemplate(initialNiche);
+    } else if (selectedFormKey === 'blank') {
       useManualFields();
     } else if (selectedFormKey.startsWith('saved:')) {
       const id = selectedFormKey.slice(6);
@@ -2270,6 +2275,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                   onChange={e => setSelectedFormKey(e.target.value)}
                   className="w-full appearance-none text-sm border border-slate-200 rounded-xl px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none cursor-pointer text-slate-800"
                 >
+                  {continueNicheLabel && (
+                    <option value="continue">Continue — {continueNicheLabel}</option>
+                  )}
                   {savedForms.length > 0 && (
                     <optgroup label="Your saved forms">
                       {savedForms.map(f => (
@@ -2296,9 +2304,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                     </div>
                   ))}
                   {(() => {
-                    const total = selectedFormKey.startsWith('saved:')
-                      ? (savedForms.find(f => f.id === selectedFormKey.slice(6))?.fields?.length || 0)
-                      : ((TEMPLATE_FORMS[selectedFormKey.slice(9)] || []).length);
+                    let total = 0;
+                    if (selectedFormKey === 'continue' && initialNiche) total = (TEMPLATE_FORMS[initialNiche] || []).length;
+                    else if (selectedFormKey.startsWith('saved:')) total = savedForms.find(f => f.id === selectedFormKey.slice(6))?.fields?.length || 0;
+                    else if (selectedFormKey.startsWith('template:')) total = (TEMPLATE_FORMS[selectedFormKey.slice(9)] || []).length;
                     return total > 5 ? <div className="text-xs text-slate-300">+{total - 5} more fields</div> : null;
                   })()}
                 </div>
@@ -2309,7 +2318,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
               onClick={handleStartWithForm}
               className="mt-4 w-full py-3 bg-slate-900 hover:bg-slate-800 text-white text-sm font-bold rounded-xl transition-colors"
             >
-              Start →
+              Continue
             </button>
           </div>
         </div>
