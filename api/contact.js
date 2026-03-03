@@ -6,7 +6,7 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') return res.status(200).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-  const { name, email, phone, message } = req.body || {};
+  const { name, email, phone, business, message, subject: customSubject } = req.body || {};
   if (!name || !email || !message) {
     return res.status(400).json({ error: 'name, email and message are required' });
   }
@@ -28,9 +28,10 @@ export default async function handler(req, res) {
       from: 'Show My Quote <hello@showmyquote.com>',
       to: 'hello@showmyquote.com',
       replyTo: email,
-      subject: `New enquiry from ${name}`,
+      subject: customSubject || `New enquiry from ${name}`,
       html: `
         <p><strong>Name:</strong> ${name}</p>
+        ${business ? `<p><strong>Business:</strong> ${business}</p>` : ''}
         ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ''}
         <p><strong>Email:</strong> ${email}</p>
         <p><strong>Message:</strong><br>${message.replace(/\n/g, '<br>')}</p>

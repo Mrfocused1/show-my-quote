@@ -6,12 +6,34 @@ export default function BookDemo({ onHome, onEnterApp }) {
     name: '', business: '', email: '', phone: '', guests: '', message: '',
   });
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
 
   const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
 
-  const handleSubmit = e => {
+  const handleSubmit = async e => {
     e.preventDefault();
-    setSubmitted(true);
+    setSending(true);
+    setError(null);
+    try {
+      await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          phone: form.phone,
+          business: form.business,
+          subject: `Demo request from ${form.name} — ${form.business}`,
+          message: form.message || 'No additional message.',
+        }),
+      });
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong — please email us at hello@showmyquote.com');
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -171,9 +193,11 @@ export default function BookDemo({ onHome, onEnterApp }) {
                 />
               </div>
 
-              <button type="submit"
-                className="w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors shadow-sm">
-                Book my demo
+              {error && <p className="text-xs text-red-500">{error}</p>}
+
+              <button type="submit" disabled={sending}
+                className="w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors shadow-sm disabled:opacity-60">
+                {sending ? 'Sending…' : 'Book my demo'}
               </button>
 
               <p className="text-xs text-slate-400 text-center">
