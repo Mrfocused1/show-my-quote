@@ -456,6 +456,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // Ref holding the phone number passed in from "Call again"
   const initPhoneRef = React.useRef(initialPhone);
+  // Keep ref in sync when prop changes (component stays mounted across navigation)
+  useEffect(() => { initPhoneRef.current = initialPhone; }, [initialPhone]);
 
   // ── Call data ──
   const [niche,       setNiche]  = useState(null);
