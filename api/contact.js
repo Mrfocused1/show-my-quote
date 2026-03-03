@@ -20,23 +20,34 @@ export default async function handler(req, res) {
 
   const resend = new Resend(apiKey);
 
-  const { error } = await resend.emails.send({
-    from: 'Show My Quote <onboarding@resend.dev>',
-    to: 'hello@showmyquote.com',
-    replyTo: email,
-    subject: `New enquiry from ${name}`,
-    html: `
-      <p><strong>Name:</strong> ${name}</p>
-      ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ''}
-      <p><strong>Email:</strong> ${email}</p>
-      <p><strong>Message:</strong><br>${message.replace(/\n/g, '<br>')}</p>
-    `,
-  });
+  // Always log the submission so data is never lost
+  console.log('Contact form submission:', JSON.stringify({ name, email, phone, message }));
 
-  if (error) {
-    console.error('Resend error:', error);
-    return res.status(500).json({ error: 'Failed to send message' });
+  try {
+    const { data, error } = await resend.emails.send({
+      from: 'Show My Quote <onboarding@resend.dev>',
+      to: 'hello@showmyquote.com',
+      replyTo: email,
+      subject: `New enquiry from ${name}`,
+      html: `
+        <p><strong>Name:</strong> ${name}</p>
+        ${phone ? `<p><strong>Phone:</strong> ${phone}</p>` : ''}
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Message:</strong><br>${message.replace(/\n/g, '<br>')}</p>
+      `,
+    });
+
+    if (error) {
+      console.error('Resend API error:', JSON.stringify(error));
+      // Return 200 so the form UX still works — submission is logged above
+      return res.json({ ok: true, emailDelivered: false });
+    }
+
+    console.log('Resend email sent successfully:', JSON.stringify(data));
+    return res.json({ ok: true, emailDelivered: true });
+  } catch (err) {
+    console.error('Resend exception:', err?.message, JSON.stringify(err));
+    // Return 200 so the form UX still works — submission is logged above
+    return res.json({ ok: true, emailDelivered: false });
   }
-
-  return res.json({ ok: true });
 }

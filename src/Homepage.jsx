@@ -699,7 +699,7 @@ function DataEntriesAnim() {
   }, [activeRow, chars, done]);
 
   return (
-    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden">
+    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden" style={{ height: 178 }}>
       {ITEMS.map((item, i) => {
         const visible = activeRow !== -1 && i <= activeRow;
         const text = i < activeRow ? item : item.slice(0, chars);
@@ -710,11 +710,12 @@ function DataEntriesAnim() {
             style={{
               opacity:    visible ? 1 : 0,
               transition: 'opacity 0.2s ease',
+              minHeight:  26,
             }}
-            className="flex items-center bg-slate-700 rounded px-2.5 py-1 border border-slate-600"
+            className="flex items-center bg-slate-700 rounded px-2.5 py-1 border border-slate-600 overflow-hidden"
           >
-            <span className="text-xs font-medium text-slate-300">{text}</span>
-            {isCurrent && <span className="text-xs text-slate-500 ml-px">|</span>}
+            <span className="text-xs font-medium text-slate-300 whitespace-nowrap overflow-hidden">{text}</span>
+            {isCurrent && <span className="text-xs text-slate-500 ml-px flex-shrink-0">|</span>}
           </div>
         );
       })}
@@ -757,16 +758,16 @@ function PricingAnim() {
   }, [activePrice, chars, done]);
 
   return (
-    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden">
+    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden" style={{ height: 178 }}>
       {ITEMS.map((item, i) => {
         const priceText = i < activePrice ? item.price : i === activePrice ? item.price.slice(0, chars) : '';
         const isCurrent = i === activePrice && !done;
         return (
-          <div key={item.label} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1 border border-slate-600">
-            <span className="text-xs font-medium text-slate-300">{item.label}</span>
-            <div className="flex items-center min-w-[3rem] justify-end">
-              <span className="text-xs font-bold text-white">{priceText}</span>
-              {isCurrent && <span className="text-xs text-slate-500 ml-px">|</span>}
+          <div key={item.label} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1 border border-slate-600 overflow-hidden" style={{ minHeight: 26 }}>
+            <span className="text-xs font-medium text-slate-300 whitespace-nowrap overflow-hidden">{item.label}</span>
+            <div className="flex items-center min-w-[3rem] justify-end flex-shrink-0">
+              <span className="text-xs font-bold text-white whitespace-nowrap">{priceText}</span>
+              {isCurrent && <span className="text-xs text-slate-500 ml-px flex-shrink-0">|</span>}
             </div>
           </div>
         );
@@ -813,26 +814,26 @@ function LogicAnim() {
   });
 
   return (
-    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden">
+    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden" style={{ height: 142 }}>
 
-      <div style={fadeIn(1)} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <span className="text-xs font-medium text-slate-300">Labor</span>
-        <span className="text-xs font-bold" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
+      <div style={{ ...fadeIn(1), minHeight: 30 }} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600 overflow-hidden">
+        <span className="text-xs font-medium text-slate-300 whitespace-nowrap overflow-hidden">Labor</span>
+        <span className="text-xs font-bold whitespace-nowrap flex-shrink-0" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
           ${price.toLocaleString()}
         </span>
       </div>
 
-      <div style={fadeIn(2)} className="bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <p className="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide">Add a rule</p>
-        <div className="flex items-center min-h-[16px]">
-          <span className="text-xs text-slate-300">{RULE.slice(0, chars)}</span>
-          {stage === 3 && <span className="text-xs text-slate-500 ml-px">|</span>}
+      <div style={{ ...fadeIn(2), minHeight: 46 }} className="bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600 overflow-hidden">
+        <p className="text-[10px] text-slate-500 mb-0.5 uppercase tracking-wide whitespace-nowrap">Add a rule</p>
+        <div className="flex items-center min-h-[16px] overflow-hidden">
+          <span className="text-xs text-slate-300 whitespace-nowrap overflow-hidden">{RULE.slice(0, chars)}</span>
+          {stage === 3 && <span className="text-xs text-slate-500 ml-px flex-shrink-0">|</span>}
         </div>
       </div>
 
-      <div style={fadeIn(5)} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <span className="text-xs text-slate-500">Storeys</span>
-        <span className="text-xs font-bold text-white">{guests}</span>
+      <div style={{ ...fadeIn(5), minHeight: 30 }} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600 overflow-hidden">
+        <span className="text-xs text-slate-500 whitespace-nowrap overflow-hidden">Storeys</span>
+        <span className="text-xs font-bold text-white whitespace-nowrap flex-shrink-0">{guests}</span>
       </div>
 
     </div>
@@ -870,11 +871,11 @@ function PublishAnim() {
   const total = ITEMS.slice(0, phase).reduce((sum, item) => sum + item.price, 0);
 
   return (
-    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden">
+    <div className="bg-slate-800 rounded-xl p-3 flex flex-col gap-1.5 overflow-hidden" style={{ height: 250 }}>
 
-      <div className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600">
-        <span className="text-xs font-semibold text-slate-500">Total</span>
-        <span className="text-xs font-black" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
+      <div className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1.5 border border-slate-600 overflow-hidden" style={{ minHeight: 30 }}>
+        <span className="text-xs font-semibold text-slate-500 whitespace-nowrap">Total</span>
+        <span className="text-xs font-black whitespace-nowrap flex-shrink-0" style={{ color: priceFlash ? '#4ade80' : '#f1f5f9', transition: 'color 0.2s ease' }}>
           {total > 0 ? `$${total.toLocaleString()}` : '—'}
         </span>
       </div>
@@ -882,8 +883,8 @@ function PublishAnim() {
       {ITEMS.map((item, i) => {
         const ticked = phase >= i + 1;
         return (
-          <div key={item.label} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1 border border-slate-600">
-            <div className="flex items-center gap-2">
+          <div key={item.label} className="flex items-center justify-between bg-slate-700 rounded px-2.5 py-1 border border-slate-600 overflow-hidden" style={{ minHeight: 26 }}>
+            <div className="flex items-center gap-2 overflow-hidden">
               <div
                 className="w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0"
                 style={{ backgroundColor: ticked ? '#22c55e' : '#334155', transition: 'background-color 0.25s ease' }}
@@ -892,21 +893,22 @@ function PublishAnim() {
                   <polyline points="1.5,5 4,7.5 8.5,2.5" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <span className="text-xs font-medium text-slate-300">{item.label}</span>
+              <span className="text-xs font-medium text-slate-300 whitespace-nowrap overflow-hidden">{item.label}</span>
             </div>
-            <span className="text-xs text-slate-500">${item.price.toLocaleString()}</span>
+            <span className="text-xs text-slate-500 whitespace-nowrap flex-shrink-0">${item.price.toLocaleString()}</span>
           </div>
         );
       })}
 
       <div
-        className="flex items-center justify-center bg-green-900/30 rounded px-2.5 py-1.5 border border-green-700/50"
+        className="flex items-center justify-center bg-green-900/30 rounded px-2.5 py-1.5 border border-green-700/50 overflow-hidden"
         style={{
           opacity:    phase >= 6 ? 1 : 0,
           transition: 'opacity 0.3s ease',
+          minHeight:  30,
         }}
       >
-        <span className="text-xs font-bold text-green-400">Quote sent ✓</span>
+        <span className="text-xs font-bold text-green-400 whitespace-nowrap">Quote sent ✓</span>
       </div>
 
     </div>
