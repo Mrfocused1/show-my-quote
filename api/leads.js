@@ -24,9 +24,10 @@ export default async function handler(req, res) {
     const body = req.body || {};
     // Accept a single object or an array for bulk insert
     const rows = Array.isArray(body) ? body : [body];
+    // Upsert on google_place_id — silently skips any row that already exists
     const { data, error } = await supabase
       .from('leads')
-      .insert(rows)
+      .upsert(rows, { onConflict: 'google_place_id', ignoreDuplicates: true })
       .select();
     if (error) return res.status(500).json({ error: error.message });
     return res.json({ leads: data || [] });

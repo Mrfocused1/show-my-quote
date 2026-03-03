@@ -3114,17 +3114,34 @@ function InquiriesView({ navigateTo, onCall }) {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
-                        {genResults.map((r, i) => (
-                          <tr key={i} className={`${genSelected.has(i) ? 'bg-blue-50' : 'hover:bg-slate-50'} cursor-pointer`} onClick={() => toggleGenSelect(i)}>
-                            <td className="px-3 py-2">
-                              <input type="checkbox" checked={genSelected.has(i)} onChange={() => toggleGenSelect(i)} className="rounded border-slate-300" onClick={e => e.stopPropagation()} />
-                            </td>
-                            <td className="px-3 py-2 font-medium text-slate-900 max-w-[180px] truncate">{r.business_name}</td>
-                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.phone || '—'}</td>
-                            <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.rating ? `★ ${r.rating} (${r.reviews_count})` : '—'}</td>
-                            <td className="px-3 py-2 text-slate-500">{r.city || '—'}</td>
-                          </tr>
-                        ))}
+                        {genResults.map((r, i) => {
+                          const alreadyExists = r.google_place_id
+                            ? leads.some(l => l.google_place_id === r.google_place_id)
+                            : r.phone
+                              ? leads.some(l => l.phone && l.phone.replace(/\D/g,'') === r.phone.replace(/\D/g,''))
+                              : false;
+                          return (
+                            <tr
+                              key={i}
+                              className={`${alreadyExists ? 'opacity-50 cursor-not-allowed bg-slate-50' : genSelected.has(i) ? 'bg-blue-50 cursor-pointer' : 'hover:bg-slate-50 cursor-pointer'}`}
+                              onClick={() => !alreadyExists && toggleGenSelect(i)}
+                            >
+                              <td className="px-3 py-2">
+                                {alreadyExists
+                                  ? <Check className="w-3.5 h-3.5 text-slate-400" />
+                                  : <input type="checkbox" checked={genSelected.has(i)} onChange={() => toggleGenSelect(i)} className="rounded border-slate-300" onClick={e => e.stopPropagation()} />
+                                }
+                              </td>
+                              <td className="px-3 py-2 font-medium text-slate-900 max-w-[180px] truncate">
+                                {r.business_name}
+                                {alreadyExists && <span className="ml-2 text-[10px] text-slate-400 font-normal">already added</span>}
+                              </td>
+                              <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.phone || '—'}</td>
+                              <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.rating ? `★ ${r.rating} (${r.reviews_count})` : '—'}</td>
+                              <td className="px-3 py-2 text-slate-500">{r.city || '—'}</td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
