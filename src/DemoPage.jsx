@@ -481,6 +481,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const audioCtxRef        = useRef(null); // shared AudioContext, warmed on first user gesture
   const ringtoneAudioRef   = useRef(null); // <Audio> element for ringtone (primed on first gesture)
   const acceptInboundRef   = useRef(null); // updated each render to avoid stale closures in useEffect
+  const remoteRecRef       = useRef(null); // MediaRecorder for remote (client) audio capture
+  const remoteRecActiveRef = useRef(false); // true while remote capture loop is running
 
   // Mirror state → refs
   useEffect(() => { phaseRef.current = phase; },       [phase]);
@@ -1055,6 +1057,68 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     setIncomingCall(null);
   };
 
+  // ── Remote audio capture for outbound client.dial() calls ─────────────────
+  // Since client.dial() skips the LaML <Stream> route, we capture the remote
+  // audio directly from the #sw-media <audio> element and send 3-second chunks
+  // to /api/transcribe-remote (OpenAI Whisper), publishing results as 'Client'.
+  const startRemoteCapture = () => {
+    remoteRecActiveRef.current = true;
+
+    const mimeType = ['audio/webm;codecs=opus', 'audio/webm', '']
+      .find(t => !t || MediaRecorder.isTypeSupported(t)) || '';
+
+    const tryRecord = () => {
+      if (!remoteRecActiveRef.current || !caRef.current) return;
+
+      // Find the <audio> element SignalWire creates inside #sw-media
+      const audioEl = document.getElementById('sw-media')?.querySelector('audio');
+      const stream = audioEl?.srcObject;
+
+      if (!(stream instanceof MediaStream) || stream.getAudioTracks().length === 0) {
+        // Audio element not ready yet — retry in 300ms
+        setTimeout(tryRecord, 300);
+        return;
+      }
+
+      const chunks = [];
+      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+      remoteRecRef.current = mr;
+
+      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+      mr.onstop = async () => {
+        if (chunks.length === 0 || !remoteRecActiveRef.current) return;
+        const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+        if (blob.size < 1000) { if (remoteRecActiveRef.current) tryRecord(); return; }
+
+        try {
+          const res = await apiFetch('/api/transcribe-remote', {
+            method: 'POST',
+            headers: { 'Content-Type': blob.type },
+            body: blob,
+          });
+          if (res.ok) {
+            const { text } = await res.json();
+            if (text?.trim()) onTranscriptLine('Client', text.trim());
+          }
+        } catch {}
+
+        if (remoteRecActiveRef.current) tryRecord(); // start next chunk
+      };
+
+      mr.start();
+      setTimeout(() => { if (mr.state === 'recording') mr.stop(); }, 3000);
+    };
+
+    // Give SignalWire a moment to attach the audio element after call connects
+    setTimeout(tryRecord, 600);
+  };
+
+  const stopRemoteCapture = () => {
+    remoteRecActiveRef.current = false;
+    try { if (remoteRecRef.current?.state === 'recording') remoteRecRef.current.stop(); } catch {}
+    remoteRecRef.current = null;
+  };
+
   // ── Accept an inbound call: transition to call phase + wire transcription ─
   // Called from the Answer button, SW message handler, and auto-answer path.
   const acceptInboundCallSetup = (call, from, session) => {
@@ -1074,7 +1138,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     // Start browser mic + Web Speech API for presenter's voice ('You' track)
     startMic();
 
-    // Subscribe to Pusher tx-{session} channel for AssemblyAI transcription (Client voice)
+    // Subscribe to Pusher tx-{session} channel for server-side transcription (Client voice)
     if (session && hasPusher) {
       const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
       const channel = `tx-${session}`;
@@ -1085,6 +1149,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       transcriptPusherRef.current = { pusher, channel };
       setTxPA(true);
       console.log('[smq] Subscribed to Pusher channel:', channel);
+    } else if (!session) {
+      // Outbound client.dial() call — no server-side stream.
+      // Capture remote audio from the sw-media <audio> element and transcribe via OpenAI Whisper.
+      startRemoteCapture();
     }
     // Note: remote hangup is detected via the SignalWire notification handler
   };
@@ -1264,6 +1332,8 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       transcriptPusherRef.current = null;
       setTxPA(false);
     }
+    // Stop remote audio capture (outbound client.dial() transcription)
+    stopRemoteCapture();
     // Stop local MediaRecorder (mic-only mode)
     try { if (mediaRecRef.current?.state === 'recording') mediaRecRef.current.stop(); } catch {}
     setCA(false); caRef.current = false;
