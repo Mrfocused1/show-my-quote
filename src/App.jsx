@@ -824,6 +824,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
             initialId={activeRecord}
             navigateTo={navigateTo}
             callLogs={callLogs}
+            contacts={contacts}
             onDeleteCall={id => setCallLogs(prev => prev.filter(c => c.id !== id))}
             onUpdateCall={(id, updates) => setCallLogs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))}
             onSaveContact={contact => setContacts(prev => [makeContactUi(contact), ...prev])}
@@ -3785,7 +3786,7 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
 }
 
 // ─── Call Log View ────────────────────────────────────────────────────────────
-function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpdateCall, onSaveContact, onCallAgain }) {
+function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDeleteCall, onUpdateCall, onSaveContact, onCallAgain }) {
   const [selectedId, setSelectedId] = useState(
     (typeof initialId === 'string' ? initialId : null) || null
   );
@@ -3978,6 +3979,10 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
     lost:   'bg-red-100   text-red-700',
   };
 
+  // Look up contact name by phone number (normalise by stripping non-digits)
+  const norm = p => (p || '').replace(/\D/g, '');
+  const contactByPhone = phone => contacts.find(c => norm(c.phone) === norm(phone) && norm(phone).length > 5);
+
   // Group calls by phone number for the sidebar
   const phoneGroups = Object.values(
     callLogs.reduce((acc, call) => {
@@ -4030,6 +4035,9 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
             const latest = group.calls[0];
             const st = CALL_STATUS[latest.status] || CALL_STATUS.new;
             const isGroupSel = group.calls.some(c => c.id === selectedId);
+            const contact = contactByPhone(group.phone);
+            const displayName = contact?.name || latest.caller;
+            const initials = contact ? (contact.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : displayName.charAt(0).toUpperCase();
             return (
               <button
                 key={group.phone}
@@ -4038,12 +4046,12 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2.5 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-700 flex-shrink-0">
-                      {latest.caller.charAt(0)}
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${contact ? contact.color : 'bg-slate-200 text-slate-700'}`}>
+                      {initials}
                     </div>
                     <div className="min-w-0">
-                      <div className="font-medium text-slate-900 text-sm truncate">{latest.caller}</div>
-                      <div className="text-xs text-slate-400 mt-0.5">{latest.date}</div>
+                      <div className="font-medium text-slate-900 text-sm truncate">{displayName}</div>
+                      <div className="text-xs text-slate-400 mt-0.5">{contact ? group.phone : latest.date}</div>
                     </div>
                   </div>
                   <div className="flex-shrink-0 text-right">
@@ -4080,9 +4088,11 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                 <button onClick={() => setShowDetail(false)} className="md:hidden text-slate-400 hover:text-slate-600 flex-shrink-0 p-1">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
-                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center font-bold text-slate-700 flex-shrink-0 text-sm">
-                  {selected.caller.charAt(0)}
+                {(() => { const sc = contactByPhone(selected.phone); return (
+                <div className={`w-9 h-9 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-sm ${sc ? sc.color : 'bg-slate-200 text-slate-700'}`}>
+                  {sc ? (sc.name || '?').split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() : selected.caller.charAt(0)}
                 </div>
+                ); })()}
                 <div className="min-w-0">
                   {editingName ? (
                     <div className="flex items-center gap-1.5">
@@ -4101,7 +4111,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                       </button>
                     </div>
                   ) : (
-                    <div className="font-semibold text-slate-900 text-sm">{selected.caller}</div>
+                    <div className="font-semibold text-slate-900 text-sm">{contactByPhone(selected.phone)?.name || selected.caller}</div>
                   )}
                   <div className="text-xs text-slate-500 truncate">{selected.phone} · {selected.date} · {selected.duration}</div>
                 </div>
