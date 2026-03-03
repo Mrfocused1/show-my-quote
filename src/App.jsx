@@ -3897,7 +3897,7 @@ function SettingsView() {
               {[
                 { icon: '📱', title: 'Answer on your phone', desc: 'Call connects like a normal call. No transcription — but the call is still logged.' },
                 { icon: '🌐', title: 'Answer on the browser', desc: 'Full live transcription + auto-fill. Quote builds itself while you talk.' },
-                { icon: '🔄', title: 'Both ring simultaneously', desc: 'If you're at your desk, answer the browser. If you're out, your phone is the backup. You can\'t miss a call.' },
+                { icon: '🔄', title: 'Both ring simultaneously', desc: "If you're at your desk, answer the browser. If you're out, your phone is the backup. You won't miss a call." },
               ].map(({ icon, title, desc }) => (
                 <div key={title} className="flex items-start gap-4 px-5 py-4">
                   <span className="text-xl flex-shrink-0">{icon}</span>
