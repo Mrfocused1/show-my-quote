@@ -17,5 +17,6 @@ export default async function handler(req, res) {
     .limit(50);
 
   if (error) return res.status(500).json({ error: error.message });
+  res.setHeader('Cache-Control', 'no-store');
   res.json({ calls: data || [] });
 }

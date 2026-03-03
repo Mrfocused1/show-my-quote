@@ -46,8 +46,8 @@ export default async function handler(req, res) {
 
   const { data, error } = result;
   if (error) {
-    console.error('[save-call] Supabase error:', error.message);
-    return res.status(500).json({ error: error.message });
+    console.error('[save-call] Supabase error:', error.code, error.message, error.hint, error.details);
+    return res.status(500).json({ error: error.message, code: error.code, hint: error.hint, details: error.details });
   }
   res.json({ id: data.id });
 }
