@@ -506,8 +506,14 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Form selector (fill-select phase dropdown) ──
   const [selectedFormKey, setSelectedFormKey] = useState(() => {
-    // If coming from "Call again" with a known niche, pre-select "Continue"
-    if (initialNiche) return 'continue';
+    // In "Call again" mode, try to find a previously used form
+    if (initialPhone) {
+      if (initialNiche) return 'continue';
+      try {
+        const last = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
+        if (last) return 'continue';
+      } catch { /* ignore */ }
+    }
     // Otherwise default to first saved form or first template
     try {
       const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
@@ -1480,6 +1486,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setPriceOverrides({});
+    try { localStorage.setItem('smq_last_form', JSON.stringify({ type: 'template', nicheId, label: n?.label || nicheId })); } catch {}
     const phone = initPhoneRef.current || '';
     setDialNum(phone);
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
@@ -1538,6 +1545,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     setFields(flds); fieldsRef.current = flds;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
+    try { localStorage.setItem('smq_last_form', JSON.stringify({ type: 'saved', formId: form.id, label: form.name })); } catch {}
     const phone = initPhoneRef.current || '';
     setDialNum(phone);
     setNiche(null); nicheRef.current = null;
@@ -2217,11 +2225,28 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   }
 
   // ── Form selector helpers ──
-  const continueNicheLabel = initialNiche ? (NICHES.find(n => n.id === initialNiche)?.label || initialNiche) : null;
+  // Resolve the "Continue" form data: prefer initialNiche prop, fall back to localStorage
+  const continueFormData = (() => {
+    if (initialNiche) {
+      const label = NICHES.find(n => n.id === initialNiche)?.label || initialNiche;
+      return { type: 'template', nicheId: initialNiche, label };
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
+      if (stored) return stored;
+    } catch { /* ignore */ }
+    return null;
+  })();
+  const continueNicheLabel = continueFormData?.label || null;
 
   const getPreviewFields = (key) => {
     if (!key || key === 'blank') return [];
-    if (key === 'continue') return initialNiche ? (TEMPLATE_FORMS[initialNiche] || []).slice(0, 5) : [];
+    if (key === 'continue') {
+      if (!continueFormData) return [];
+      if (continueFormData.type === 'template') return (TEMPLATE_FORMS[continueFormData.nicheId] || []).slice(0, 5);
+      if (continueFormData.type === 'saved') return savedForms.find(f => f.id === continueFormData.formId)?.fields?.slice(0, 5) || [];
+      return [];
+    }
     if (key.startsWith('saved:')) {
       const id = key.slice(6);
       return savedForms.find(f => f.id === id)?.fields?.slice(0, 5) || [];
@@ -2236,7 +2261,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const handleStartWithForm = () => {
     if (!selectedFormKey) return;
     if (selectedFormKey === 'continue') {
-      if (initialNiche) selectTemplate(initialNiche);
+      if (!continueFormData) return;
+      if (continueFormData.type === 'template') selectTemplate(continueFormData.nicheId);
+      else if (continueFormData.type === 'saved') {
+        const form = savedForms.find(f => f.id === continueFormData.formId);
+        if (form) selectSavedForm(form);
+      }
     } else if (selectedFormKey === 'blank') {
       useManualFields();
     } else if (selectedFormKey.startsWith('saved:')) {
@@ -2305,8 +2335,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                   ))}
                   {(() => {
                     let total = 0;
-                    if (selectedFormKey === 'continue' && initialNiche) total = (TEMPLATE_FORMS[initialNiche] || []).length;
-                    else if (selectedFormKey.startsWith('saved:')) total = savedForms.find(f => f.id === selectedFormKey.slice(6))?.fields?.length || 0;
+                    if (selectedFormKey === 'continue' && continueFormData) {
+                      if (continueFormData.type === 'template') total = (TEMPLATE_FORMS[continueFormData.nicheId] || []).length;
+                      else if (continueFormData.type === 'saved') total = savedForms.find(f => f.id === continueFormData.formId)?.fields?.length || 0;
+                    } else if (selectedFormKey.startsWith('saved:')) total = savedForms.find(f => f.id === selectedFormKey.slice(6))?.fields?.length || 0;
                     else if (selectedFormKey.startsWith('template:')) total = (TEMPLATE_FORMS[selectedFormKey.slice(9)] || []).length;
                     return total > 5 ? <div className="text-xs text-slate-300">+{total - 5} more fields</div> : null;
                   })()}
