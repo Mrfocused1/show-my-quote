@@ -1,6 +1,11 @@
 import { setCors, requireApiKey } from './_lib/auth.js';
 import { getSupabase } from './_lib/supabase.js';
 
+// In-memory cooldown: prevent rapid retries that trigger SignalWire rate limits
+// Vercel functions may be different instances, but this catches same-instance retries
+const lastCallTime = {};
+const COOLDOWN_MS = 45_000; // 45 seconds between calls from same number
+
 /**
  * POST /api/signalwire-outbound
  * Body: { to: "+1XXXXXXXXXX" }
@@ -36,6 +41,16 @@ export default async function handler(req, res) {
   if (!projectId || !apiToken || !spaceUrl || !from) {
     return res.status(503).json({ error: 'SignalWire not configured' });
   }
+
+  // Cooldown check — SignalWire rate-limits rapid outbound calls from the same number
+  const now = Date.now();
+  const lastCall = lastCallTime[from] || 0;
+  const sinceLastCall = now - lastCall;
+  if (sinceLastCall < COOLDOWN_MS) {
+    const waitSec = Math.ceil((COOLDOWN_MS - sinceLastCall) / 1000);
+    return res.status(429).json({ error: `Please wait ${waitSec} seconds before calling again.` });
+  }
+  lastCallTime[from] = now;
 
   // Generate a session code for transcription routing
   const session = 'out' + Date.now().toString(36);
@@ -75,7 +90,8 @@ export default async function handler(req, res) {
 
     if (!response.ok) {
       const err = await response.text();
-      console.error('[signalwire-outbound] REST API error:', response.status, err);
+      console.error(`[signalwire-outbound] SignalWire ${response.status}:`, err.slice(0, 500));
+      lastCallTime[from] = 0; // reset cooldown so user can retry immediately
       return res.status(502).json({ error: 'Failed to create outbound call', detail: err });
     }
 

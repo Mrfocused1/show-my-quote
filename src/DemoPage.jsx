@@ -1161,6 +1161,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
         if (!outRes.ok) {
           const err = await outRes.json().catch(() => ({}));
+          console.error('[signalwire] Outbound failed:', outRes.status, err);
           throw new Error(err.error || 'Outbound call failed');
         }
 
@@ -1170,9 +1171,17 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
         setCallStatus('ringing');
       } catch (e) {
-        console.warn('SignalWire outbound unavailable, mic-only mode:', e.message);
+        console.error('[signalwire] Outbound call error:', e.message);
         autoAnswerRef.current = false;
-        // Fall through to mic-only mode below
+        // Reset UI — don't leave user stuck on LIVE with no active call
+        setCallStatus('idle');
+        setCA(false);
+        setTimerRunning(false);
+        const msg = e.message?.includes('busy') || e.message?.includes('429') || e.message?.includes('21218')
+          ? 'SignalWire is busy — wait 60 seconds and try again.'
+          : `Call failed: ${e.message}. Try again in a moment.`;
+        alert(msg);
+        return;
       }
     }
 
@@ -2537,7 +2546,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                   : `${fields.length} fields ready to fill`}
               </p>
               <button
-                onClick={startCall}
+                onClick={() => startCall(effectiveInitialPhone || '')}
                 className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-8 py-3 rounded-xl font-bold text-sm transition-colors shadow-md mx-auto"
               >
                 <Phone className="w-4 h-4" /> Start Call
