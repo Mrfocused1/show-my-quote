@@ -5,6 +5,7 @@
     "api/twilio-voice.js": { "maxDuration": 15 }
   },
   "rewrites": [
-    { "source": "/demo", "destination": "/index.html" }
+    { "source": "/demo", "destination": "/index.html" },
+    { "source": "/sign", "destination": "/index.html" }
   ]
 }

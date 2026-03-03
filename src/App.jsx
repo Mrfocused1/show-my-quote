@@ -21,7 +21,8 @@ import {
   Volume2, Mail, ReceiptText, PhoneForwarded, MessageSquare, ChevronLeft,
   Hash, ToggleRight, CheckSquare, Type as TypeIcon,
   AlignLeft, Percent, MapPin, Timer, CalendarClock, Minus, Info, SlidersHorizontal,
-  BookOpen, History, Upload, Printer, Image as ImageIcon, Clipboard
+  BookOpen, History, Upload, Printer, Image as ImageIcon, Clipboard,
+  Edit2, PenLine, ExternalLink, ClipboardCopy
 } from 'lucide-react';
 
 // ─── DB → UI shape helpers ────────────────────────────────────────────────────
@@ -3420,26 +3421,28 @@ function SettingsView() {
                 <h2 className="font-semibold text-slate-900">E-Signature</h2>
                 <p className="text-xs text-slate-400 mt-0.5">Let clients sign quotes and contracts digitally before booking.</p>
               </div>
-              <span className="ml-auto text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 border border-amber-200 text-amber-600 uppercase tracking-wide">Coming soon</span>
+              <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] font-semibold px-2 py-1 rounded-full bg-green-50 border border-green-200 text-green-700">
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Active
+              </span>
             </div>
             <div className="p-5">
-              <p className="text-sm text-slate-500 mb-4">Clients will receive a signing link via email or SMS. Once signed, you'll be notified and the signed document is stored against the enquiry.</p>
-              <div className="space-y-2">
+              <p className="text-sm text-slate-600 mb-4">Send any invoice or quote for e-signature with one click. Clients sign on any device — no account needed. The signed document is stored against the call record.</p>
+              <div className="space-y-2 mb-4">
                 {[
-                  'Send quotes for e-signature with one click',
-                  'Clients sign on any device — no account needed',
-                  'Signed PDF stored against the call record',
-                  'Automatic confirmation email to both parties',
-                ].map(f => (
-                  <div key={f} className="flex items-center gap-2 text-sm text-slate-600">
-                    <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                  'Open a call → go to the Quote tab',
+                  'Click "Send for Signature" in the toolbar',
+                  'Copy the link and send it to your client via SMS or email',
+                  'Client signs on their phone or computer',
+                ].map((f, i) => (
+                  <div key={f} className="flex items-start gap-2.5 text-sm text-slate-600">
+                    <span className="w-5 h-5 rounded-full bg-slate-100 text-slate-500 text-[11px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{i + 1}</span>
                     {f}
                   </div>
                 ))}
               </div>
-              <button disabled className="mt-4 px-4 py-2 bg-slate-100 text-slate-400 text-sm font-semibold rounded-lg cursor-not-allowed">
-                Notify me when available
-              </button>
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
+                Requires the <strong>signature_requests</strong> table in your Supabase database. Run the SQL in <code className="font-mono">supabase/add_signature_requests.sql</code> if you haven't already.
+              </div>
             </div>
           </div>
         </div>
@@ -3450,9 +3453,10 @@ function SettingsView() {
 
 // ─── Invoice View ─────────────────────────────────────────────────────────────
 function InvoiceView({ call }) {
-  const [logo]  = useLocalState('smq_logo', null);
-  const [biz]   = useLocalState('smq_biz', DEFAULT_BIZ);
-  const [inv]   = useLocalState('smq_invoice_settings', DEFAULT_INV_SETTINGS);
+  const [logo]          = useLocalState('smq_logo', null);
+  const [biz]           = useLocalState('smq_biz', DEFAULT_BIZ);
+  const [inv]           = useLocalState('smq_invoice_settings', DEFAULT_INV_SETTINGS);
+  const [stripePayLink] = useLocalState('smq_stripe_pay_link', '');
 
   const today   = new Date();
   const fmtDate = d => d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
@@ -3467,6 +3471,9 @@ function InvoiceView({ call }) {
   const [notes,       setNotes]       = useState(inv.notes || '');
   const [showVatLine, setShowVatLine] = useState(false);
   const [vatRate,     setVatRate]     = useState(20);
+  const [sigState,    setSigState]    = useState(null); // null | 'sending' | 'done'
+  const [sigUrl,      setSigUrl]      = useState('');
+  const [sigCopied,   setSigCopied]   = useState(false);
   const [items, setItems] = useState(() => {
     if (call.invoice?.items?.length) return call.invoice.items.map(it => ({ desc: it.desc, qty: 1, rate: it.amount, amount: it.amount }));
     const desc = [call.extracted?.eventType, call.extracted?.guestCount ? `${call.extracted.guestCount} guests` : null].filter(Boolean).join(' — ') || 'Catering Services';
@@ -3482,6 +3489,34 @@ function InvoiceView({ call }) {
   const subtotal  = items.reduce((s, it) => s + (Number(it.amount)||0), 0);
   const vatAmount = showVatLine ? subtotal * (vatRate / 100) : 0;
   const total     = subtotal + vatAmount;
+
+  const sendForSignature = async () => {
+    setSigState('sending');
+    const docTitle = [call.extracted?.eventType, call.extracted?.eventDate].filter(Boolean).join(' — ') || clientName || 'Quote';
+    try {
+      const r = await apiFetch('/api/sign-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          call_id:        call.id || null,
+          client_name:    clientName,
+          client_email:   clientEmail,
+          document_title: docTitle,
+          document_data:  { items, total, notes, invoiceNum, issueDate },
+        }),
+      });
+      const d = await r.json();
+      if (d.sign_url) { setSigUrl(d.sign_url); setSigState('done'); }
+      else { setSigState(null); }
+    } catch { setSigState(null); }
+  };
+
+  const copySignUrl = () => {
+    navigator.clipboard.writeText(sigUrl).then(() => {
+      setSigCopied(true);
+      setTimeout(() => setSigCopied(false), 2000);
+    });
+  };
 
   const printInvoice = () => {
     const logoHtml = (inv.showLogo && logo)
@@ -3525,13 +3560,42 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
   return (
     <div className="p-4 md:p-6 max-w-2xl">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
         <p className="text-xs text-slate-400">Click any field to edit</p>
-        <button onClick={printInvoice}
-          className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
-          <Printer className="w-4 h-4" /> Download PDF
-        </button>
+        <div className="flex items-center gap-2">
+          {sigState !== 'done' && (
+            <button onClick={sendForSignature} disabled={sigState === 'sending'}
+              className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+              <PenLine className="w-4 h-4" />
+              {sigState === 'sending' ? 'Creating…' : 'Send for Signature'}
+            </button>
+          )}
+          <button onClick={printInvoice}
+            className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+            <Printer className="w-4 h-4" /> Download PDF
+          </button>
+        </div>
       </div>
+
+      {/* Signing link */}
+      {sigState === 'done' && sigUrl && (
+        <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3">
+          <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-semibold text-green-800 mb-0.5">Signing link ready</div>
+            <div className="text-xs text-green-700 truncate font-mono">{sigUrl}</div>
+          </div>
+          <button onClick={copySignUrl}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold rounded-lg transition-colors flex-shrink-0">
+            <ClipboardCopy className="w-3.5 h-3.5" />
+            {sigCopied ? 'Copied!' : 'Copy'}
+          </button>
+          <a href={sigUrl} target="_blank" rel="noreferrer"
+            className="p-1.5 text-green-700 hover:text-green-900 flex-shrink-0">
+            <ExternalLink className="w-4 h-4" />
+          </a>
+        </div>
+      )}
 
       {/* Invoice card */}
       <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
@@ -3652,6 +3716,17 @@ ${inv.showNotes&&notes?`<div class="footer" style="margin-top:16px"><strong>Note
           <div className="px-6 py-4 border-t border-slate-100 bg-slate-50">
             <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">Payment Details</div>
             <div className="text-xs text-slate-600 whitespace-pre-wrap">{inv.bankDetails}</div>
+          </div>
+        )}
+
+        {/* Pay Now button — shown if Stripe payment link is configured */}
+        {stripePayLink && (
+          <div className="px-6 py-4 border-t border-slate-100 flex items-center justify-between gap-4">
+            <div className="text-xs text-slate-400">Pay securely online</div>
+            <a href={stripePayLink} target="_blank" rel="noreferrer"
+              className="flex items-center gap-2 px-5 py-2 bg-[#635BFF] hover:bg-[#5145e5] text-white text-sm font-semibold rounded-lg transition-colors shadow-sm">
+              <span className="font-black">S</span> Pay Now
+            </a>
           </div>
         )}
       </div>

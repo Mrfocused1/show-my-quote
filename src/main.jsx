@@ -11,9 +11,16 @@ const SignIn      = lazy(() => import('./SignIn.jsx'))
 const TermsPage   = lazy(() => import('./TermsPage.jsx'))
 const PrivacyPage = lazy(() => import('./PrivacyPage.jsx'))
 const DemoPage    = lazy(() => import('./DemoPage.jsx'))
+const SignPage     = lazy(() => import('./SignPage.jsx'))
 
-// If the URL path is /demo, open the public demo page directly
-const initialPage = window.location.pathname === '/demo' ? 'demo' : 'home'
+// Determine initial page from URL path
+function getInitialPage() {
+  const path = window.location.pathname;
+  if (path === '/demo') return 'demo';
+  if (path === '/sign') return 'sign';
+  return 'home';
+}
+const initialPage = getInitialPage()
 
 class ErrorBoundary extends React.Component {
   constructor(props) { super(props); this.state = { error: null }; }
@@ -34,7 +41,7 @@ class ErrorBoundary extends React.Component {
 }
 
 function Root() {
-  const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo'
+  const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo' | 'sign'
   const [pendingSection, setPendingSection] = useState(null)
   const [tourMode, setTourMode] = useState(false)
   const [demoInitPhone, setDemoInitPhone] = useState('')
@@ -64,6 +71,7 @@ function Root() {
   if (page === 'terms')     return <ErrorBoundary><Suspense fallback={null}><TermsPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
   if (page === 'privacy')   return <ErrorBoundary><Suspense fallback={null}><PrivacyPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
   if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} onGoToDashboard={() => setPage('app')} initialPhone={demoInitPhone} initialNiche={demoInitNiche} forceFillSelect={demoForceFillSelect} /></Suspense></ErrorBoundary>
+  if (page === 'sign')      return <ErrorBoundary><Suspense fallback={null}><SignPage /></Suspense></ErrorBoundary>
   return (
     <Homepage
       scrollTo={pendingSection}
