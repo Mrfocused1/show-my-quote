@@ -1914,9 +1914,30 @@ function CTASection({ onBookDemo }) {
 // ─── Contact Section ──────────────────────────────────────────────────────────
 
 function ContactSection() {
-  const [form, setForm] = useState({ name: '', email: '', message: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', message: '' });
   const [submitted, setSubmitted] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState(null);
   const set = key => e => setForm(f => ({ ...f, [key]: e.target.value }));
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setSending(true);
+    setError(null);
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      if (!res.ok) throw new Error('Send failed');
+      setSubmitted(true);
+    } catch {
+      setError('Something went wrong — please try again or email us directly.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <section id="contact" className="bg-[#F7F7F5] py-20">
@@ -1958,12 +1979,12 @@ function ContactSection() {
                 <p className="text-sm text-slate-500 leading-relaxed">We'll be in touch within one business day.</p>
               </div>
             ) : (
-              <form onSubmit={e => { e.preventDefault(); setSubmitted(true); }} className="space-y-4">
+              <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Your name</label>
                   <input
                     required type="text" value={form.name} onChange={set('name')}
-                    placeholder="Jane Smith"
+                    placeholder="Mike Harris"
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
                   />
                 </div>
@@ -1971,7 +1992,15 @@ function ContactSection() {
                   <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Email address</label>
                   <input
                     required type="email" value={form.email} onChange={set('email')}
-                    placeholder="jane@yourbusiness.co.uk"
+                    placeholder="mike@harrisroofing.com"
+                    className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider block mb-1.5">Phone number <span className="normal-case font-normal text-slate-400">(optional)</span></label>
+                  <input
+                    type="tel" value={form.phone} onChange={set('phone')}
+                    placeholder="+1 (713) 555-0100"
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition placeholder:text-slate-300"
                   />
                 </div>
@@ -1983,9 +2012,10 @@ function ContactSection() {
                     className="w-full px-3 py-2.5 rounded-lg border border-slate-200 bg-white text-sm text-slate-800 outline-none focus:ring-2 focus:ring-slate-900 transition resize-none placeholder:text-slate-300"
                   />
                 </div>
-                <button type="submit"
-                  className="w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors">
-                  Send message
+                {error && <p className="text-xs text-red-500">{error}</p>}
+                <button type="submit" disabled={sending}
+                  className="w-full py-3 bg-slate-900 text-white text-sm font-semibold rounded-xl hover:bg-slate-700 transition-colors disabled:opacity-60">
+                  {sending ? 'Sending…' : 'Send message'}
                 </button>
               </form>
             )}
