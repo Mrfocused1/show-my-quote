@@ -799,7 +799,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
             >
               <MenuIcon className="w-5 h-5" />
             </button>
-            <span className="hidden sm:inline hover:bg-slate-100 px-2 py-1 rounded cursor-pointer transition-colors whitespace-nowrap" onClick={() => navigateTo('workspace')}>Show My Quote</span>
+            <span className="hidden sm:inline text-slate-500 px-2 py-1 whitespace-nowrap">Show My Quote</span>
             <ChevronRight className="hidden sm:inline w-4 h-4 flex-shrink-0" />
             <span className="text-slate-800 capitalize px-2 py-1 truncate">{currentView.replace(/-/g, ' ')}</span>
           </div>
@@ -817,7 +817,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
         </header>
 
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
-          {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
+
           {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => { if (onCallAgainProp) { onCallAgainProp('', callLogs[0]?.niche || null, true); } else { setDialerOpen(true); } }} callLogs={callLogs} contacts={contacts} />}
           {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} onCallAgain={(phone, niche) => { if (onCallAgainProp) { onCallAgainProp(phone, niche); } else { setDialerInitNumber(phone || ''); setDialerOpen(true); } }} />}
           {currentView === 'calls'         && <CallLogView
@@ -918,31 +918,6 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
 
 // --- VIEWS ---
 
-// --- Workspace mock data ---
-const MOCK_ACTIVITY = [
-  { id: 1,  icon: Send,         color: 'text-blue-500',   bg: 'bg-blue-50',   title: 'Quote sent to Emma & David', sub: '£18,200 · Wedding · Aug 2026', time: '2h ago' },
-  { id: 2,  icon: PhoneCall,    color: 'text-green-500',  bg: 'bg-green-50',  title: 'Call transcribed: Sarah Jenkins', sub: 'Wedding · 120 guests · River Grove', time: '3h ago' },
-  { id: 3,  icon: Inbox,        color: 'text-yellow-500', bg: 'bg-yellow-50', title: 'New inquiry: Michael Chen', sub: 'Corporate retreat · 50 guests', time: '5h ago' },
-  { id: 4,  icon: CheckCircle2, color: 'text-green-600',  bg: 'bg-green-50',  title: 'Quote won: TechCorp Inc.', sub: '£4,200 · Corporate · Nov 2025', time: 'Yesterday' },
-  { id: 5,  icon: Package,      color: 'text-slate-500',  bg: 'bg-slate-100', title: "Menu updated: 'Classic Elegance'", sub: 'Base price adjusted to £85/pp', time: 'Yesterday' },
-  { id: 6,  icon: Sliders,      color: 'text-purple-500', bg: 'bg-purple-50', title: 'Pricing rule added', sub: 'IF Guest Count > 150 THEN 5% discount', time: '2 days ago' },
-  { id: 7,  icon: FileEdit,     color: 'text-blue-400',   bg: 'bg-blue-50',   title: 'Quote drafted: Rivera Family', sub: '£7,800 · Birthday · Dec 2025', time: '2 days ago' },
-  { id: 8,  icon: PhoneCall,    color: 'text-green-500',  bg: 'bg-green-50',  title: 'Call transcribed: Michael Chen', sub: 'Corporate · 50 guests', time: '3 days ago' },
-];
-
-const MOCK_TEAM = [
-  { name: 'Alex Morgan',  role: 'Owner',        initials: 'AM', color: 'bg-violet-200 text-violet-800', online: true },
-  { name: 'Jamie Park',   role: 'Sales Manager', initials: 'JP', color: 'bg-blue-200 text-blue-800',    online: true },
-  { name: 'Chris Rivera', role: 'Chef Lead',     initials: 'CR', color: 'bg-amber-200 text-amber-800',  online: false },
-  { name: 'Sam Okafor',   role: 'Events Coord.', initials: 'SO', color: 'bg-green-200 text-green-800',  online: false },
-];
-
-const MOCK_INTEGRATIONS = [
-  { name: 'OpenPhone',  desc: 'Call transcription & AI extraction', connected: true,  icon: Phone },
-  { name: 'Stripe',     desc: 'Deposit & payment collection',        connected: false, icon: DollarSign },
-  { name: 'Google Cal', desc: 'Tasting & event scheduling',           connected: true,  icon: Calendar },
-  { name: 'HubSpot',   desc: 'CRM sync & lead tracking',             connected: false, icon: Globe },
-];
 
 // --- LIVE CALL MODAL ---
 // Demo sequence: each entry fires at `delay` ms after call connects.
@@ -1475,201 +1450,6 @@ function LiveCallModal({ onClose, navigateTo }) {
   );
 }
 
-function WorkspaceView({ navigateTo }) {
-  const [liveCallOpen, setLiveCallOpen] = useState(false);
-  const [biz] = useLocalState('smq_biz', DEFAULT_BIZ);
-  const bizName = biz.name || 'My Business';
-  const bizInitials = bizName.split(' ').map(w => w[0]).slice(0, 2).join('').toUpperCase() || 'MB';
-
-  const stats = [
-    { label: 'Pipeline Value',  value: '£63,700', delta: '+12% this month', icon: TrendingUp },
-    { label: 'Quotes Sent',     value: '12',      delta: '3 awaiting reply', icon: Send },
-    { label: 'Conversion Rate', value: '40%',     delta: '+5% vs last month', icon: CheckCircle2 },
-    { label: 'Avg Quote Size',  value: '£9,328',  delta: 'across 5 won', icon: DollarSign },
-  ];
-
-  const quickActions = [
-    { label: 'Live Call',       icon: Phone,      desc: 'Start & record a live call',       action: () => setLiveCallOpen(true), color: 'bg-green-600 text-white hover:bg-green-700' },
-    { label: 'New Quote',       icon: FileEdit,   desc: 'Start a blank quote',              view: 'quote-builder', color: 'bg-slate-900 text-white hover:bg-slate-800' },
-    { label: 'Review Calls',    icon: PhoneCall,  desc: '2 calls ready for extraction',    view: 'calls',         color: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-800' },
-    { label: 'Add Inquiry',     icon: Plus,       desc: 'Log a new client inquiry',         view: 'inquiries',     color: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-800' },
-    { label: 'Browse Menus',    icon: Package,    desc: 'Edit packages & pricing',          view: 'menus',         color: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-800' },
-    { label: 'Pricing Rules',   icon: Sliders,    desc: 'Automate quote calculations',      view: 'pricing-rules', color: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-800' },
-  ];
-
-  return (
-    <>
-    <div className="h-full overflow-y-auto">
-      {/* Hero banner */}
-      <div className="bg-slate-900 text-white px-4 md:px-10 py-8 md:py-10">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex flex-col sm:flex-row items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 rounded-xl bg-white/10 flex items-center justify-center text-xl font-bold border border-white/20">
-                {bizInitials}
-              </div>
-              <div>
-                <div className="text-xs text-slate-400 uppercase tracking-widest mb-1">Workspace</div>
-                <h1 className="text-2xl font-bold">{bizName}</h1>
-                {biz.email && <p className="text-slate-400 text-sm mt-0.5">{biz.email}</p>}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={() => setLiveCallOpen(true)}
-                className="flex items-center gap-2 bg-green-500 hover:bg-green-400 text-white text-sm font-semibold px-4 py-1.5 rounded-md transition shadow-sm"
-              >
-                <div className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                Live Call
-              </button>
-              <button onClick={() => navigateTo('settings')} className="text-sm text-slate-300 border border-slate-600 px-4 py-1.5 rounded-md hover:bg-white/10 transition flex items-center gap-2">
-                <Settings className="w-3.5 h-3.5" /> Workspace Settings
-              </button>
-            </div>
-          </div>
-
-          {/* Stat bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-            {stats.map((s, i) => (
-              <div key={i} className="bg-white/5 border border-white/10 rounded-lg px-5 py-4">
-                <div className="flex items-center gap-2 text-slate-400 text-xs mb-2">
-                  <s.icon className="w-3.5 h-3.5" /> {s.label}
-                </div>
-                <div className="text-2xl font-bold text-white">{s.value}</div>
-                <div className="text-xs text-slate-400 mt-1">{s.delta}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="max-w-6xl mx-auto px-4 md:px-10 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-
-          {/* Left col: Quick actions + Activity */}
-          <div className="lg:col-span-2 space-y-8">
-
-            {/* Quick Actions */}
-            <div>
-              <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {quickActions.map((action, i) => (
-                  <button
-                    key={i}
-                    onClick={() => action.action ? action.action() : navigateTo(action.view)}
-                    className={`${action.color} rounded-lg p-4 text-left transition-all shadow-sm group`}
-                  >
-                    <action.icon className="w-5 h-5 mb-3 opacity-80" />
-                    <div className="font-semibold text-sm">{action.label}</div>
-                    <div className={`text-xs mt-0.5 ${i <= 1 ? 'text-slate-300' : 'text-slate-400'}`}>{action.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Activity Feed */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Recent Activity</h2>
-                <span className="text-xs text-slate-400">Last 7 days</span>
-              </div>
-              <div className="border border-slate-200 rounded-lg bg-white shadow-sm divide-y divide-slate-100 overflow-hidden">
-                {MOCK_ACTIVITY.map((event, i) => (
-                  <div key={event.id} className="flex items-start gap-4 px-5 py-3.5 hover:bg-slate-50 transition-colors group cursor-default">
-                    <div className={`w-8 h-8 rounded-full ${event.bg} flex items-center justify-center flex-shrink-0 mt-0.5`}>
-                      <event.icon className={`w-4 h-4 ${event.color}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-900">{event.title}</div>
-                      <div className="text-xs text-slate-400 mt-0.5 truncate">{event.sub}</div>
-                    </div>
-                    <div className="text-xs text-slate-400 flex-shrink-0 pt-0.5">{event.time}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* Right col: Team + Integrations */}
-          <div className="space-y-6">
-
-            {/* Team */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Team</h2>
-                <button className="text-xs text-slate-400 hover:text-slate-700 flex items-center gap-1 transition-colors">
-                  <Plus className="w-3 h-3" /> Invite
-                </button>
-              </div>
-              <div className="border border-slate-200 rounded-lg bg-white shadow-sm divide-y divide-slate-100 overflow-hidden">
-                {MOCK_TEAM.map((member, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3">
-                    <div className="relative flex-shrink-0">
-                      <div className={`w-8 h-8 rounded-full ${member.color} flex items-center justify-center text-xs font-bold`}>
-                        {member.initials}
-                      </div>
-                      <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${member.online ? 'bg-green-400' : 'bg-slate-300'}`} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-900 truncate">{member.name}</div>
-                      <div className="text-xs text-slate-400">{member.role}</div>
-                    </div>
-                    {member.role === 'Owner' && <Shield className="w-3.5 h-3.5 text-slate-300" />}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Integrations */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">Integrations</h2>
-                <button onClick={() => navigateTo('settings')} className="text-xs text-slate-400 hover:text-slate-700 transition-colors">Manage</button>
-              </div>
-              <div className="border border-slate-200 rounded-lg bg-white shadow-sm divide-y divide-slate-100 overflow-hidden">
-                {MOCK_INTEGRATIONS.map((intg, i) => (
-                  <div key={i} className="flex items-center gap-3 px-4 py-3">
-                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center flex-shrink-0">
-                      <intg.icon className="w-4 h-4 text-slate-600" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-slate-900">{intg.name}</div>
-                      <div className="text-xs text-slate-400 truncate">{intg.desc}</div>
-                    </div>
-                    {intg.connected
-                      ? <span className="text-[10px] font-semibold text-green-700 bg-green-50 border border-green-100 px-2 py-0.5 rounded-full flex-shrink-0">Connected</span>
-                      : <button onClick={() => navigateTo('settings')} className="text-[10px] font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full flex-shrink-0 hover:bg-slate-200 transition-colors">Connect</button>
-                    }
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Plan */}
-            <div className="border border-slate-200 rounded-lg bg-white shadow-sm p-5">
-              <div className="flex items-center justify-between mb-3">
-                <div className="text-sm font-semibold text-slate-900">Admin Plan</div>
-                <span className="text-[10px] font-bold text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded-full">Active</span>
-              </div>
-              <div className="space-y-2 text-xs text-slate-500">
-                <div className="flex justify-between"><span>Quotes this month</span><span className="font-medium text-slate-700">5 / unlimited</span></div>
-                <div className="flex justify-between"><span>Team seats</span><span className="font-medium text-slate-700">4 / 10</span></div>
-                <div className="flex justify-between"><span>Integrations</span><span className="font-medium text-slate-700">2 / 10</span></div>
-              </div>
-              <div className="mt-4 w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-slate-800 h-1.5 rounded-full" style={{ width: '40%' }} />
-              </div>
-              <div className="text-xs text-slate-400 mt-1.5">40% of team seats used</div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-    </div>
-    {liveCallOpen && <LiveCallModal onClose={() => setLiveCallOpen(false)} navigateTo={navigateTo} />}
-    </>
-  );
-}
 
 function SmsQuickCompose() {
   const [to,      setTo]      = useState('');
