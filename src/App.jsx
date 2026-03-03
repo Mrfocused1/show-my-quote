@@ -3440,9 +3440,6 @@ function SettingsView() {
                   </div>
                 ))}
               </div>
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700">
-                Requires the <strong>signature_requests</strong> table in your Supabase database. Run the SQL in <code className="font-mono">supabase/add_signature_requests.sql</code> if you haven't already.
-              </div>
             </div>
           </div>
         </div>

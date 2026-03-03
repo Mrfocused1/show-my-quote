@@ -2,9 +2,9 @@
 -- Creates the signature_requests table for e-signature functionality
 
 CREATE TABLE IF NOT EXISTS signature_requests (
-  id              bigserial PRIMARY KEY,
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   token           uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(),
-  call_id         bigint REFERENCES calls(id) ON DELETE SET NULL,
+  call_id         uuid REFERENCES calls(id) ON DELETE SET NULL,
   client_name     text,
   client_email    text,
   document_title  text NOT NULL,
