@@ -1706,6 +1706,11 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
   const [smsBody, setSmsBody]     = useState('');
   const [smsSending, setSmsSending] = useState(false);
   const [smsSent, setSmsSent]     = useState(false);
+  const [emailOpen, setEmailOpen]   = useState(false);
+  const [emailSubject, setEmailSubject] = useState('');
+  const [emailBody, setEmailBody]   = useState('');
+  const [emailSending, setEmailSending] = useState(false);
+  const [emailSent, setEmailSent]   = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null); // null = new, contact = edit
   const [form, setForm] = useState({ name: '', phone: '', email: '', event_type: '', notes: '' });
@@ -1751,8 +1756,39 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
     finally { setDeleting(false); }
   };
 
-  const openSms = () => { setSmsOpen(true); setSmsBody(''); setSmsSent(false); };
+  const openSms = () => { setSmsOpen(true); setSmsBody(''); setSmsSent(false); setEmailOpen(false); };
   const closeSms = () => { setSmsOpen(false); setSmsBody(''); setSmsSent(false); };
+
+  const openEmail = (contact) => {
+    setEmailSubject(`Following up from Show My Quote — ${contact.name}`);
+    setEmailBody('');
+    setEmailSent(false);
+    setEmailOpen(true);
+    setSmsOpen(false);
+  };
+  const closeEmail = () => { setEmailOpen(false); setEmailSubject(''); setEmailBody(''); setEmailSent(false); };
+  const sendContactEmail = async (toAddress) => {
+    if (!toAddress || !emailSubject.trim() || !emailBody.trim() || emailSending || emailSent) return;
+    setEmailSending(true);
+    try {
+      const res = await apiFetch('/api/send-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: toAddress, subject: emailSubject.trim(), body: emailBody.trim() }),
+      });
+      if (res.ok) {
+        setEmailSent(true);
+        setTimeout(closeEmail, 2000);
+      } else {
+        const d = await res.json().catch(() => ({}));
+        alert('Failed: ' + (d.error || 'Unknown error'));
+      }
+    } catch (e) {
+      alert('Failed: ' + e.message);
+    } finally {
+      setEmailSending(false);
+    }
+  };
   const sendContactSms = async (phone) => {
     if (!phone || !smsBody.trim() || smsSending || smsSent) return;
     setSmsSending(true);
@@ -1885,9 +1921,9 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
                   <button onClick={openSms} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
                     <MessageSquare className="w-3.5 h-3.5" /> SMS
                   </button>
-                  <a href={`mailto:${contact.email}`} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
+                  <button onClick={() => openEmail(contact)} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
                     <Mail className="w-3.5 h-3.5" /> Email
-                  </a>
+                  </button>
                   <button onClick={() => navigateTo('quote-builder')} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
                     <Plus className="w-3.5 h-3.5" /> New Quote
                   </button>
@@ -1923,6 +1959,47 @@ function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
                       {smsSent ? <><Check className="w-3.5 h-3.5" /> Sent!</> :
                        smsSending ? 'Sending…' :
                        <><Send className="w-3.5 h-3.5" /> Send SMS</>}
+                    </button>
+                  </div>
+                )}
+
+                {/* Email compose — expands when Email button is clicked */}
+                {emailOpen && (
+                  <div className="mt-4 pt-4 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold text-slate-500">To: {contact.email}</span>
+                      <button onClick={closeEmail} className="text-slate-400 hover:text-slate-600 transition-colors">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={emailSubject}
+                      onChange={e => setEmailSubject(e.target.value)}
+                      placeholder="Subject…"
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 mb-2 focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                    />
+                    <textarea
+                      value={emailBody}
+                      onChange={e => setEmailBody(e.target.value)}
+                      placeholder="Write your message…"
+                      rows={4}
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-400"
+                    />
+                    <button
+                      onClick={() => sendContactEmail(contact.email)}
+                      disabled={!emailSubject.trim() || !emailBody.trim() || emailSending || emailSent}
+                      className={`mt-2 w-full py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-colors ${
+                        emailSent    ? 'bg-green-100 text-green-700' :
+                        emailSending ? 'bg-slate-100 text-slate-500 cursor-wait' :
+                        !emailSubject.trim() || !emailBody.trim() ? 'bg-slate-100 text-slate-400 cursor-not-allowed' :
+                        'bg-green-600 hover:bg-green-500 text-white'
+                      }`}
+                    >
+                      {emailSent ? <><Check className="w-3.5 h-3.5" /> Sent!</> :
+                       emailSending ? 'Sending…' :
+                       <><Send className="w-3.5 h-3.5" /> Send Email</>}
                     </button>
                   </div>
                 )}
