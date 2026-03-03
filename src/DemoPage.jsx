@@ -1201,7 +1201,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
         }
 
         const call = await client.dial({
-          to: phoneNumber,
+          to: phoneNumber.replace(/[^\d+]/g, ''), // strip to E.164 — SignalWire rejects spaces/dashes
           rootElement: document.getElementById('sw-media'),
           audio: true,
           video: false,

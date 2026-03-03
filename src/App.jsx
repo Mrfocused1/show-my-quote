@@ -200,7 +200,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
         swClientRef.current = client;
       }
       const call = await client.dial({
-        to: number,
+        to: number.replace(/[^\d+]/g, ''), // strip to E.164 — SignalWire rejects spaces/dashes
         rootElement: document.getElementById('sw-dialer-media'),
         audio: true,
         video: false,
