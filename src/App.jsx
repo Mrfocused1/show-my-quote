@@ -103,11 +103,6 @@ const MOCK_RULES_INITIAL = [
 ];
 
 
-const MOCK_INQUIRIES_INITIAL = [
-  { id: 'i1', name: 'Sarah Jenkins', status: 'Drafting', eventDate: 'June 15, 2027', source: 'OpenPhone', value: '£12,400', eventType: 'Wedding', guests: 120, phone: '+1 (555) 019-8372', notes: 'Nut allergy, vegan options needed. Venue: River Grove Estate.' },
-  { id: 'i2', name: 'Michael Chen', status: 'New Inquiry', eventDate: 'Next Month', source: 'OpenPhone', value: 'TBD', eventType: 'Corporate', guests: 50, phone: '+1 (555) 992-1102', notes: 'Simple buffet lunch for corporate retreat.' },
-  { id: 'i3', name: 'Emma & David', status: 'Quote Sent', eventDate: 'Aug 2, 2026', source: 'Web Form', value: '£18,200', eventType: 'Wedding', guests: 180, phone: '+1 (555) 234-5678', notes: 'Outdoor venue, may need weather contingency plan.' },
-];
 
 
 const STATUS_STYLES = {
@@ -764,7 +759,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
           {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => setDialerOpen(true)} callLogs={callLogs} contacts={contacts} />}
-          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} />}
+          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} />}
           {currentView === 'calls'         && <CallLogView initialId={activeRecord} navigateTo={navigateTo} callLogs={callLogs} />}
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
@@ -940,10 +935,7 @@ function LiveCallModal({ onClose, navigateTo }) {
   const formatTime = s =>
     `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  const filteredClients = MOCK_INQUIRIES_INITIAL.filter(c =>
-    c.name.toLowerCase().includes(clientSearch.toLowerCase()) ||
-    (c.phone && c.phone.includes(clientSearch))
-  );
+  const filteredClients = [];
 
   // Start the live call sequence (called after dialling animation)
   const runLiveSequence = () => {
@@ -1795,13 +1787,56 @@ const QUOTE_STATUS_PILL = {
   lost:    'bg-red-100 text-red-600',
 };
 
-function ContactsView({ navigateTo, contacts = [] }) {
+function ContactsView({ navigateTo, contacts = [], onRefresh }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [smsOpen, setSmsOpen]     = useState(false);
   const [smsBody, setSmsBody]     = useState('');
   const [smsSending, setSmsSending] = useState(false);
   const [smsSent, setSmsSent]     = useState(false);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editTarget, setEditTarget] = useState(null); // null = new, contact = edit
+  const [form, setForm] = useState({ name: '', phone: '', email: '', event_type: '' });
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const openNew = () => { setForm({ name: '', phone: '', email: '', event_type: '' }); setEditTarget(null); setModalOpen(true); };
+  const openEdit = c => { setForm({ name: c.name || '', phone: c.phone || '', email: c.email || '', event_type: c.event_type || c.eventType || '' }); setEditTarget(c); setModalOpen(true); };
+  const closeModal = () => { setModalOpen(false); setEditTarget(null); };
+
+  const saveContact = async () => {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      if (editTarget) {
+        await apiFetch(`/api/contacts/${editTarget.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      } else {
+        await apiFetch('/api/contacts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        });
+      }
+      closeModal();
+      onRefresh?.();
+    } catch (e) { alert('Save failed: ' + e.message); }
+    finally { setSaving(false); }
+  };
+
+  const deleteContact = async (c) => {
+    if (!confirm(`Delete ${c.name}? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      await apiFetch(`/api/contacts/${c.id}`, { method: 'DELETE' });
+      setSelected(null);
+      onRefresh?.();
+    } catch (e) { alert('Delete failed: ' + e.message); }
+    finally { setDeleting(false); }
+  };
 
   const openSms = () => { setSmsOpen(true); setSmsBody(''); setSmsSent(false); };
   const closeSms = () => { setSmsOpen(false); setSmsBody(''); setSmsSent(false); };
@@ -1842,7 +1877,15 @@ function ContactsView({ navigateTo, contacts = [] }) {
       <div className={`${contact ? 'hidden md:flex' : 'flex'} flex-col w-full md:w-80 lg:w-96 border-r border-slate-200 bg-white flex-shrink-0`}>
         {/* Search */}
         <div className="p-4 border-b border-slate-100">
-          <h2 className="text-base font-bold text-slate-900 mb-3">Contacts</h2>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-base font-bold text-slate-900">Contacts</h2>
+            <button
+              onClick={openNew}
+              className="flex items-center gap-1 text-xs font-semibold bg-slate-900 text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-700 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> New
+            </button>
+          </div>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
@@ -1899,8 +1942,29 @@ function ContactsView({ navigateTo, contacts = [] }) {
                 {contact.initials}
               </div>
               <div className="flex-1 min-w-0">
-                <h2 className="text-xl font-bold text-slate-900">{contact.name}</h2>
-                <div className="text-sm text-slate-500 mt-0.5">{contact.eventType} · {contact.calls.length} call{contact.calls.length !== 1 ? 's' : ''}</div>
+                <div className="flex items-start justify-between gap-2">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">{contact.name}</h2>
+                    <div className="text-sm text-slate-500 mt-0.5">{contact.eventType} · {contact.calls.length} call{contact.calls.length !== 1 ? 's' : ''}</div>
+                  </div>
+                  <div className="flex gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => openEdit(contact)}
+                      className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-colors"
+                      title="Edit contact"
+                    >
+                      <Edit3 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => deleteContact(contact)}
+                      disabled={deleting}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-40"
+                      title="Delete contact"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
                 <div className="flex flex-wrap gap-2 mt-3">
                   <button className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
                     <Phone className="w-3.5 h-3.5" /> Call Now
@@ -2026,6 +2090,84 @@ function ContactsView({ navigateTo, contacts = [] }) {
               <BookOpen className="w-6 h-6 text-slate-400" />
             </div>
             <p className="text-sm font-medium text-slate-500">Select a contact to view their profile</p>
+          </div>
+        </div>
+      )}
+
+      {/* Create / Edit contact modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={closeModal}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+          <div
+            className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base font-bold text-slate-900">{editTarget ? 'Edit Contact' : 'New Contact'}</h3>
+              <button onClick={closeModal} className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Name *</label>
+                <input
+                  autoFocus
+                  type="text"
+                  value={form.name}
+                  onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                  placeholder="e.g. Sarah & James"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={form.phone}
+                  onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
+                  placeholder="+44 7700 900000"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Email</label>
+                <input
+                  type="email"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  placeholder="sarah@example.com"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Event type</label>
+                <input
+                  type="text"
+                  value={form.event_type}
+                  onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
+                  placeholder="e.g. Wedding, Corporate, Birthday"
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-2 mt-5">
+              <button
+                onClick={closeModal}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveContact}
+                disabled={!form.name.trim() || saving}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold bg-slate-900 text-white hover:bg-slate-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                {saving ? 'Saving…' : (editTarget ? 'Save changes' : 'Add contact')}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -2526,7 +2668,7 @@ function QuotesView({ navigateTo, quotes = [] }) {
 }
 
 function InquiriesView({ navigateTo }) {
-  const [inquiries, setInquiries] = useState(MOCK_INQUIRIES_INITIAL);
+  const [inquiries, setInquiries] = useState([]);
   const [selected, setSelected] = useState(null);
   const [newOpen, setNewOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
