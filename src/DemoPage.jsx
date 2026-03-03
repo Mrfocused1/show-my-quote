@@ -456,8 +456,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // Ref holding the phone number passed in from "Call again"
   const initPhoneRef = React.useRef(initialPhone);
-  // Keep ref in sync when prop changes (component stays mounted across navigation)
-  useEffect(() => { initPhoneRef.current = initialPhone; }, [initialPhone]);
+  // Keep ref + dial number in sync when prop changes (component stays mounted across navigation)
+  useEffect(() => {
+    initPhoneRef.current = initialPhone;
+    if (initialPhone) setDialNum(initialPhone);
+  }, [initialPhone]);
 
   // ── Call data ──
   const [niche,       setNiche]  = useState(null);
@@ -525,7 +528,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const [copied, setCopied] = useState(false);
 
   // ── Dialpad ──
-  const [dialNumber, setDialNum]       = useState('');
+  const [dialNumber, setDialNum]       = useState(initialPhone || '');
   const [dialContactsOpen, setDialContactsOpen] = useState(false);
   const [dialContactSearch, setDialContactSearch] = useState('');
 
