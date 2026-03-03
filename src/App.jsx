@@ -3214,10 +3214,21 @@ function SettingsView() {
             ))}
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Payment Terms</label>
-              <select value={biz.terms || '14'} onChange={e => saveBiz({ ...biz, terms: e.target.value })}
+              <select
+                value={['7','14','30','60'].includes(biz.terms || '14') ? (biz.terms || '14') : 'custom'}
+                onChange={e => saveBiz({ ...biz, terms: e.target.value === 'custom' ? '' : e.target.value })}
                 className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all bg-white">
                 {['7','14','30','60'].map(d => <option key={d} value={d}>Net {d} days</option>)}
+                <option value="custom">Custom…</option>
               </select>
+              {!['7','14','30','60'].includes(biz.terms || '14') && (
+                <input
+                  value={biz.terms || ''}
+                  onChange={e => saveBiz({ ...biz, terms: e.target.value })}
+                  placeholder="e.g. Due on receipt, Net 45 days, 50% upfront…"
+                  className="w-full mt-2 px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-green-500 transition-all"
+                />
+              )}
             </div>
           </div>
         </div>
