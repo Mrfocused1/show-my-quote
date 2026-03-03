@@ -36,6 +36,7 @@ function Root() {
   const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo'
   const [pendingSection, setPendingSection] = useState(null)
   const [tourMode, setTourMode] = useState(false)
+  const [demoInitPhone, setDemoInitPhone] = useState('')
 
   const goHome = (sectionId) => {
     setPendingSection(sectionId || null)
@@ -43,12 +44,17 @@ function Root() {
     setPage('home')
   }
 
-  if (page === 'app')       return <ErrorBoundary><Suspense fallback={null}><App onHome={() => goHome()} tourMode={tourMode} /></Suspense></ErrorBoundary>
+  const handleCallAgain = (phone) => {
+    setDemoInitPhone(phone || '')
+    setPage('demo')
+  }
+
+  if (page === 'app')       return <ErrorBoundary><Suspense fallback={null}><App onHome={() => goHome()} tourMode={tourMode} onCallAgain={handleCallAgain} /></Suspense></ErrorBoundary>
   if (page === 'book-demo') return <ErrorBoundary><Suspense fallback={null}><BookDemo  onHome={goHome} onEnterApp={() => setPage('sign-in')} /></Suspense></ErrorBoundary>
   if (page === 'sign-in')   return <ErrorBoundary><Suspense fallback={null}><SignIn    onHome={goHome} onEnterApp={() => setPage('app')} /></Suspense></ErrorBoundary>
   if (page === 'terms')     return <ErrorBoundary><Suspense fallback={null}><TermsPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
   if (page === 'privacy')   return <ErrorBoundary><Suspense fallback={null}><PrivacyPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
-  if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} /></Suspense></ErrorBoundary>
+  if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} initialPhone={demoInitPhone} /></Suspense></ErrorBoundary>
   return (
     <Homepage
       scrollTo={pendingSection}

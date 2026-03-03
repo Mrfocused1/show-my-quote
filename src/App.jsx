@@ -537,7 +537,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
   );
 }
 
-export default function GetMyQuoteApp({ onHome, tourMode = false }) {
+export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: onCallAgainProp }) {
   const [currentView, setCurrentView] = useState('dashboard');
   const [activeRecord, setActiveRecord] = useState(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -831,7 +831,10 @@ export default function GetMyQuoteApp({ onHome, tourMode = false }) {
             onDeleteCall={id => setCallLogs(prev => prev.filter(c => c.id !== id))}
             onUpdateCall={(id, updates) => setCallLogs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))}
             onSaveContact={contact => setContacts(prev => [makeContactUi(contact), ...prev])}
-            onCallAgain={phone => { setDialerInitNumber(phone || ''); setDialerOpen(true); }}
+            onCallAgain={phone => {
+              if (onCallAgainProp) { onCallAgainProp(phone); }
+              else { setDialerInitNumber(phone || ''); setDialerOpen(true); }
+            }}
           />}
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}

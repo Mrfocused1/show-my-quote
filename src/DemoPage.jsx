@@ -437,7 +437,7 @@ function dedupFields(newFields, existingLabels) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
+export default function DemoPage({ onHome, onBookDemo, onEnterApp, initialPhone = '' }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
   const watchCode = params.get('w') || params.get('watch'); // 'w' is the short form
@@ -449,9 +449,12 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
   const hasPusher = !!PUSHER_KEY;
 
   // ── Phase state ──
-  const [phase, setPhase] = useState(isViewer ? 'waiting' : 'landing');
-  const [mode,  setMode]  = useState(null); // 'build' | 'fill'
+  const [phase, setPhase] = useState(isViewer ? 'waiting' : (initialPhone ? 'fill-select' : 'landing'));
+  const [mode,  setMode]  = useState(initialPhone ? 'fill' : null); // 'build' | 'fill'
   const [sessionCode, setCode] = useState(isViewer ? watchCode : null);
+
+  // Ref holding the phone number passed in from "Call again"
+  const initPhoneRef = React.useRef(initialPhone);
 
   // ── Call data ──
   const [niche,       setNiche]  = useState(null);
@@ -528,7 +531,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
 
   // ── Refs ──
   const phaseRef        = useRef(phase);
-  const modeRef         = useRef(null);
+  const modeRef         = useRef(initialPhone ? 'fill' : null);
   const nicheRef        = useRef(null);
   const fieldsRef       = useRef([]);
   const fvRef           = useRef({});
@@ -1450,9 +1453,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setPriceOverrides({});
-    setDialNum('');
+    const phone = initPhoneRef.current || '';
+    setDialNum(phone);
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
-    broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [] });
+    broadcast({ phase: nextPhase, niche: n.id, fields: seed, fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
   };
 
   const selectTemplate = (nicheId) => {
@@ -1464,9 +1468,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setTx([]);    txRef.current  = [];
     setMenuChecked({}); menuCheckedRef.current = {}; setMenuAmbiguous([]);
     setPriceOverrides({});
-    setDialNum('');
+    const phone = initPhoneRef.current || '';
+    setDialNum(phone);
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
-    broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [] });
+    broadcast({ phase: nextPhase, niche: nicheId, fields: tpl, fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
   };
 
   const useManualFields = () => {
@@ -1474,9 +1479,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFields(manualFields); fieldsRef.current = manualFields;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    setDialNum('');
+    const phone = initPhoneRef.current || '';
+    setDialNum(phone);
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
-    broadcast({ phase: nextPhase, fields: manualFields, fieldValues: {}, transcript: [] });
+    broadcast({ phase: nextPhase, fields: manualFields, fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
   };
 
   const addLine = () => {
@@ -1520,10 +1526,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setFields(flds); fieldsRef.current = flds;
     setFVals({}); fvRef.current = {};
     setTx([]);    txRef.current  = [];
-    setDialNum('');
+    const phone = initPhoneRef.current || '';
+    setDialNum(phone);
     setNiche(null); nicheRef.current = null;
     const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
-    broadcast({ phase: nextPhase, fields: flds, fieldValues: {}, transcript: [] });
+    broadcast({ phase: nextPhase, fields: flds, fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
   };
 
   const reset = () => {
@@ -2202,8 +2209,13 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
       <PageShell onHome={onHome} onBookDemo={onBookDemo}>
         <div className="flex-1 overflow-y-auto bg-[#F7F7F5] px-6 py-10">
           <div className="max-w-3xl mx-auto">
+            {initPhoneRef.current && onEnterApp && (
+              <button onClick={onEnterApp} className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 mb-6 transition-colors">
+                ← Back to app
+              </button>
+            )}
             <div className="mb-8">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Step 1</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-2">Calling {initPhoneRef.current || 'Step 1'}</p>
               <h2 className="text-2xl font-black text-slate-900 mb-2">Choose a form</h2>
               <p className="text-slate-500 text-sm">Pick a ready-made template for your niche, or build your own form with the fields you need.</p>
             </div>
