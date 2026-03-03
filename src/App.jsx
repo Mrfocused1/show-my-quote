@@ -207,12 +207,16 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
       });
       swCallRef.current = call;
       call.on('call.state', (params) => {
+        console.log('[dialer] call.state:', params?.call_state);
         if (params?.call_state === 'answered') setStatus('connected');
       });
       call.on('destroy', () => {
         swCallRef.current = null;
         setStatus(s => s === 'dialing' || s === 'connected' ? 'ended' : s);
       });
+      // Show the transcript panel immediately when the call starts ringing —
+      // same pattern as DemoPage which doesn't wait for the 'answered' event
+      setStatus('connected');
       call.start().catch(e => console.warn('[dialer] call.start:', e.message));
     } catch (e) {
       console.error('[dialer] call failed:', e);
