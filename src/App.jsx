@@ -229,6 +229,12 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
     try { swCallRef.current?.hangup?.(); } catch {}
     swCallRef.current = null;
     setStatus('ended');
+    // Save call record (best-effort, non-blocking)
+    apiFetch('/api/save-call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ direction: 'outbound', from_number: number, duration: timer, transcript: [], status: 'completed' }),
+    }).catch(() => {});
   };
 
   const toggleMute = () => {

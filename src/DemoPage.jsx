@@ -1344,6 +1344,21 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
     setCA(false); caRef.current = false;
     setCallStatus('idle');
     setTimerRunning(false);
+
+    // Save call record to DB (best-effort, non-blocking)
+    apiFetch('/api/save-call', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        direction:   activeCallPhone ? 'outbound' : 'inbound',
+        from_number: activeCallPhone || null,
+        duration:    callSeconds,
+        transcript:  txRef.current,
+        call_sid:    endedCallSid || null,
+        status:      'completed',
+      }),
+    }).catch(() => {});
+
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
     broadcast({ callActive: false, phase: nextPhase });
