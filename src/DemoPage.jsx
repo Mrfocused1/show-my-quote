@@ -1058,16 +1058,16 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   };
 
   // ── Remote audio capture for outbound client.dial() calls ─────────────────
-  // Since client.dial() skips the LaML <Stream> route, we capture the remote
-  // audio directly from the #sw-media <audio> element and send 3-second chunks
-  // to /api/transcribe-remote (OpenAI Whisper), publishing results as 'Client'.
+  // Captures the remote party's audio from the #sw-media <audio> element.
+  // Records 3-second chunks with NO GAP: the next chunk starts immediately
+  // when the previous one stops, while transcription runs in parallel.
   const startRemoteCapture = () => {
     remoteRecActiveRef.current = true;
 
     const mimeType = ['audio/webm;codecs=opus', 'audio/webm', '']
       .find(t => !t || MediaRecorder.isTypeSupported(t)) || '';
 
-    const tryRecord = () => {
+    const tryStart = () => {
       if (!remoteRecActiveRef.current || !caRef.current) return;
 
       // Find the <audio> element SignalWire creates inside #sw-media
@@ -1075,42 +1075,44 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       const stream = audioEl?.srcObject;
 
       if (!(stream instanceof MediaStream) || stream.getAudioTracks().length === 0) {
-        // Audio element not ready yet — retry in 300ms
-        setTimeout(tryRecord, 300);
+        setTimeout(tryStart, 300);
         return;
       }
 
-      const chunks = [];
-      const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
-      remoteRecRef.current = mr;
+      const startChunk = () => {
+        if (!remoteRecActiveRef.current || !caRef.current) return;
 
-      mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
-      mr.onstop = async () => {
-        if (chunks.length === 0 || !remoteRecActiveRef.current) return;
-        const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
-        if (blob.size < 1000) { if (remoteRecActiveRef.current) tryRecord(); return; }
+        const chunks = [];
+        const mr = new MediaRecorder(stream, mimeType ? { mimeType } : {});
+        remoteRecRef.current = mr;
 
-        try {
-          const res = await apiFetch('/api/transcribe-remote', {
+        mr.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+        mr.onstop = () => {
+          // Start next chunk IMMEDIATELY — no gap while API call happens
+          startChunk();
+
+          // Transcribe this chunk in parallel (fire-and-forget)
+          const blob = new Blob(chunks, { type: mr.mimeType || 'audio/webm' });
+          if (blob.size < 1000) return;
+          apiFetch('/api/transcribe-remote', {
             method: 'POST',
             headers: { 'Content-Type': blob.type },
             body: blob,
-          });
-          if (res.ok) {
-            const { text } = await res.json();
-            if (text?.trim()) onTranscriptLine('Client', text.trim());
-          }
-        } catch {}
+          }).then(res => res.ok ? res.json() : null)
+            .then(data => { if (data?.text?.trim()) onTranscriptLine('Client', data.text.trim()); })
+            .catch(() => {});
+        };
 
-        if (remoteRecActiveRef.current) tryRecord(); // start next chunk
+        mr.start();
+        // Stop after 3 seconds to ship the chunk
+        setTimeout(() => { if (mr.state === 'recording') mr.stop(); }, 3000);
       };
 
-      mr.start();
-      setTimeout(() => { if (mr.state === 'recording') mr.stop(); }, 3000);
+      startChunk();
     };
 
     // Give SignalWire a moment to attach the audio element after call connects
-    setTimeout(tryRecord, 600);
+    setTimeout(tryStart, 600);
   };
 
   const stopRemoteCapture = () => {
