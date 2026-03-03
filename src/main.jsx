@@ -42,6 +42,8 @@ function Root() {
   const goHome = (sectionId) => {
     setPendingSection(sectionId || null)
     setTourMode(false)
+    setDemoInitPhone('')
+    setDemoInitNiche(null)
     setPage('home')
   }
 

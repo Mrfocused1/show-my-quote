@@ -7,7 +7,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   if (!requireApiKey(req, res)) return;
 
-  const { direction, from_number, duration, transcript, call_sid, status = 'completed' } = req.body || {};
+  const { direction, from_number, duration, transcript, call_sid, status = 'completed', niche = null } = req.body || {};
 
   const supabase = getSupabase();
   if (!supabase) return res.status(503).json({ error: 'DB not configured' });
@@ -24,6 +24,7 @@ export default async function handler(req, res) {
         duration: duration || null,
         transcript: transcript || [],
         status,
+        niche: niche || null,
       }, { onConflict: 'call_sid' })
       .select('id')
       .single();
@@ -37,6 +38,7 @@ export default async function handler(req, res) {
         duration: duration || null,
         transcript: transcript || [],
         status,
+        niche: niche || null,
       })
       .select('id')
       .single();

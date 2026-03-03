@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import Pusher from 'pusher-js';
 import {
   Phone, PhoneCall, PhoneOff, Mic, MicOff, Radio, Check, CheckCircle2,
@@ -1377,6 +1377,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
         transcript:  txRef.current,
         call_sid:    endedCallSid || null,
         status:      'completed',
+        niche:       nicheRef.current?.id || null,
       }),
     }).catch(() => {});
 
@@ -1558,6 +1559,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   };
 
   const reset = () => {
+    dismissIncomingCall();
     stopMic();
     setPhase('landing'); phaseRef.current = 'landing';
     setMode(null); setCode(null); setNiche(null);
@@ -2239,17 +2241,18 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Form selector helpers ──
   // Resolve the "Continue" form data: prefer initialNiche prop, fall back to localStorage
-  const continueFormData = (() => {
+  const continueFormData = useMemo(() => {
     if (initialNiche) {
-      const label = NICHES.find(n => n.id === initialNiche)?.label || initialNiche;
-      return { type: 'template', nicheId: initialNiche, label };
+      const n = NICHES.find(x => x.id === initialNiche);
+      if (n) return { type: 'template', nicheId: initialNiche, label: n.label };
     }
     try {
       const stored = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
       if (stored) return stored;
     } catch { /* ignore */ }
     return null;
-  })();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNiche]);
   const continueNicheLabel = continueFormData?.label || null;
 
   const getPreviewFields = (key) => {
@@ -2290,7 +2293,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       const phone = initPhoneRef.current || '';
       setDialNum(phone);
       const nextPhase = 'dial'; setPhase(nextPhase); phaseRef.current = nextPhase;
-      broadcast({ phase: nextPhase, fields: [], fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
+      broadcast({ phase: nextPhase, niche: null, fields: [], fieldValues: {}, transcript: [], ...(phone && { dialNumber: phone }) });
     } else if (selectedFormKey.startsWith('saved:')) {
       const id = selectedFormKey.slice(6);
       const form = savedForms.find(f => f.id === id);
