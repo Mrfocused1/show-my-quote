@@ -542,11 +542,18 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
   const autoAnswerRef = useRef(false);
   const swDeviceRef = useRef(null);
 
+  const refreshCalls = () => {
+    apiFetch('/api/calls-list').then(r => r.json()).then(d => {
+      if (d.calls) setCallLogs(d.calls.map(makeCallUi));
+    }).catch(() => {});
+  };
+
   const navigateTo = (view, record = null) => {
     setCurrentView(view);
     setActiveRecord(record);
     setSidebarOpen(false);
     if (view === 'sms-inbox') setSmsBadge(0);
+    if (view === 'calls') refreshCalls();
   };
 
   const handleTourNext = () => {
@@ -768,6 +775,13 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
     apiFetch('/api/quotes-list').then(r => r.json()).then(d => {
       if (d.quotes) setQuotes(d.quotes);
     }).catch(() => {});
+    // Second fetch after 2s — catches calls saved just before navigating here (save-call is async)
+    const t = setTimeout(() => {
+      apiFetch('/api/calls-list').then(r => r.json()).then(d => {
+        if (d.calls) setCallLogs(d.calls.map(makeCallUi));
+      }).catch(() => {});
+    }, 2000);
+    return () => clearTimeout(t);
   }, []);
 
   return (
