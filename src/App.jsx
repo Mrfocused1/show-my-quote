@@ -172,17 +172,33 @@ function TourCard({ step, onNext, onClose }) {
 
 // --- MAIN APP ---
 // ─── Phone Dialer ─────────────────────────────────────────────────────────────
-function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' }) {
+function normalizeE164(raw) {
+  const digits = (raw || '').replace(/\D/g, '');
+  if (digits.length === 10) return '+1' + digits;
+  if (digits.length === 11 && digits[0] === '1') return '+' + digits;
+  if ((raw || '').trim().startsWith('+')) return raw.replace(/[^\d+]/g, '');
+  return digits || raw;
+}
+
+function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '', lead = null }) {
   const [number, setNumber] = useState(initialNumber);
   const [status, setStatus] = useState('idle'); // idle | dialing | connected | ended
   const [timer, setTimer] = useState(0);
   const [muted, setMuted] = useState(false);
-  const [held, setHeld] = useState(false);
   const [transcript, setTranscript] = useState([]);
-  const [contactsOpen, setContactsOpen] = useState(false);
-  const [contactSearch, setContactSearch] = useState('');
+  const [interim, setInterim] = useState('');
+  const [captureStatus, setCaptureStatus] = useState('called');
+  const [captureNotes, setCaptureNotes] = useState('');
+  const [savingCapture, setSavingCapture] = useState(false);
+  const [captureSaved, setCaptureSaved] = useState(false);
   const swClientRef = useRef(null);
   const swCallRef   = useRef(null);
+  const recognitionRef = useRef(null);
+  const intentStopRef = useRef(false);
+
+  const SpeechRec = typeof window !== 'undefined'
+    ? (window.SpeechRecognition || window.webkitSpeechRecognition)
+    : null;
 
   const KEYS = [
     { digit: '1', sub: '' },    { digit: '2', sub: 'ABC' }, { digit: '3', sub: 'DEF' },
@@ -201,13 +217,54 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
 
   // Cleanup on unmount
   useEffect(() => () => {
+    stopTranscription();
     try { swCallRef.current?.hangup?.(); } catch {}
   }, []);
+
+  const startTranscription = () => {
+    if (!SpeechRec) return;
+    intentStopRef.current = false;
+    const r = new SpeechRec();
+    recognitionRef.current = r;
+    r.continuous = true;
+    r.interimResults = true;
+    r.lang = 'en-US';
+    r.onresult = e => {
+      let iText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const t = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          setInterim('');
+          setTranscript(prev => [...prev, { speaker: 'You', text: t.trim() }]);
+        } else { iText += t; }
+      }
+      setInterim(iText);
+    };
+    r.onerror = e => {
+      if (e.error === 'audio-capture') {
+        setTimeout(() => { if (!intentStopRef.current) { try { r.start(); } catch {} } }, 800);
+      }
+    };
+    r.onend = () => {
+      setInterim('');
+      if (!intentStopRef.current && recognitionRef.current) {
+        try { r.start(); } catch {}
+      }
+    };
+    r.start();
+  };
+
+  const stopTranscription = () => {
+    intentStopRef.current = true;
+    if (recognitionRef.current) { recognitionRef.current.stop(); recognitionRef.current = null; }
+    setInterim('');
+  };
 
   const startRealCall = async () => {
     if (!number) return;
     setStatus('dialing');
     setTranscript([]);
+    setCaptureSaved(false);
     try {
       let client = swClientRef.current;
       if (!client) {
@@ -218,8 +275,9 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
         client = await SignalWire({ token });
         swClientRef.current = client;
       }
+      const dialTo = normalizeE164(number);
       const call = await client.dial({
-        to: number.replace(/[^\d+]/g, ''), // strip to E.164 — SignalWire rejects spaces/dashes
+        to: dialTo,
         rootElement: document.getElementById('sw-dialer-media'),
         audio: true,
         video: false,
@@ -227,15 +285,16 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
       swCallRef.current = call;
       call.on('call.state', (params) => {
         console.log('[dialer] call.state:', params?.call_state);
-        if (params?.call_state === 'answered') setStatus('connected');
+        if (params?.call_state === 'answered') {
+          setStatus('connected');
+          startTranscription();
+        }
       });
       call.on('destroy', () => {
         swCallRef.current = null;
+        stopTranscription();
         setStatus(s => s === 'dialing' || s === 'connected' ? 'ended' : s);
       });
-      // Show the transcript panel immediately when the call starts ringing —
-      // same pattern as DemoPage which doesn't wait for the 'answered' event
-      setStatus('connected');
       call.start().catch(e => console.warn('[dialer] call.start:', e.message));
     } catch (e) {
       console.error('[dialer] call failed:', e);
@@ -245,14 +304,20 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
   };
 
   const endCall = () => {
+    stopTranscription();
     try { swCallRef.current?.hangup?.(); } catch {}
     swCallRef.current = null;
     setStatus('ended');
-    // Save call record (best-effort, non-blocking)
     apiFetch('/api/save-call', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ direction: 'outbound', from_number: number, duration: timer, transcript: [], status: 'completed' }),
+      body: JSON.stringify({
+        direction: 'outbound',
+        from_number: number,
+        duration: timer,
+        transcript: transcript.map(l => `${l.speaker}: ${l.text}`).join('\n'),
+        status: 'completed',
+      }),
     }).catch(() => {});
   };
 
@@ -270,45 +335,75 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
     setNumber(n => n.length < 16 ? n + digit : n);
   };
 
+  const saveCapture = async () => {
+    if (!lead?.id) return;
+    setSavingCapture(true);
+    try {
+      await apiFetch(`/api/leads/${lead.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: captureStatus,
+          notes: captureNotes || undefined,
+          last_contacted_at: new Date().toISOString(),
+        }),
+      });
+      setCaptureSaved(true);
+    } catch {}
+    setSavingCapture(false);
+  };
+
   const showPanel = status === 'connected' || status === 'ended';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm sm:p-4">
-      <div className={`bg-slate-900 w-full sm:rounded-2xl shadow-2xl overflow-hidden flex flex-col sm:flex-row transition-all duration-300 sm:${showPanel ? 'w-[680px]' : 'w-72'}`} style={{ maxHeight: '95vh' }}>
-
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm sm:p-4">
+      <div
+        className={`bg-white w-full sm:rounded-2xl shadow-2xl border border-slate-200 overflow-hidden flex flex-col sm:flex-row transition-all duration-300 ${showPanel ? 'sm:w-[680px]' : 'sm:w-72'}`}
+        style={{ maxHeight: '95vh' }}
+      >
         {/* ── Keypad panel ── */}
-        <div className="w-full sm:w-72 flex-shrink-0 flex flex-col p-5 sm:p-6">
+        <div className="w-full sm:w-72 flex-shrink-0 flex flex-col p-5 bg-white">
 
           {/* Header */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${
-                status === 'connected' ? 'bg-green-400 animate-pulse' :
-                status === 'dialing'   ? 'bg-yellow-400 animate-pulse' : 'bg-slate-600'
+                status === 'connected' ? 'bg-green-500 animate-pulse' :
+                status === 'dialing'   ? 'bg-amber-400 animate-pulse' : 'bg-slate-300'
               }`} />
-              <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+              <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
                 {status === 'idle'      ? 'Ready to call' :
                  status === 'dialing'   ? 'Dialing…' :
                  status === 'connected' ? `Connected · ${fmt(timer)}` : 'Call ended'}
               </span>
             </div>
-            <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1">
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 transition-colors p-1">
               <X className="w-4 h-4" />
             </button>
           </div>
 
+          {/* Lead context pill */}
+          {lead && (
+            <div className="mb-3 px-3 py-2 bg-slate-50 rounded-lg border border-slate-100 flex items-center gap-2">
+              <div className="w-6 h-6 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-600 flex-shrink-0">
+                {(lead.business_name || '?')[0].toUpperCase()}
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-slate-700 truncate">{lead.business_name}</p>
+                {lead.city && <p className="text-[10px] text-slate-400">{lead.city}{lead.state ? `, ${lead.state}` : ''}</p>}
+              </div>
+            </div>
+          )}
+
           {/* Number display */}
-          <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] relative flex items-center">
+          <div className="mb-4 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 min-h-[52px] relative flex items-center">
             <input
               type="tel"
               value={number}
-              onChange={e => {
-                const val = e.target.value.replace(/[^\d+\-\s().#*]/g, '').slice(0, 20);
-                setNumber(val);
-              }}
+              onChange={e => setNumber(e.target.value.replace(/[^\d+\-\s().#*]/g, '').slice(0, 20))}
               disabled={status === 'connected' || status === 'dialing'}
               placeholder="Enter number"
-              className="font-mono text-xl tracking-widest font-bold w-full text-center bg-transparent outline-none text-white placeholder-slate-600 disabled:opacity-40 pr-8"
+              className="font-mono text-xl tracking-widest font-bold w-full text-center bg-transparent outline-none text-slate-900 placeholder-slate-300 disabled:opacity-40 pr-8"
             />
             <button
               onClick={async () => {
@@ -319,7 +414,7 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
                 } catch {}
               }}
               disabled={status === 'connected' || status === 'dialing'}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white transition-colors p-1 disabled:opacity-30"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors p-1 disabled:opacity-30"
               title="Paste number"
             >
               <Clipboard className="w-4 h-4" />
@@ -333,25 +428,25 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
                 key={digit}
                 onClick={() => press(digit)}
                 disabled={status === 'connected' || status === 'dialing'}
-                className="flex flex-col items-center justify-center h-14 rounded-xl bg-slate-800 hover:bg-slate-700 active:bg-slate-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors select-none"
+                className="flex flex-col items-center justify-center h-13 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 active:bg-slate-200 border border-slate-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors select-none"
               >
-                <span className="text-white font-semibold text-lg leading-none">{digit}</span>
-                {sub && <span className="text-slate-500 text-[9px] font-medium mt-0.5 tracking-widest">{sub}</span>}
+                <span className="text-slate-900 font-semibold text-lg leading-none">{digit}</span>
+                {sub && <span className="text-slate-400 text-[9px] font-medium mt-0.5 tracking-widest">{sub}</span>}
               </button>
             ))}
           </div>
 
-          {/* Action buttons */}
+          {/* Call / End buttons */}
           {(status === 'idle' || status === 'ended') && (
             <div className="flex gap-2">
               <button
                 onClick={() => setNumber(n => n.slice(0, -1))}
-                className="flex-1 h-12 flex items-center justify-center rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors text-lg"
+                className="flex-1 h-12 flex items-center justify-center rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-500 transition-colors"
               >⌫</button>
               <button
                 onClick={startRealCall}
                 disabled={!number}
-                className="flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl bg-green-500 hover:bg-green-400 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold transition-colors text-sm"
+                className="flex-[2] h-12 flex items-center justify-center gap-2 rounded-xl bg-green-600 hover:bg-green-500 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold transition-colors text-sm"
               >
                 <Phone className="w-4 h-4" /> Call
               </button>
@@ -371,71 +466,104 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
             <div className="flex gap-2">
               <button
                 onClick={toggleMute}
-                className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 transition-colors ${muted ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
+                className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 border transition-colors ${muted ? 'bg-amber-50 border-amber-200 text-amber-600' : 'border-slate-200 hover:bg-slate-50 text-slate-500'}`}
               >
                 {muted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
                 {muted ? 'Unmute' : 'Mute'}
               </button>
               <button
-                onClick={() => setHeld(h => !h)}
-                className={`flex-1 h-12 flex flex-col items-center justify-center rounded-xl text-xs font-medium gap-1 transition-colors ${held ? 'bg-yellow-500 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-400'}`}
-              >
-                {held ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                {held ? 'Resume' : 'Hold'}
-              </button>
-              <button
                 onClick={endCall}
-                className="flex-1 h-12 flex flex-col items-center justify-center rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-medium gap-1 transition-colors"
+                className="flex-[2] h-12 flex flex-col items-center justify-center rounded-xl bg-red-500 hover:bg-red-400 text-white text-xs font-medium gap-1 transition-colors"
               >
-                <PhoneOff className="w-4 h-4" /> End
+                <PhoneOff className="w-4 h-4" /> End call
               </button>
             </div>
           )}
         </div>
 
-        {/* ── Live transcript panel ── */}
+        {/* ── Right panel: transcript + post-call form ── */}
         {showPanel && (
-          <div className="flex-1 border-t sm:border-t-0 sm:border-l border-slate-700/50 flex flex-col overflow-hidden">
+          <div className="flex-1 border-t sm:border-t-0 sm:border-l border-slate-200 flex flex-col overflow-hidden bg-slate-50">
             {/* Status bar */}
-            <div className="flex items-center gap-2 px-5 py-3 bg-slate-800/50 border-b border-slate-700/50 flex-shrink-0">
+            <div className="flex items-center gap-2 px-5 py-3 bg-white border-b border-slate-200 flex-shrink-0">
               {status === 'connected' ? (
                 <>
-                  <div className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
-                  <span className="text-xs font-semibold text-red-400 uppercase tracking-wider">Recording & Transcribing</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-xs font-semibold text-red-500 uppercase tracking-wider">Live · Transcribing your voice</span>
                 </>
               ) : (
                 <>
-                  <div className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Call ended · Transcript saved</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Call ended</span>
                 </>
               )}
             </div>
 
             {/* Transcript */}
-            <div className="flex-1 overflow-y-auto p-5 space-y-3">
-              {transcript.length === 0 ? (
-                <p className="text-slate-600 text-sm text-center mt-8 animate-pulse">Listening…</p>
-              ) : transcript.map((line, i) => (
-                <div key={i} className={`flex gap-2 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
-                  <span className={`text-[9px] font-bold uppercase tracking-wider pt-2 w-8 flex-shrink-0 ${line.speaker === 'You' ? 'text-slate-500' : 'text-green-400 text-right'}`}>
-                    {line.speaker}
-                  </span>
-                  <div className={`px-3 py-2 rounded-xl text-sm max-w-[195px] leading-relaxed ${
-                    line.speaker === 'You'
-                      ? 'bg-slate-800 text-slate-200'
-                      : 'bg-green-900/40 text-green-100 border border-green-800/40'
-                  }`}>
+            <div className="flex-1 overflow-y-auto p-4 space-y-2 min-h-0">
+              {transcript.length === 0 && status === 'connected' && (
+                <p className="text-slate-400 text-sm text-center mt-8 animate-pulse">Listening for your voice…</p>
+              )}
+              {transcript.length === 0 && status === 'ended' && (
+                <p className="text-slate-400 text-sm text-center mt-6">No transcript captured</p>
+              )}
+              {transcript.map((line, i) => (
+                <div key={i} className="flex gap-2">
+                  <span className="text-[9px] font-bold uppercase tracking-wider pt-1.5 w-7 flex-shrink-0 text-slate-400">{line.speaker}</span>
+                  <div className="px-3 py-2 rounded-xl text-sm bg-white border border-slate-200 text-slate-800 shadow-sm max-w-[200px] leading-relaxed">
                     {line.text}
                   </div>
                 </div>
               ))}
+              {interim && (
+                <div className="flex gap-2 opacity-50">
+                  <span className="text-[9px] font-bold uppercase tracking-wider pt-1.5 w-7 flex-shrink-0 text-slate-400">You</span>
+                  <div className="px-3 py-2 rounded-xl text-sm bg-slate-100 text-slate-600 italic max-w-[200px]">{interim}</div>
+                </div>
+              )}
             </div>
 
-            {status === 'ended' && (
-              <div className="border-t border-slate-700/50 p-5 flex-shrink-0">
+            {/* Post-call capture form */}
+            {status === 'ended' && lead && (
+              <div className="border-t border-slate-200 bg-white p-4 flex-shrink-0 space-y-3">
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Log outcome</p>
+                {captureSaved ? (
+                  <div className="flex items-center gap-2 text-green-600 text-sm py-1">
+                    <Check className="w-4 h-4" /> Lead updated
+                  </div>
+                ) : (
+                  <>
+                    <select
+                      value={captureStatus}
+                      onChange={e => setCaptureStatus(e.target.value)}
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-900/10"
+                    >
+                      {LEAD_STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                    <textarea
+                      value={captureNotes}
+                      onChange={e => setCaptureNotes(e.target.value)}
+                      placeholder="Notes from the call…"
+                      rows={2}
+                      className="w-full text-sm border border-slate-200 rounded-lg px-3 py-2 resize-none bg-slate-50 focus:outline-none focus:bg-white focus:ring-2 focus:ring-slate-900/10"
+                    />
+                    <button
+                      onClick={saveCapture}
+                      disabled={savingCapture}
+                      className="w-full py-2 bg-slate-900 text-white text-sm font-medium rounded-lg hover:bg-slate-800 disabled:opacity-50 transition"
+                    >
+                      {savingCapture ? 'Saving…' : 'Save & close'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+
+            {status === 'ended' && !lead && (
+              <div className="border-t border-slate-200 bg-white p-4 flex-shrink-0">
                 <button
                   onClick={() => { onClose(); navigateTo('calls'); }}
-                  className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white text-sm font-semibold rounded-xl transition-colors"
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-sm font-medium rounded-xl transition-colors"
                 >
                   View in Call History →
                 </button>
@@ -447,77 +575,6 @@ function PhoneDialer({ onClose, navigateTo, contacts = [], initialNumber = '' })
 
       {/* Hidden audio element for SignalWire WebRTC */}
       <div id="sw-dialer-media" className="hidden" />
-
-      {/* ── Contacts bottom sheet ── */}
-      {contactsOpen && (() => {
-        const filtered = contacts.filter(c =>
-          c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-          (c.phone || '').includes(contactSearch) ||
-          (c.eventType || '').toLowerCase().includes(contactSearch.toLowerCase())
-        );
-        return (
-          <>
-            {/* Backdrop */}
-            <div
-              className="fixed inset-0 z-[60] bg-black/50"
-              onClick={() => { setContactsOpen(false); setContactSearch(''); }}
-            />
-            {/* Sheet */}
-            <div className="fixed bottom-0 left-0 right-0 z-[61] bg-slate-900 rounded-t-2xl shadow-2xl flex flex-col" style={{ maxHeight: '70vh' }}>
-              {/* Handle */}
-              <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-                <div className="w-8 h-1 bg-slate-700 rounded-full" />
-              </div>
-              {/* Header */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-slate-800 flex-shrink-0">
-                <span className="text-white font-semibold text-sm">Contacts</span>
-                <button onClick={() => { setContactsOpen(false); setContactSearch(''); }} className="text-slate-500 hover:text-white transition-colors">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              {/* Search */}
-              <div className="px-4 py-3 flex-shrink-0">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
-                  <input
-                    autoFocus
-                    value={contactSearch}
-                    onChange={e => setContactSearch(e.target.value)}
-                    placeholder="Search contacts…"
-                    className="w-full pl-8 pr-3 py-2 bg-slate-800 rounded-lg text-sm text-white placeholder-slate-500 outline-none focus:ring-1 focus:ring-green-500 transition-all"
-                  />
-                </div>
-              </div>
-              {/* Contact list */}
-              <div className="overflow-y-auto flex-1 px-3 pb-6">
-                {filtered.length === 0 && (
-                  <p className="text-slate-500 text-sm text-center py-8">No contacts found</p>
-                )}
-                {filtered.map(c => (
-                  <button
-                    key={c.id}
-                    onClick={() => {
-                      setNumber(c.phone);
-                      setContactsOpen(false);
-                      setContactSearch('');
-                    }}
-                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-slate-800 active:bg-slate-700 transition-colors text-left"
-                  >
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${c.color}`}>
-                      {c.initials}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium text-white truncate">{c.name}</div>
-                      <div className="text-xs text-slate-400 truncate">{c.phone} · {c.eventType}</div>
-                    </div>
-                    <Phone className="w-3.5 h-3.5 text-slate-600 flex-shrink-0" />
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        );
-      })()}
     </div>
   );
 }
@@ -529,6 +586,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dialerOpen, setDialerOpen] = useState(false);
   const [dialerInitNumber, setDialerInitNumber] = useState('');
+  const [dialerLead, setDialerLead] = useState(null);
   const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
   const [incomingCall, setIncomingCall] = useState(null);   // { invite, from }
   const [smsBadge, setSmsBadge] = useState(0);
@@ -838,7 +896,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
           {currentView === 'onboarding'    && <OnboardingView />}
           {currentView === 'quote-builder' && <QuoteBuilderView initialData={activeRecord} navigateTo={navigateTo} />}
           {currentView === 'quotes'        && <QuotesView navigateTo={navigateTo} quotes={quotes} />}
-          {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} onCall={phone => { setDialerInitNumber(phone || ''); setDialerOpen(true); }} />}
+          {currentView === 'inquiries'     && <InquiriesView navigateTo={navigateTo} onCall={(phone, lead) => { setDialerLead(lead || null); setDialerInitNumber(phone || ''); setDialerOpen(true); }} />}
           {currentView === 'sms-inbox'     && <SmsInboxView />}
           {currentView === 'menus'         && <MenusView />}
           {currentView === 'pricing-rules'    && <PricingRulesView />}
@@ -850,7 +908,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
       </div>
 
       {searchOpen && <SearchOverlay onClose={() => setSearchOpen(false)} navigateTo={(v, r) => { setSearchOpen(false); navigateTo(v, r); }} callLogs={callLogs} quotes={quotes} />}
-      {dialerOpen && <PhoneDialer onClose={() => { setDialerOpen(false); setDialerInitNumber(''); }} navigateTo={navigateTo} contacts={contacts} initialNumber={dialerInitNumber} />}
+      {dialerOpen && <PhoneDialer onClose={() => { setDialerOpen(false); setDialerInitNumber(''); setDialerLead(null); }} navigateTo={navigateTo} contacts={contacts} initialNumber={dialerInitNumber} lead={dialerLead} />}
 
       {/* Dashboard tour card */}
       {tourStep !== null && (
@@ -2880,7 +2938,7 @@ function InquiriesView({ navigateTo, onCall }) {
                       <div className="flex flex-col gap-1 flex-shrink-0">
                         {lead.phone && onCall && (
                           <button
-                            onClick={() => { patchLead(lead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(lead.phone); }}
+                            onClick={() => { patchLead(lead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(lead.phone, lead); }}
                             title="Call"
                             className="p-1.5 rounded bg-green-50 hover:bg-green-100 text-green-700 transition"
                           >
@@ -3157,7 +3215,7 @@ function InquiriesView({ navigateTo, onCall }) {
             {researchLead.phone && onCall && (
               <div className="flex-shrink-0 p-4 border-t border-slate-200">
                 <button
-                  onClick={() => { patchLead(researchLead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(researchLead.phone); setResearchLead(null); }}
+                  onClick={() => { patchLead(researchLead.id, { status: 'called', last_contacted_at: new Date().toISOString() }); onCall(researchLead.phone, researchLead); setResearchLead(null); }}
                   className="w-full py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
                 >
                   <Phone className="w-4 h-4" /> Call {researchLead.business_name}
