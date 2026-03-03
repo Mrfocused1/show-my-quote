@@ -6,64 +6,64 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   if (!requireApiKey(req, res)) return;
 
-  const apiKey = process.env.OUTSCRAPER_API_KEY;
+  const apiKey = process.env.APIFY_API_TOKEN;
   if (!apiKey) {
     return res.status(503).json({
-      error: 'OUTSCRAPER_API_KEY not configured. Get a free API key at outscraper.com and add it to your Vercel environment variables.',
+      error: 'APIFY_API_TOKEN not configured. Sign up free at apify.com — you get $5/month free credit (~1,000 leads/month). Add APIFY_API_TOKEN to your Vercel environment variables.',
     });
   }
 
-  const { query, location, limit = 20, minReviews = 0, scrapeEmail = false } = req.body || {};
+  const { query, location, limit = 20, minReviews = 0 } = req.body || {};
   if (!query || !location) {
     return res.status(400).json({ error: 'query and location are required' });
   }
 
-  const searchQuery = `${query} ${location}`;
-  const params = new URLSearchParams({
-    query: searchQuery,
-    limit: String(Math.min(Number(limit) || 20, 50)),
-    async: 'false',
-    language: 'en',
-  });
-  if (scrapeEmail) params.set('enrichment', 'emails_and_contacts');
+  const searchString = `${query} ${location}`;
+  const maxCrawled = Math.min(Number(limit) || 20, 50);
 
   try {
-    const r = await fetch(`https://api.app.outscraper.com/maps/search-v3?${params}`, {
-      headers: { 'X-API-KEY': apiKey },
-    });
+    const r = await fetch(
+      `https://api.apify.com/v2/acts/compass~crawler-google-places/run-sync-get-dataset-items?token=${apiKey}&format=json`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          searchStringsArray: [searchString],
+          maxCrawledPlacesPerSearch: maxCrawled,
+          language: 'en',
+          countryCode: 'us',
+        }),
+      }
+    );
 
     if (!r.ok) {
       const errText = await r.text();
-      console.error('[leads-scrape] Outscraper error:', errText);
-      return res.status(502).json({ error: 'Outscraper API error: ' + errText });
+      console.error('[leads-scrape] Apify error:', errText);
+      return res.status(502).json({ error: 'Apify API error: ' + errText });
     }
 
-    const data = await r.json();
-    const raw = (data.data || []).flat().filter(Boolean);
-
+    const raw = await r.json();
     const min = Number(minReviews) || 0;
+
     const leads = raw
-      .filter(b => (b.reviews || 0) >= min)
-      .map(b => {
-        const emails = b.emails_and_contacts?.emails || [];
-        return {
-          business_name:   b.name || 'Unknown',
-          phone:           b.phone || null,
-          email:           emails[0] || null,
-          website:         b.site || null,
-          address:         b.full_address || null,
-          city:            b.city || null,
-          state:           b.us_state || b.state || null,
-          rating:          b.rating || null,
-          reviews_count:   b.reviews || 0,
-          category:        b.type || b.category || null,
-          google_place_id: b.place_id || null,
-          source:          'google_maps',
-        };
-      });
+      .filter(p => (p.reviewsCount || 0) >= min)
+      .map(p => ({
+        business_name:   p.title || 'Unknown',
+        phone:           p.phone || null,
+        email:           p.email || null,
+        website:         p.website || null,
+        address:         p.address || null,
+        city:            p.city || null,
+        state:           p.state || null,
+        rating:          p.totalScore || null,
+        reviews_count:   p.reviewsCount || 0,
+        category:        p.categoryName || null,
+        google_place_id: p.placeId || null,
+        source:          'google_maps',
+      }));
 
     res.setHeader('Cache-Control', 'no-store');
-    return res.json({ leads, total: leads.length, query: searchQuery });
+    return res.json({ leads, total: leads.length, query: searchString });
   } catch (err) {
     console.error('[leads-scrape] error:', err);
     return res.status(500).json({ error: err.message });

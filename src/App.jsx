@@ -2584,7 +2584,6 @@ function InquiriesView({ navigateTo, onCall }) {
   const [genLocation, setGenLocation] = useState('Houston, TX');
   const [genLimit, setGenLimit] = useState(20);
   const [genMinReviews, setGenMinReviews] = useState(0);
-  const [genScrapeEmail, setGenScrapeEmail] = useState(false);
   const [genLoading, setGenLoading] = useState(false);
   const [genError, setGenError] = useState(null);
   const [genResults, setGenResults] = useState([]);
@@ -2690,7 +2689,6 @@ function InquiriesView({ navigateTo, onCall }) {
           location: genLocation,
           limit: genLimit,
           minReviews: genMinReviews,
-          scrapeEmail: genScrapeEmail,
         }),
       });
       const d = await res.json();
@@ -2977,16 +2975,6 @@ function InquiriesView({ navigateTo, onCall }) {
                   </div>
                 </div>
 
-                <label className="flex items-center gap-2 text-sm text-slate-600 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={genScrapeEmail}
-                    onChange={e => setGenScrapeEmail(e.target.checked)}
-                    className="rounded border-slate-300"
-                  />
-                  Also scrape email addresses <span className="text-xs text-slate-400">(uses more credits, slower)</span>
-                </label>
-
                 <button
                   onClick={runScrape}
                   disabled={genLoading || !genQuery || !genLocation}
@@ -3008,12 +2996,12 @@ function InquiriesView({ navigateTo, onCall }) {
 
               {genError && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-sm text-red-700 mb-4">
-                  {genError.includes('OUTSCRAPER_API_KEY') ? (
+                  {genError.includes('APIFY_API_TOKEN') ? (
                     <div>
-                      <p className="font-medium mb-1">Outscraper API key not configured</p>
-                      <p className="text-xs text-red-600">1. Sign up for a free account at <strong>outscraper.com</strong> (150 free credits/month)</p>
-                      <p className="text-xs text-red-600">2. Copy your API key from the dashboard</p>
-                      <p className="text-xs text-red-600">3. Add <code className="bg-red-100 px-1 rounded">OUTSCRAPER_API_KEY</code> to your Vercel environment variables</p>
+                      <p className="font-medium mb-1">Apify API token not configured</p>
+                      <p className="text-xs text-red-600">1. Sign up free at <strong>apify.com</strong> — you get $5/month credit (~1,000 leads free every month)</p>
+                      <p className="text-xs text-red-600">2. Go to Settings → Integrations → API tokens and copy your token</p>
+                      <p className="text-xs text-red-600">3. Add <code className="bg-red-100 px-1 rounded">APIFY_API_TOKEN</code> to your Vercel environment variables</p>
                       <p className="text-xs text-red-600">4. Redeploy</p>
                     </div>
                   ) : (
@@ -3065,7 +3053,6 @@ function InquiriesView({ navigateTo, onCall }) {
                           <th className="px-3 py-2 text-left font-medium">Phone</th>
                           <th className="px-3 py-2 text-left font-medium">Rating</th>
                           <th className="px-3 py-2 text-left font-medium">City</th>
-                          {genScrapeEmail && <th className="px-3 py-2 text-left font-medium">Email</th>}
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -3078,7 +3065,6 @@ function InquiriesView({ navigateTo, onCall }) {
                             <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.phone || '—'}</td>
                             <td className="px-3 py-2 text-slate-600 whitespace-nowrap">{r.rating ? `★ ${r.rating} (${r.reviews_count})` : '—'}</td>
                             <td className="px-3 py-2 text-slate-500">{r.city || '—'}</td>
-                            {genScrapeEmail && <td className="px-3 py-2 text-slate-500 max-w-[160px] truncate">{r.email || '—'}</td>}
                           </tr>
                         ))}
                       </tbody>
