@@ -437,7 +437,7 @@ function dedupFields(newFields, existingLabels) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function DemoPage({ onHome, onBookDemo, onEnterApp, initialPhone = '' }) {
+export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboard, initialPhone = '' }) {
   // ── Detect viewer mode ──
   const params = new URLSearchParams(window.location.search);
   const watchCode = params.get('w') || params.get('watch'); // 'w' is the short form
@@ -2050,7 +2050,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, initialPhone 
 
   if (phase === 'landing') {
     return (
-      <PageShell onHome={onHome} onBookDemo={onBookDemo} overlay={<>{incomingCallModal}{notifBanner}</>}>
+      <PageShell onHome={onHome} onBookDemo={onBookDemo} onDashboard={onGoToDashboard} overlay={<>{incomingCallModal}{notifBanner}</>}>
         <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 bg-[#F7F7F5]">
           <div className="w-full max-w-3xl">
             <div className="text-center mb-10">
@@ -3187,7 +3187,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, initialPhone 
 
 // ── Page shell (nav + viewer banner) ─────────────────────────────────────────
 
-function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal, overlay }) {
+function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onReset, quoteTotal, overlay, onDashboard }) {
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Hidden container for SignalWire audio-only WebRTC calls */}
@@ -3220,6 +3220,11 @@ function PageShell({ children, onHome, onBookDemo, isViewer, sessionCode, onRese
               className="hidden md:flex items-center gap-1.5 px-4 py-2 text-sm text-slate-500 hover:text-slate-900 border border-slate-200 hover:border-slate-400 rounded-full transition-colors"
             >
               ↺ New demo
+            </button>
+          )}
+          {!isViewer && onDashboard && (
+            <button onClick={onDashboard} className="hidden md:inline-flex items-center gap-1 px-3 py-1.5 text-xs text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-lg transition-colors">
+              Dashboard →
             </button>
           )}
           {!isViewer && (
