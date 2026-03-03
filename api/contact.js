@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   const resend = new Resend(apiKey);
 
   const { error } = await resend.emails.send({
-    from: 'Show My Quote <hello@showmyquote.com>',
+    from: 'Show My Quote <onboarding@resend.dev>',
     to: 'hello@showmyquote.com',
     replyTo: email,
     subject: `New enquiry from ${name}`,
