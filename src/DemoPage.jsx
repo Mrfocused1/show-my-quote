@@ -1170,22 +1170,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     // Start browser mic + Web Speech API for presenter's voice ('You' track)
     startMic();
 
-    // Subscribe to Pusher tx-{session} channel for server-side transcription (Client voice)
-    if (session && hasPusher) {
-      const pusher = new Pusher(PUSHER_KEY, { cluster: PUSHER_CLUSTER });
-      const channel = `tx-${session}`;
-      const ch = pusher.subscribe(channel);
-      ch.bind('transcript', ({ text, speaker }) => {
-        if (text) onTranscriptLine(speaker || 'Client', text);
-      });
-      transcriptPusherRef.current = { pusher, channel };
-      setTxPA(true);
-      console.log('[smq] Subscribed to Pusher channel:', channel);
-    } else if (!session) {
-      // Outbound client.dial() call — no server-side stream.
-      // Capture remote audio via call.remoteStream / call.peer / RTCPeerConnection APIs.
-      startRemoteCapture(call);
-    }
+    // Capture remote audio via call.remoteStream / RTCPeerConnection for client transcription.
+    // Works for both inbound and outbound calls — no Pusher or VPS needed.
+    startRemoteCapture(call);
     // Note: remote hangup is detected via the SignalWire notification handler
   };
   // Keep ref up-to-date so the persistent Device useEffect always calls the latest version
@@ -1357,13 +1344,6 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     swCallRef.current = null;
     twilioCallSidRef.current = null;
     remoteHungUpRef.current = false;
-    // Unsubscribe from Real-Time Transcription channel
-    if (transcriptPusherRef.current) {
-      const { pusher, channel } = transcriptPusherRef.current;
-      try { pusher.unsubscribe(channel); pusher.disconnect(); } catch {}
-      transcriptPusherRef.current = null;
-      setTxPA(false);
-    }
     // Stop remote audio capture (outbound client.dial() transcription)
     stopRemoteCapture();
     // Stop local MediaRecorder (mic-only mode)
