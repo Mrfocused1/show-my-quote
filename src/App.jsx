@@ -239,9 +239,17 @@ function PhoneDialer({ onClose, navigateTo, contacts = [] }) {
 
           {/* Number display */}
           <div className="mb-5 bg-slate-800 rounded-xl px-4 py-3 min-h-[52px] flex items-center justify-between">
-            <span className={`font-mono text-xl tracking-widest font-bold flex-1 text-center ${number ? 'text-white' : 'text-slate-600'}`}>
-              {number || 'Enter number'}
-            </span>
+            <input
+              type="tel"
+              value={number}
+              onChange={e => {
+                const val = e.target.value.replace(/[^\d+\-\s().#*]/g, '').slice(0, 20);
+                setNumber(val);
+              }}
+              disabled={status === 'connected' || status === 'dialing'}
+              placeholder="Enter number"
+              className="font-mono text-xl tracking-widest font-bold flex-1 text-center bg-transparent outline-none text-white placeholder-slate-600 disabled:opacity-40"
+            />
             <button
               onClick={() => setContactsOpen(true)}
               className="text-slate-400 hover:text-white transition-colors p-1 ml-2 flex-shrink-0"
