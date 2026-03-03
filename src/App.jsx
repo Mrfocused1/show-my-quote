@@ -4060,7 +4060,7 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                   </div>
                 </div>
                 <div className="text-xs text-slate-500 mt-1.5 pl-10 truncate">
-                  {latest.extracted?.eventType} · {latest.extracted?.guestCount ?? '—'} guests
+                  {[latest.extracted?.eventType, latest.extracted?.guestCount ? `${latest.extracted.guestCount} guests` : null].filter(Boolean).join(' · ') || latest.niche || ''}
                 </div>
               </button>
             );
