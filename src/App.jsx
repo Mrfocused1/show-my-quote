@@ -166,6 +166,11 @@ function TourCard({ step, onNext, onClose }) {
       >
         {isLast ? <><Check className="w-4 h-4" /> Done</> : <>Next <ArrowRight className="w-4 h-4" /></>}
       </button>
+      {!isLast && (
+        <button onClick={onClose} className="w-full mt-2 py-1.5 text-xs text-slate-400 hover:text-slate-600 transition-colors">
+          Skip tour
+        </button>
+      )}
     </div>
   );
 }
@@ -587,7 +592,12 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
   const [dialerOpen, setDialerOpen] = useState(false);
   const [dialerInitNumber, setDialerInitNumber] = useState('');
   const [dialerLead, setDialerLead] = useState(null);
-  const [tourStep, setTourStep] = useState(tourMode ? 0 : null);
+  const [tourStep, setTourStep] = useState(() => {
+    try {
+      if (localStorage.getItem('smq_tour_done')) return null;
+    } catch { /* ignore */ }
+    return tourMode ? 0 : 0; // show on first visit
+  });
   const [incomingCall, setIncomingCall] = useState(null);   // { invite, from }
   const [smsBadge, setSmsBadge] = useState(0);
   const [callLogs, setCallLogs] = useState([]);
@@ -616,6 +626,11 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
     if (view === 'calls') refreshCalls();
   };
 
+  const dismissTour = () => {
+    try { localStorage.setItem('smq_tour_done', '1'); } catch { /* ignore */ }
+    setTourStep(null);
+  };
+
   const handleTourNext = () => {
     if (tourStep < TOUR_STEPS.length - 1) {
       const next = tourStep + 1;
@@ -624,7 +639,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
       setActiveRecord(null);
       setSidebarOpen(false);
     } else {
-      setTourStep(null);
+      dismissTour();
     }
   };
 
@@ -912,7 +927,7 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
 
       {/* Dashboard tour card */}
       {tourStep !== null && (
-        <TourCard step={tourStep} onNext={handleTourNext} onClose={() => setTourStep(null)} />
+        <TourCard step={tourStep} onNext={handleTourNext} onClose={dismissTour} />
       )}
 
       {/* PWA install banner — once installed, Chrome allows ringtone without any click */}
@@ -4439,24 +4454,26 @@ function CallLogView({ initialId, navigateTo, callLogs = [], contacts = [], onDe
     setIsPlaying(false);
   }, [selectedId]);
 
-  // Auto-check SignalWire for a recording if the call has a callSid but no recording_sid yet
+  // Auto-check SignalWire for a recording if the call has a callSid but no recording_sid yet.
+  // Re-checks each time a call is selected (recordings can complete asynchronously).
   useEffect(() => {
     if (!selectedId) return;
     const call = callLogs.find(c => c.id === selectedId);
     if (!call || call.hasRecording || !call.callSid) return;
+    // Skip if already confirmed present (don't skip if not found yet)
     if (checkedRecs.current.has(selectedId)) return;
-    checkedRecs.current.add(selectedId);
     setCheckingRec(true);
     apiFetch(`/api/twilio-recording?callSid=${encodeURIComponent(call.callSid)}`)
       .then(r => r.json())
       .then(d => {
         if (d.ready && d.recordingSid) {
+          checkedRecs.current.add(selectedId); // cache only when found
           onUpdateCall?.(selectedId, { hasRecording: true, recordingSid: d.recordingSid });
         }
       })
       .catch(() => {})
       .finally(() => setCheckingRec(false));
-  }, [selectedId]);
+  }, [selectedId, callLogs]);
 
   const handleCallAgain = phone => {
     onCallAgain?.(phone, selected?.niche);

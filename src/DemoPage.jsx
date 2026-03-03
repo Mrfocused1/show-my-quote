@@ -1064,9 +1064,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     setCA(true); caRef.current = true;
     setCS(0);
     setCallStatus('active');
-    if (from && from !== 'Unknown') setActiveCallPhone(from);
+    // Only set activeCallPhone if not already set (outbound calls set it before the bridge leg arrives)
+    setActiveCallPhone(prev => (prev && prev !== '') ? prev : (from && from !== 'Unknown' ? from : prev));
     setTimerRunning(true);
-    heartbeatRef.current = setInterval(() => broadcast({}), 2500);
+    // Only start heartbeat if not already running (outbound calls start it in startCall)
+    if (!heartbeatRef.current) heartbeatRef.current = setInterval(() => broadcast({}), 2500);
     swCallRef.current = call;
 
     // Start browser mic + Web Speech API for presenter's voice ('You' track)
@@ -1104,49 +1106,73 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     if (phoneNumber) {
       setActiveCallPhone(phoneNumber);
       try {
-        // Reuse the persistent inbound client if already registered, otherwise create a new one
-        let client = swDeviceRef.current;
-        if (!client) {
+        // Ensure the SignalWire client is online to receive the inbound bridge leg.
+        // The persistent useEffect normally registers the client, but if it hasn't
+        // finished yet we create one here and register it online.
+        if (!swDeviceRef.current) {
           const tokenRes = await apiFetch('/api/signalwire-token');
           if (!tokenRes.ok) throw new Error('Token fetch failed');
           const { token, callerNumber } = await tokenRes.json();
           swCallerNumberRef.current = callerNumber;
           const { SignalWire } = await import('@signalwire/js');
-          client = await SignalWire({ token });
+          const client = await SignalWire({ token });
           swDeviceRef.current = client;
+          // Register online with auto-answer handler for the bridge leg
+          await client.online({
+            incomingCallHandlers: {
+              all: (notification) => {
+                const details = notification.invite.details;
+                const callerFrom = details.caller_id_number || details.callerIdNumber || 'Unknown';
+                const session = details.session || details.custom_data_session || null;
+                if (autoAnswerRef.current) {
+                  autoAnswerRef.current = false;
+                  (async () => {
+                    try {
+                      const call = await notification.invite.accept({
+                        rootElement: document.getElementById('sw-media'),
+                        audio: true, video: false,
+                      });
+                      swCallRef.current = call;
+                      call.on('destroy', () => {
+                        remoteHungUpRef.current = true;
+                        if (caRef.current) swEndCallRef.current?.();
+                      });
+                      if (acceptInboundRef.current) acceptInboundRef.current(call, callerFrom, session);
+                    } catch (e) { console.warn('[signalwire] Auto-answer failed:', e.message); }
+                  })();
+                }
+              },
+            },
+          });
         }
 
-        const call = await client.dial({
-          to: phoneNumber.replace(/[^\d+]/g, ''), // strip to E.164 — SignalWire rejects spaces/dashes
-          rootElement: document.getElementById('sw-media'),
-          audio: true,
-          video: false,
-        });
-        swCallRef.current = call;
+        // Set auto-answer so the persistent inbound handler auto-accepts the bridge leg.
+        // acceptInboundCallSetup will handle mic, timer, and Pusher transcription subscription.
+        autoAnswerRef.current = true;
 
-        // Register events BEFORE call.start() so none are missed
-        call.on('call.state', (params) => {
-          console.log('[signalwire] call.state:', params?.call_state);
-          if (params?.call_state === 'answered') {
-            setCallStatus('active');
-            twilioCallSidRef.current = call.id || null;
-          }
-        });
-        call.on('destroy', () => {
-          console.log('[signalwire] Outbound call destroyed');
-          remoteHungUpRef.current = true;
-          if (caRef.current) swEndCallRef.current?.();
+        // Initiate outbound call via server-side Compatibility REST API.
+        // Flow: SignalWire rings the PSTN number → customer answers → LaML bridges to
+        // our browser client (demo-presenter) → auto-answered → both parties connected.
+        const outRes = await apiFetch('/api/signalwire-outbound', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: phoneNumber.replace(/[^\d+]/g, '') }),
         });
 
-        // Start timer and mic immediately — don't wait for call.start()
+        if (!outRes.ok) {
+          const err = await outRes.json().catch(() => ({}));
+          throw new Error(err.error || 'Outbound call failed');
+        }
+
+        const { callSid } = await outRes.json();
+        twilioCallSidRef.current = callSid || null;
+        console.log('[signalwire] Outbound call initiated via REST API, sid:', callSid);
+
         setCallStatus('ringing');
-        setTimerRunning(true);
-        startMic();
-
-        // Start WebRTC (non-blocking — call may already be connecting)
-        call.start().catch(e => console.warn('[signalwire] call.start:', e.message));
       } catch (e) {
-        console.warn('SignalWire unavailable, mic-only mode:', e.message);
+        console.warn('SignalWire outbound unavailable, mic-only mode:', e.message);
+        autoAnswerRef.current = false;
+        // Fall through to mic-only mode below
       }
     }
 
