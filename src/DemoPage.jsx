@@ -507,14 +507,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
 
   // ── Form selector (fill-select phase dropdown) ──
   const [selectedFormKey, setSelectedFormKey] = useState(() => {
-    // In "Call again" mode, try to find a previously used form
-    if (initialPhone || forceFillSelect) {
-      if (initialNiche) return 'continue';
-      try {
-        const last = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
-        if (last) return 'continue';
-      } catch { /* ignore */ }
-    }
+    // New Call (forceFillSelect, no phone): default to blank
+    if (forceFillSelect && !initialPhone) return 'blank';
+    // Call Again (has phone): pre-select continue
+    if (initialPhone) return 'continue';
     // Otherwise default to first saved form or first template
     try {
       const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
@@ -1382,6 +1378,11 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       }),
     }).catch(() => {});
 
+    // Persist last-used form so "Continue" appears next time
+    if (nicheRef.current?.id) {
+      try { localStorage.setItem('smq_last_form', JSON.stringify({ type: 'template', nicheId: nicheRef.current.id, label: nicheRef.current.label || nicheRef.current.id })); } catch {}
+    }
+
     setAnalysis(null); setAnalysing(false);
     const nextPhase = 'done';
     setPhase(nextPhase); phaseRef.current = nextPhase;
@@ -1575,15 +1576,17 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
     setActiveCallPhone(''); setSmsSent(false); setSmsSending(false);
-    // Reset form selector: prefer 'continue' if a last-form exists, else first saved/template
-    try {
-      const lastForm = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
-      if (lastForm) { setSelectedFormKey('continue'); }
-      else {
+    // Reset form selector: blank for New Call, continue for Call Again, else first saved/template
+    if (forceFillSelect && !initialPhone) {
+      setSelectedFormKey('blank');
+    } else if (initialPhone) {
+      setSelectedFormKey('continue');
+    } else {
+      try {
         const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
         setSelectedFormKey(saved.length > 0 ? `saved:${saved[0].id}` : 'template:wedding-photography');
-      }
-    } catch { setSelectedFormKey('template:wedding-photography'); }
+      } catch { setSelectedFormKey('template:wedding-photography'); }
+    }
   };
 
   // ── Send SMS ──────────────────────────────────────────────────────────────
@@ -2058,6 +2061,27 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     </div>
   ) : null;
 
+  // ── Form selector helpers (must be before any early returns — Rules of Hooks) ──
+  // Resolve the "Continue" form data: prefer initialNiche prop, fall back to localStorage, then first template
+  const continueFormData = useMemo(() => {
+    if (initialNiche) {
+      const n = NICHES.find(x => x.id === initialNiche);
+      if (n) return { type: 'template', nicheId: initialNiche, label: n.label };
+    }
+    try {
+      const stored = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
+      if (stored) return stored;
+    } catch { /* ignore */ }
+    // For New Call / Call Again flows always show a Continue option — default to first template
+    if (initialPhone || forceFillSelect) {
+      const first = NICHES.find(n => n.id !== 'blank');
+      if (first) return { type: 'template', nicheId: first.id, label: first.label };
+    }
+    return null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialNiche, forceFillSelect, initialPhone]);
+  const continueNicheLabel = continueFormData?.label || null;
+
   // ── Phase renderers ───────────────────────────────────────────────────────
 
   if (phase === 'waiting') {
@@ -2240,22 +2264,6 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     );
   }
 
-  // ── Form selector helpers ──
-  // Resolve the "Continue" form data: prefer initialNiche prop, fall back to localStorage
-  const continueFormData = useMemo(() => {
-    if (initialNiche) {
-      const n = NICHES.find(x => x.id === initialNiche);
-      if (n) return { type: 'template', nicheId: initialNiche, label: n.label };
-    }
-    try {
-      const stored = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
-      if (stored) return stored;
-    } catch { /* ignore */ }
-    return null;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialNiche]);
-  const continueNicheLabel = continueFormData?.label || null;
-
   const getPreviewFields = (key) => {
     if (!key || key === 'blank') return [];
     if (key === 'continue') {
@@ -2332,8 +2340,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                   className="w-full appearance-none text-sm border border-slate-200 rounded-xl px-3 py-2.5 pr-8 bg-slate-50 focus:ring-2 focus:ring-slate-900 outline-none cursor-pointer text-slate-800"
                 >
                   {continueNicheLabel && (
-                    <option value="continue">Continue — {continueNicheLabel}</option>
+                    <option value="continue">Continue from last</option>
                   )}
+                  <option value="blank">Build a form (blank)</option>
                   {savedForms.length > 0 && (
                     <optgroup label="Your saved forms">
                       {savedForms.map(f => (
@@ -2346,7 +2355,6 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
                       <option key={n.id} value={`template:${n.id}`}>{n.label}</option>
                     ))}
                   </optgroup>
-                  <option value="blank">Build a form (blank)</option>
                 </select>
                 <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>

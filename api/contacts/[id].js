@@ -11,10 +11,16 @@ export default async function handler(req, res) {
   if (!supabase) return res.status(503).json({ error: 'DB not configured' });
 
   if (req.method === 'PATCH') {
-    const { name, phone, email, event_type } = req.body || {};
+    const { name, phone, email, event_type, notes } = req.body || {};
+    const updates = {};
+    if (name       !== undefined) updates.name       = name;
+    if (phone      !== undefined) updates.phone      = phone;
+    if (email      !== undefined) updates.email      = email;
+    if (event_type !== undefined) updates.event_type = event_type;
+    if (notes      !== undefined) updates.notes      = notes;
     const { data, error } = await supabase
       .from('contacts')
-      .update({ name, phone, email, event_type })
+      .update(updates)
       .eq('id', id)
       .select()
       .single();

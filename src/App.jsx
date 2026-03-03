@@ -53,7 +53,8 @@ function makeCallUi(c) {
     createdAt: c.created_at || null,
     niche: c.niche || null,
     status: tx.length > 0 ? 'transcribed' : (c.status === 'missed' ? 'missed' : 'new'),
-    hasRecording: false,
+    hasRecording: !!c.recording_sid,
+    recordingSid: c.recording_sid || null,
     transcript: tx,
     extracted: {},
     quote: null,
@@ -749,9 +750,8 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
     import('pusher-js').then(({ default: Pusher }) => {
       pusher = new Pusher(key, { cluster });
       ch = pusher.subscribe('sms-inbox');
-      ch.bind('message', (msg) => {
+      ch.bind('message', () => {
         setSmsBadge(b => b + 1);
-        showNotification('💬 New Message', `${msg.from}: ${msg.body}`);
       });
     });
     return () => { try { pusher?.unsubscribe('sms-inbox'); } catch {} };
@@ -804,8 +804,8 @@ export default function GetMyQuoteApp({ onHome, tourMode = false, onCallAgain: o
 
         <main className={`flex-1 ${['calls', 'onboarding'].includes(currentView) ? 'overflow-hidden' : 'overflow-auto'}`}>
           {currentView === 'workspace'     && <WorkspaceView navigateTo={navigateTo} />}
-          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => { if (onCallAgainProp) { onCallAgainProp('', null, true); } else { setDialerOpen(true); } }} callLogs={callLogs} contacts={contacts} />}
-          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} />}
+          {currentView === 'dashboard'     && <DashboardView navigateTo={navigateTo} onNewCall={() => { if (onCallAgainProp) { onCallAgainProp('', callLogs[0]?.niche || null, true); } else { setDialerOpen(true); } }} callLogs={callLogs} contacts={contacts} />}
+          {currentView === 'contacts'      && <ContactsView navigateTo={navigateTo} contacts={contacts} onRefresh={() => apiFetch('/api/contacts').then(r => r.json()).then(d => { if (d.contacts) setContacts(d.contacts.map(makeContactUi)); }).catch(() => {})} onCallAgain={(phone, niche) => { if (onCallAgainProp) { onCallAgainProp(phone, niche); } else { setDialerInitNumber(phone || ''); setDialerOpen(true); } }} />}
           {currentView === 'calls'         && <CallLogView
             initialId={activeRecord}
             navigateTo={navigateTo}
@@ -1844,7 +1844,7 @@ const QUOTE_STATUS_PILL = {
   lost:    'bg-red-100 text-red-600',
 };
 
-function ContactsView({ navigateTo, contacts = [], onRefresh }) {
+function ContactsView({ navigateTo, contacts = [], onRefresh, onCallAgain }) {
   const [search, setSearch] = useState('');
   const [selected, setSelected] = useState(null);
   const [smsOpen, setSmsOpen]     = useState(false);
@@ -1853,12 +1853,13 @@ function ContactsView({ navigateTo, contacts = [], onRefresh }) {
   const [smsSent, setSmsSent]     = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState(null); // null = new, contact = edit
-  const [form, setForm] = useState({ name: '', phone: '', email: '', event_type: '' });
+  const [form, setForm] = useState({ name: '', phone: '', email: '', event_type: '', notes: '' });
+  const [showExtra, setShowExtra] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
-  const openNew = () => { setForm({ name: '', phone: '', email: '', event_type: '' }); setEditTarget(null); setModalOpen(true); };
-  const openEdit = c => { setForm({ name: c.name || '', phone: c.phone || '', email: c.email || '', event_type: c.event_type || c.eventType || '' }); setEditTarget(c); setModalOpen(true); };
+  const openNew = () => { setForm({ name: '', phone: '', email: '', event_type: '', notes: '' }); setShowExtra(false); setEditTarget(null); setModalOpen(true); };
+  const openEdit = c => { setForm({ name: c.name || '', phone: c.phone || '', email: c.email || '', event_type: c.event_type || c.eventType || '', notes: c.notes || '' }); setShowExtra(!!(c.event_type || c.eventType || c.notes)); setEditTarget(c); setModalOpen(true); };
   const closeModal = () => { setModalOpen(false); setEditTarget(null); };
 
   const saveContact = async () => {
@@ -2023,7 +2024,7 @@ function ContactsView({ navigateTo, contacts = [], onRefresh }) {
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-3">
-                  <button className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
+                  <button onClick={() => onCallAgain?.(selected?.phone || '', null)} className="flex items-center gap-1.5 bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors shadow-sm">
                     <Phone className="w-3.5 h-3.5" /> Call Now
                   </button>
                   <button onClick={openSms} className="flex items-center gap-1.5 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors">
@@ -2198,16 +2199,38 @@ function ContactsView({ navigateTo, contacts = [], onRefresh }) {
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
                 />
               </div>
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">Event type</label>
-                <input
-                  type="text"
-                  value={form.event_type}
-                  onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
-                  placeholder="e.g. Wedding, Corporate, Birthday"
-                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
-                />
-              </div>
+              {!showExtra ? (
+                <button
+                  type="button"
+                  onClick={() => setShowExtra(true)}
+                  className="text-xs font-medium text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1 pt-1"
+                >
+                  <span className="text-base leading-none">+</span> Add title &amp; info
+                </button>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Title</label>
+                    <input
+                      type="text"
+                      value={form.event_type}
+                      onChange={e => setForm(f => ({ ...f, event_type: e.target.value }))}
+                      placeholder="e.g. Wedding Photographer, VIP Client"
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-500 mb-1">Info</label>
+                    <textarea
+                      value={form.notes}
+                      onChange={e => setForm(f => ({ ...f, notes: e.target.value }))}
+                      placeholder="Any extra notes about this contact…"
+                      rows={2}
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500/30 focus:border-green-400 resize-none"
+                    />
+                  </div>
+                </>
+              )}
             </div>
 
             <div className="flex gap-2 mt-5">
@@ -2556,7 +2579,7 @@ function QuoteBuilderView({ initialData, navigateTo }) {
             <div className="border-t-2 border-slate-900 pt-4 flex justify-between items-end">
               <div>
                 <div className="text-xl font-bold text-slate-900">Total</div>
-                <div className="text-xs text-slate-500 mt-1">Deposit (25%): ${Math.round(total * 0.25).toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-1">Deposit (25%): £{Math.round(total * 0.25).toLocaleString()}</div>
               </div>
               <div className="text-2xl font-bold text-slate-900">£{Math.round(total).toLocaleString()}</div>
             </div>
@@ -2626,7 +2649,7 @@ function ClientPreviewModal({ quoteState, menu, total, subtotal, adminFee, staff
             <div className="flex justify-between font-bold text-slate-900 text-lg border-t-2 border-slate-900 pt-3">
               <span>Total</span><span>£{Math.round(total).toLocaleString()}</span>
             </div>
-            <div className="text-xs text-slate-400">Deposit required to book: ${Math.round(total * 0.25).toLocaleString()}</div>
+            <div className="text-xs text-slate-400">Deposit required to book: £{Math.round(total * 0.25).toLocaleString()}</div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
@@ -2713,7 +2736,7 @@ function QuotesView({ navigateTo, quotes = [] }) {
                   </span>
                 </td>
                 <td className="px-6 py-4 text-right">
-                  <button className="text-sm text-slate-500 hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button onClick={() => navigateTo('quote-builder', quote)} className="text-sm text-slate-500 hover:text-slate-900 opacity-0 group-hover:opacity-100 transition-opacity">
                     <ArrowRight className="w-4 h-4" />
                   </button>
                 </td>
@@ -3765,6 +3788,9 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
   const [callHeld,  setCallHeld]    = useState(false);
   const [liveLines, setLiveLines]   = useState([]);
   const [showDetail, setShowDetail] = useState(typeof initialId === 'string');
+  const [isPlaying, setIsPlaying]   = useState(false);
+  const [isMuted,   setIsMuted]     = useState(false);
+  const audioRef = useRef(null);
   const timerRef   = useRef(null);
   const timeoutIds = useRef([]);
 
@@ -3821,6 +3847,12 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
     clearInterval(timerRef.current);
     timeoutIds.current.forEach(clearTimeout);
   }, []);
+
+  // Stop audio when switching to a different call
+  useEffect(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current.currentTime = 0; }
+    setIsPlaying(false);
+  }, [selectedId]);
 
   const handleCallAgain = phone => {
     onCallAgain?.(phone, selected?.niche);
@@ -3879,6 +3911,17 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
     try {
       await apiFetch(`/api/calls/${selected.id}`, { method: 'DELETE' });
       onDeleteCall?.(selected.id);
+      setSelectedId(null);
+      setShowDetail(false);
+    } catch (e) { alert('Delete failed: ' + e.message); }
+  };
+
+  const handleDeleteAllCalls = async () => {
+    if (!callsForPhone.length) return;
+    if (!confirm(`Delete all ${callsForPhone.length} calls for this number? This cannot be undone.`)) return;
+    try {
+      await Promise.all(callsForPhone.map(c => apiFetch(`/api/calls/${c.id}`, { method: 'DELETE' })));
+      callsForPhone.forEach(c => onDeleteCall?.(c.id));
       setSelectedId(null);
       setShowDetail(false);
     } catch (e) { alert('Delete failed: ' + e.message); }
@@ -4072,10 +4115,19 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                 <button
                   onClick={handleDeleteCall}
                   className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Delete call"
+                  title="Delete this call"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+                {callsForPhone.length > 1 && (
+                  <button
+                    onClick={handleDeleteAllCalls}
+                    className="px-2 py-1.5 text-xs font-medium text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete all calls for this number"
+                  >
+                    Delete all
+                  </button>
+                )}
               </div>
             </div>
 
@@ -4114,20 +4166,41 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
             {/* Recording bar */}
             {selected.hasRecording && (
               <div className="px-4 md:px-6 py-2.5 bg-slate-900 text-white flex items-center gap-3 flex-shrink-0">
-                <button className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center flex-shrink-0 transition-colors">
-                  <Play className="w-3.5 h-3.5 ml-0.5" />
+                <audio
+                  ref={audioRef}
+                  src={`/api/twilio-recording?recordingSid=${selected.recordingSid}&stream=true`}
+                  muted={isMuted}
+                  onEnded={() => setIsPlaying(false)}
+                  onPause={() => setIsPlaying(false)}
+                  onPlay={() => setIsPlaying(true)}
+                />
+                <button
+                  onClick={() => {
+                    const a = audioRef.current;
+                    if (!a) return;
+                    if (isPlaying) { a.pause(); } else { a.play().catch(() => {}); }
+                  }}
+                  className="w-7 h-7 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center flex-shrink-0 transition-colors"
+                >
+                  {isPlaying
+                    ? <span className="w-3 h-3 flex gap-0.5"><span className="w-1 h-3 bg-white rounded-sm"/><span className="w-1 h-3 bg-white rounded-sm"/></span>
+                    : <Play className="w-3.5 h-3.5 ml-0.5" />}
                 </button>
                 <div className="flex items-center gap-0.5 h-5 flex-1 min-w-0">
                   {Array.from({ length: 56 }).map((_, i) => (
                     <div
                       key={i}
-                      className="w-0.5 bg-green-400/50 rounded-full flex-shrink-0"
+                      className={`w-0.5 rounded-full flex-shrink-0 transition-colors ${isPlaying ? 'bg-green-400' : 'bg-green-400/50'}`}
                       style={{ height: `${Math.max(15, Math.min(90, 35 + Math.sin(i * 0.9) * 28 + Math.cos(i * 0.35) * 18))}%` }}
                     />
                   ))}
                 </div>
                 <span className="text-xs text-slate-400 flex-shrink-0">{selected.duration}</span>
-                <button className="text-slate-500 hover:text-white transition-colors flex-shrink-0">
+                <button
+                  onClick={() => { setIsMuted(m => !m); if (audioRef.current) audioRef.current.muted = !isMuted; }}
+                  className={`transition-colors flex-shrink-0 ${isMuted ? 'text-red-400' : 'text-slate-500 hover:text-white'}`}
+                  title={isMuted ? 'Unmute' : 'Mute'}
+                >
                   <Volume2 className="w-3.5 h-3.5" />
                 </button>
               </div>
@@ -4282,10 +4355,10 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                           </button>
                         </div>
                         <div className="flex gap-2.5">
-                          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                          <button onClick={() => window.open(`mailto:${selected.email || ''}?subject=Your quote from us&body=Hi ${selected.caller || 'there'},\n\nHere is your quote summary.`)} className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
                             <Send className="w-3.5 h-3.5" /> Send to client
                           </button>
-                          <button className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
+                          <button onClick={() => navigator.clipboard.writeText(window.location.href).catch(() => {})} className="flex-1 flex items-center justify-center gap-2 py-2 border border-slate-200 rounded-xl text-sm text-slate-700 hover:bg-slate-50 transition-colors">
                             <Copy className="w-3.5 h-3.5" /> Copy link
                           </button>
                         </div>
@@ -4348,10 +4421,10 @@ function CallLogView({ initialId, navigateTo, callLogs = [], onDeleteCall, onUpd
                     </div>
                   )}
                   <div className="flex gap-2 mt-4">
-                    <button className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
+                    <button onClick={() => window.open(`mailto:${selected.email || ''}?subject=Following up on our call`)} className="flex items-center gap-2 px-4 py-2 bg-slate-900 text-white text-sm font-semibold rounded-lg hover:bg-slate-800 transition-colors shadow-sm">
                       <Mail className="w-4 h-4" /> Send Email
                     </button>
-                    <button className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-white transition-colors">
+                    <button onClick={() => { setFabSmsTo(selected.phone || ''); setFabMode('text'); setFabState('keypad'); }} className="flex items-center gap-2 px-4 py-2 border border-slate-300 text-slate-700 text-sm font-semibold rounded-lg hover:bg-white transition-colors">
                       <MessageSquare className="w-4 h-4" /> Send SMS
                     </button>
                   </div>
