@@ -1,6 +1,7 @@
 import React, { useState, Suspense, lazy } from 'react'
 import ReactDOM from 'react-dom/client'
 import Homepage from './Homepage.jsx'
+import { setPendingPhone } from './callBridge.js'
 
 // Lazy-load all pages so each becomes its own chunk.
 // Only Homepage is eager — it's always the first thing shown.
@@ -50,6 +51,7 @@ function Root() {
   }
 
   const handleCallAgain = (phone, niche, forceFillSelect = false) => {
+    setPendingPhone(phone); // reliable bridge — not subject to React batching timing
     setDemoInitPhone(phone || '')
     setDemoInitNiche(niche || null)
     setDemoForceFillSelect(!!forceFillSelect)

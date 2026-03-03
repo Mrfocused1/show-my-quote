@@ -8,6 +8,7 @@ import {
   Bookmark, Edit2, Bell, Search, Users,
 } from 'lucide-react';
 import { suggestField, fillFields, fillFieldsFromTranscript } from './openaiHelper.js';
+import { getPendingPhone, clearPendingPhone } from './callBridge.js';
 
 const SMQ_KEY = import.meta.env.VITE_SMQ_API_KEY || '';
 function apiFetch(url, options = {}) {
@@ -448,14 +449,21 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const PUSHER_CLUSTER = import.meta.env.VITE_PUSHER_CLUSTER;
   const hasPusher = !!PUSHER_KEY;
 
+  // Resolve the effective initial phone — use the bridge as a fallback in case
+  // the React prop hasn't propagated yet (batching timing edge case).
+  // useState lazy-init runs once per mount, so the bridge value is captured reliably.
+  const [effectiveInitialPhone] = useState(() => initialPhone || getPendingPhone());
+  // Clear the bridge after reading (useEffect fires after mount, even in StrictMode)
+  useEffect(() => { clearPendingPhone(); }, []);
+
   // ── Phase state ──
-  const startAtFormSelect = !isViewer && (!!initialPhone || forceFillSelect);
+  const startAtFormSelect = !isViewer && (!!effectiveInitialPhone || forceFillSelect);
   const [phase, setPhase] = useState(isViewer ? 'waiting' : (startAtFormSelect ? 'fill-select' : 'landing'));
   const [mode,  setMode]  = useState(startAtFormSelect ? 'fill' : null); // 'build' | 'fill'
   const [sessionCode, setCode] = useState(isViewer ? watchCode : null);
 
   // Ref holding the phone number passed in from "Call again"
-  const initPhoneRef = React.useRef(initialPhone);
+  const initPhoneRef = React.useRef(effectiveInitialPhone);
   // Keep ref + dial number in sync when prop changes (component stays mounted across navigation)
   useEffect(() => {
     initPhoneRef.current = initialPhone;
@@ -513,9 +521,9 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   // ── Form selector (fill-select phase dropdown) ──
   const [selectedFormKey, setSelectedFormKey] = useState(() => {
     // New Call (forceFillSelect, no phone): default to blank
-    if (forceFillSelect && !initialPhone) return 'blank';
+    if (forceFillSelect && !effectiveInitialPhone) return 'blank';
     // Call Again (has phone): pre-select continue
-    if (initialPhone) return 'continue';
+    if (effectiveInitialPhone) return 'continue';
     // Otherwise default to first saved form or first template
     try {
       const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
@@ -528,7 +536,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
   const [copied, setCopied] = useState(false);
 
   // ── Dialpad ──
-  const [dialNumber, setDialNum]       = useState(initialPhone || '');
+  const [dialNumber, setDialNum]       = useState(effectiveInitialPhone);
   const [dialContactsOpen, setDialContactsOpen] = useState(false);
   const [dialContactSearch, setDialContactSearch] = useState('');
 
@@ -2078,13 +2086,13 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       if (stored) return stored;
     } catch { /* ignore */ }
     // For New Call / Call Again flows always show a Continue option — default to first template
-    if (initialPhone || forceFillSelect) {
+    if (effectiveInitialPhone || forceFillSelect) {
       const first = NICHES.find(n => n.id !== 'blank');
       if (first) return { type: 'template', nicheId: first.id, label: first.label };
     }
     return null;
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialNiche, forceFillSelect, initialPhone]);
+  }, [initialNiche, forceFillSelect, effectiveInitialPhone]);
   const continueNicheLabel = continueFormData?.label || null;
 
   // ── Phase renderers ───────────────────────────────────────────────────────
