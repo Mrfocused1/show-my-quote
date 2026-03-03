@@ -552,30 +552,27 @@ function CustomisationDemo() {
           </div>
         </div>
 
-        {/* Price breakdown */}
+        {/* Price breakdown — rows always rendered to prevent height changes */}
         <div className="rounded-xl bg-slate-50 border border-slate-100 p-3 space-y-1.5">
           <div className="flex justify-between text-xs text-slate-500">
             <span>{pkg.name} ({pkg.desc})</span>
             <span>${pkg.price.toLocaleString()}</span>
           </div>
-          {teamId !== 'standard' && (
-            <div className="flex justify-between text-xs text-slate-500 anim-slide-up">
-              <span>Impact-resistant upgrade (+{Math.round((team.multiplier - 1) * 100)}%)</span>
-              <span>+${Math.round(pkg.price * (team.multiplier - 1)).toLocaleString()}</span>
-            </div>
-          )}
-          {addonTotal > 0 && (
-            <div className="flex justify-between text-xs text-slate-500 anim-slide-up">
-              <span>Add-ons</span>
-              <span>+${addonTotal.toLocaleString()}</span>
-            </div>
-          )}
-          {bundle > 0 && (
-            <div className="flex justify-between text-xs text-green-600 font-medium anim-slide-up">
-              <span>Bundle discount (5%)</span>
-              <span>−${Math.round(subtotal * bundle).toLocaleString()}</span>
-            </div>
-          )}
+          <div className="flex justify-between text-xs text-slate-500"
+               style={{ opacity: teamId !== 'standard' ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+            <span>Impact-resistant upgrade (+{Math.round((team.multiplier - 1) * 100)}%)</span>
+            <span>+${Math.round(pkg.price * (team.multiplier - 1)).toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-xs text-slate-500"
+               style={{ opacity: addonTotal > 0 ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+            <span>Add-ons</span>
+            <span>+${addonTotal.toLocaleString()}</span>
+          </div>
+          <div className="flex justify-between text-xs text-green-600 font-medium"
+               style={{ opacity: bundle > 0 ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+            <span>Bundle discount (5%)</span>
+            <span>−${Math.round(subtotal * bundle).toLocaleString()}</span>
+          </div>
           <div className="border-t border-slate-200 pt-1.5 mt-1 flex justify-between items-center">
             <span className="text-sm font-bold text-slate-900">Total</span>
             <span className="text-lg font-black text-slate-900">${total.toLocaleString()}</span>
