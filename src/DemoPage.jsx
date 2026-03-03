@@ -2123,7 +2123,7 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp }) {
                 ← Back
               </button>
               <button
-                onClick={onEnterApp}
+                onClick={afterSessionSetup}
                 className="flex-1 flex items-center justify-center gap-2 bg-slate-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-slate-700 transition-colors"
               >
                 Continue <ArrowRight className="w-4 h-4" />
