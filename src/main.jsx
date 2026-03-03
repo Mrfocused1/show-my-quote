@@ -14,6 +14,24 @@ const DemoPage    = lazy(() => import('./DemoPage.jsx'))
 // If the URL path is /demo, open the public demo page directly
 const initialPage = window.location.pathname === '/demo' ? 'demo' : 'home'
 
+class ErrorBoundary extends React.Component {
+  constructor(props) { super(props); this.state = { error: null }; }
+  static getDerivedStateFromError(e) { return { error: e }; }
+  render() {
+    if (this.state.error) {
+      return (
+        <div style={{ display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', minHeight:'100vh', fontFamily:'sans-serif', gap:16 }}>
+          <p style={{ color:'#64748b', fontSize:14 }}>Something went wrong loading this page.</p>
+          <button onClick={() => window.location.reload()} style={{ background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:'10px 20px', fontSize:14, cursor:'pointer', fontWeight:600 }}>
+            Reload
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 function Root() {
   const [page, setPage] = useState(initialPage) // 'home' | 'book-demo' | 'sign-in' | 'app' | 'terms' | 'privacy' | 'demo'
   const [pendingSection, setPendingSection] = useState(null)
@@ -25,12 +43,12 @@ function Root() {
     setPage('home')
   }
 
-  if (page === 'app')       return <Suspense fallback={null}><App onHome={() => goHome()} tourMode={tourMode} /></Suspense>
-  if (page === 'book-demo') return <Suspense fallback={null}><BookDemo  onHome={goHome} onEnterApp={() => setPage('sign-in')} /></Suspense>
-  if (page === 'sign-in')   return <Suspense fallback={null}><SignIn    onHome={goHome} onEnterApp={() => setPage('app')} /></Suspense>
-  if (page === 'terms')     return <Suspense fallback={null}><TermsPage onHome={() => goHome()} /></Suspense>
-  if (page === 'privacy')   return <Suspense fallback={null}><PrivacyPage onHome={() => goHome()} /></Suspense>
-  if (page === 'demo')      return <Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} /></Suspense>
+  if (page === 'app')       return <ErrorBoundary><Suspense fallback={null}><App onHome={() => goHome()} tourMode={tourMode} /></Suspense></ErrorBoundary>
+  if (page === 'book-demo') return <ErrorBoundary><Suspense fallback={null}><BookDemo  onHome={goHome} onEnterApp={() => setPage('sign-in')} /></Suspense></ErrorBoundary>
+  if (page === 'sign-in')   return <ErrorBoundary><Suspense fallback={null}><SignIn    onHome={goHome} onEnterApp={() => setPage('app')} /></Suspense></ErrorBoundary>
+  if (page === 'terms')     return <ErrorBoundary><Suspense fallback={null}><TermsPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
+  if (page === 'privacy')   return <ErrorBoundary><Suspense fallback={null}><PrivacyPage onHome={() => goHome()} /></Suspense></ErrorBoundary>
+  if (page === 'demo')      return <ErrorBoundary><Suspense fallback={null}><DemoPage  onHome={() => goHome()} onBookDemo={() => setPage('book-demo')} onEnterApp={() => { setTourMode(true); setPage('app'); }} /></Suspense></ErrorBoundary>
   return (
     <Homepage
       scrollTo={pendingSection}
