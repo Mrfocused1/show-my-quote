@@ -1407,9 +1407,10 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
       pollRecording();
     }
 
-    // Run full AI analysis — only if there are enough meaningful transcript lines
+    // Run full AI analysis — skip only if there is genuinely no transcript content
+    // (API prompt already guards against hallucination for short transcripts)
     const meaningfulLines = txRef.current.filter(l => l.text && l.text.trim().length > 8);
-    if (meaningfulLines.length < 3) return;
+    if (meaningfulLines.length < 1) return;
     setAnalysing(true);
     try {
       const r = await apiFetch('/api/demo-analyze', {
@@ -1571,6 +1572,15 @@ export default function DemoPage({ onHome, onBookDemo, onEnterApp, onGoToDashboa
     fieldsRef.current = []; fvRef.current = {}; txRef.current = [];
     caRef.current = false; twilioCallSidRef.current = null; remoteHungUpRef.current = false;
     setActiveCallPhone(''); setSmsSent(false); setSmsSending(false);
+    // Reset form selector: prefer 'continue' if a last-form exists, else first saved/template
+    try {
+      const lastForm = JSON.parse(localStorage.getItem('smq_last_form') || 'null');
+      if (lastForm) { setSelectedFormKey('continue'); }
+      else {
+        const saved = JSON.parse(localStorage.getItem('smq_saved_forms') || '[]');
+        setSelectedFormKey(saved.length > 0 ? `saved:${saved[0].id}` : 'template:wedding-photography');
+      }
+    } catch { setSelectedFormKey('template:wedding-photography'); }
   };
 
   // ── Send SMS ──────────────────────────────────────────────────────────────
