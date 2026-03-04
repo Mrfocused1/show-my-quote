@@ -6039,9 +6039,7 @@ function OnboardingWorking() {
 
   const fmt = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
 
-  // --- TWILIO HOOKS — wire these up when ready ---
   const startCall = () => {
-    // TODO: Twilio.Device.connect({ params: { To: session.phone } })
     setCallState('connecting');
     setCallStartTime(new Date());
     // Revoke any previous recording to free memory
@@ -6062,17 +6060,15 @@ function OnboardingWorking() {
         mr.start();
         mediaRecorderRef.current = mr;
       }).catch(() => { /* recording not available */ });
-    }, 1500); // Remove when Twilio is wired
+    }, 1500);
   };
   const endCall = () => {
-    // TODO: Twilio.Device.disconnectAll()
     stopMic();
     try { if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop(); } catch { /* ignore */ }
     setCallState('ended');
   };
-  // --- END TWILIO HOOKS ---
 
-  // Called by Twilio (or mic recording) when a new transcript line arrives.
+  // Called when a new transcript line arrives from SignalWire/VPS transcription.
   // _skipTranscript=true is used internally when flushing a buffered fragment
   // that was already added to the transcript — we only need the AI analysis.
   const onTranscriptLine = useCallback(async (speaker, text, _skipTranscript = false) => {
@@ -6864,7 +6860,7 @@ function OnboardingWorking() {
             </div>
             <div>
               <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1.5">
-                Phone Number <span className="text-slate-300 font-normal normal-case tracking-normal">— connect via Twilio</span>
+                Phone Number
               </label>
               <input
                 type="tel"
@@ -6956,7 +6952,7 @@ function OnboardingWorking() {
           {callState !== 'active' && (
             <div className="px-4 py-2 bg-amber-50 border-b border-amber-100 flex items-center gap-2 flex-shrink-0">
               <div className="w-1.5 h-1.5 bg-amber-400 rounded-full flex-shrink-0" />
-              <span className="text-xs text-amber-700">Twilio not connected — add transcript lines manually below</span>
+              <span className="text-xs text-amber-700">Call not active — add transcript lines manually below</span>
             </div>
           )}
           {callState === 'active' && (
@@ -7003,7 +6999,7 @@ function OnboardingWorking() {
             </div>
           )}
 
-          {/* Test input — remove when Twilio is live */}
+          {/* Manual transcript input */}
           <div className="border-t border-slate-200 p-3 flex-shrink-0 bg-white space-y-2">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
