@@ -13,6 +13,7 @@
 
 const { createServer } = require('http');
 const { WebSocketServer } = require('ws');
+const { spawn } = require('child_process');
 const Pusher = require('pusher');
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -85,6 +86,30 @@ function buildWav(pcm16kArray) {
   return buf;
 }
 
+// ── webm/opus → WAV 16 kHz mono via ffmpeg ────────────────────────────────────
+// Used for outbound call audio sent as blobs from the browser MediaRecorder.
+function convertToWav(inputBuf) {
+  return new Promise((resolve, reject) => {
+    const ff = spawn('ffmpeg', [
+      '-i', 'pipe:0',   // read from stdin
+      '-ar', '16000',   // 16 kHz — Whisper's native rate
+      '-ac', '1',       // mono
+      '-f', 'wav',      // output format
+      'pipe:1',         // write to stdout
+    ]);
+    const out = [];
+    ff.stdout.on('data', d => out.push(d));
+    ff.stderr.on('data', () => {});   // suppress ffmpeg noise
+    ff.on('error', reject);
+    ff.on('close', code => {
+      if (code !== 0) return reject(new Error(`ffmpeg exited ${code}`));
+      resolve(Buffer.concat(out));
+    });
+    ff.stdin.write(inputBuf);
+    ff.stdin.end();
+  });
+}
+
 // ── Transcription + Pusher publish ────────────────────────────────────────────
 async function transcribeAndPublish(wavBuf, session, speaker) {
   try {
@@ -121,6 +146,47 @@ const CHUNKS_PER_FLUSH = 100; // 100 × 20ms = 2 seconds
 
 const http = createServer((req, res) => {
   if (req.url === '/health') { res.writeHead(200); res.end('ok'); return; }
+
+  // ── POST /api/transcribe — outbound call audio from browser MediaRecorder ──
+  // Receives raw webm/opus bytes, converts to WAV, runs through local Whisper,
+  // returns { text }. Called by Vercel api/transcribe-remote.js (server→server).
+  if (req.method === 'POST' && req.url === '/api/transcribe') {
+    const key = req.headers['x-smq-key'];
+    if (process.env.SMQ_API_KEY && key !== process.env.SMQ_API_KEY) {
+      res.writeHead(401); res.end('Unauthorized'); return;
+    }
+
+    const chunks = [];
+    req.on('data', d => chunks.push(d));
+    req.on('end', async () => {
+      const audioBuf = Buffer.concat(chunks);
+      if (audioBuf.length < 500) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ text: '' }));
+        return;
+      }
+      try {
+        const wav = await convertToWav(audioBuf);
+        const whisperRes = await fetch(`${WHISPER_URL}/transcribe`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'audio/wav' },
+          body: wav,
+        });
+        if (!whisperRes.ok) throw new Error(`Whisper ${whisperRes.status}`);
+        const data = await whisperRes.json();
+        const text = (data.text || '').trim();
+        console.log('[http-transcribe]', text.slice(0, 80));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ text }));
+      } catch (err) {
+        console.error('[http-transcribe] error:', err.message);
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ text: '' }));
+      }
+    });
+    return;
+  }
+
   res.writeHead(404); res.end();
 });
 

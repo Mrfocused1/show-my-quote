@@ -4,11 +4,10 @@ export const config = { api: { bodyParser: false } };
 
 /**
  * POST /api/transcribe-remote
- * Body: raw audio bytes (audio/webm, audio/wav, etc.)
+ * Body: raw audio bytes (audio/webm from browser MediaRecorder)
  *
- * Sends audio to OpenAI Whisper-1 and returns { text }.
- * Used by the demo page to transcribe the remote party's voice during
- * outbound calls (where no server-side <Stream> LaML is available).
+ * Proxies audio to the self-hosted Faster Whisper server on the VPS.
+ * Free — no OpenAI charges.
  */
 export default async function handler(req, res) {
   setCors(req, res);
@@ -16,10 +15,12 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).end();
   if (!requireApiKey(req, res)) return;
 
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return res.json({ text: '' });
+  const wsUrl = process.env.TRANSCRIPTION_WS_URL;
+  if (!wsUrl) return res.json({ text: '' });
 
-  // Read raw body
+  // wss://transcribe.showmyquote.com → https://transcribe.showmyquote.com
+  const httpBase = wsUrl.replace(/^wss:\/\//, 'https://').replace(/^ws:\/\//, 'http://');
+
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const audioBuffer = Buffer.concat(chunks);
@@ -27,29 +28,23 @@ export default async function handler(req, res) {
   if (audioBuffer.length < 500) return res.json({ text: '' });
 
   try {
-    const contentType = req.headers['content-type'] || 'audio/webm';
-    const ext = contentType.includes('wav') ? 'wav' : contentType.includes('ogg') ? 'ogg' : 'webm';
-
-    const form = new FormData();
-    form.append('file', new Blob([audioBuffer], { type: contentType }), `audio.${ext}`);
-    form.append('model', 'whisper-1');
-    form.append('language', 'en');
-
-    const resp = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const resp = await fetch(`${httpBase}/api/transcribe`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
+      headers: {
+        'Content-Type': req.headers['content-type'] || 'audio/webm',
+        'x-smq-key': process.env.SMQ_API_KEY || '',
+      },
+      body: audioBuffer,
     });
 
     if (!resp.ok) {
-      const err = await resp.text();
-      console.error('[transcribe-remote] OpenAI error:', resp.status, err.slice(0, 200));
+      console.error('[transcribe-remote] VPS error:', resp.status);
       return res.json({ text: '' });
     }
 
     const data = await resp.json();
     const text = (data.text || '').trim();
-    console.log('[transcribe-remote] Transcribed:', text.slice(0, 80));
+    console.log('[transcribe-remote] Transcribed via VPS:', text.slice(0, 80));
     return res.json({ text });
   } catch (err) {
     console.error('[transcribe-remote] Error:', err.message);
