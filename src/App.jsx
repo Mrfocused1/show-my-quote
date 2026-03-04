@@ -8132,8 +8132,55 @@ function SmsInboxView() {
 }
 
 // --- SIDEBAR ---
+const WHATS_NEW_VERSION = '2026-03';
+const WHATS_NEW_ITEMS = [
+  'Transcription now runs free on your own server',
+  'Monthly usage warning email at 80% of minutes',
+  'Lead generator + AI research in Enquiries tab',
+];
+const MINUTE_LIMIT = 3500;
+
 function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 0, tourStep = null }) {
   const [biz] = useLocalState('smq_biz', DEFAULT_BIZ);
+  const [monthMins, setMonthMins]       = useState(null);
+  const [totalCalls, setTotalCalls]     = useState(0);
+  const [onboardingDismissed, setOnboardingDismissed] = useState(
+    () => localStorage.getItem('smq_onboarding_done') === '1'
+  );
+  const [whatsNewSeen, setWhatsNewSeen] = useState(
+    () => localStorage.getItem('smq_whats_new_seen') === WHATS_NEW_VERSION
+  );
+  const [whatsNewOpen, setWhatsNewOpen] = useState(false);
+
+  useEffect(() => {
+    apiFetch('/api/calls-list').then(r => r.json()).then(d => {
+      const calls = d.calls || [];
+      setTotalCalls(calls.length);
+      const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const mins = calls
+        .filter(c => c.created_at && new Date(c.created_at) >= monthStart)
+        .reduce((sum, c) => sum + Math.floor((c.duration || 0) / 60), 0);
+      setMonthMins(mins);
+    }).catch(() => {});
+  }, []);
+
+  const onboardingSteps = [
+    { label: 'Name your business',       done: !!(biz.name && biz.name.trim() && biz.name !== 'My Business'), link: 'settings' },
+    { label: 'Add your phone number',    done: !!(biz.phone && biz.phone.trim()), link: 'settings' },
+    { label: 'Complete your first call', done: totalCalls > 0, link: 'dashboard' },
+  ];
+  const allOnboardingDone = onboardingSteps.every(s => s.done);
+  const showOnboarding    = !onboardingDismissed && !allOnboardingDone;
+
+  useEffect(() => {
+    if (allOnboardingDone && !onboardingDismissed) {
+      setOnboardingDismissed(true);
+      localStorage.setItem('smq_onboarding_done', '1');
+    }
+  }, [allOnboardingDone, onboardingDismissed]);
+
+  const usagePct   = monthMins !== null ? Math.min(100, Math.round((monthMins / MINUTE_LIMIT) * 100)) : 0;
+  const meterColor = usagePct >= 80 ? 'bg-red-500' : usagePct >= 60 ? 'bg-amber-500' : 'bg-green-500';
   const navGroups = [
     {
       title: null,
@@ -8184,6 +8231,52 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
         ))}
       </div>
 
+      {/* ── Onboarding checklist ── */}
+      {showOnboarding && (
+        <div className="mx-3 mb-3 p-3 bg-white border border-slate-200 rounded-lg text-xs">
+          <div className="flex items-center justify-between mb-2">
+            <span className="font-semibold text-slate-700">Getting started</span>
+            <button
+              onClick={() => { setOnboardingDismissed(true); localStorage.setItem('smq_onboarding_done', '1'); }}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            {onboardingSteps.map((step, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <div className={`w-4 h-4 rounded-full border flex items-center justify-center flex-shrink-0 ${step.done ? 'bg-green-500 border-green-500' : 'border-slate-300'}`}>
+                  {step.done && <Check className="w-2.5 h-2.5 text-white" />}
+                </div>
+                <button
+                  onClick={() => !step.done && navigateTo(step.link)}
+                  className={`truncate ${step.done ? 'text-slate-400 line-through' : 'text-slate-600 hover:text-slate-900'}`}
+                >
+                  {step.label}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Monthly minutes meter ── */}
+      {monthMins !== null && (
+        <div className="mx-3 mb-3 p-3 bg-white border border-slate-200 rounded-lg text-xs">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="font-semibold text-slate-700">Monthly minutes</span>
+            <span className={`font-medium ${usagePct >= 80 ? 'text-red-500' : usagePct >= 60 ? 'text-amber-500' : 'text-green-600'}`}>
+              {usagePct}%
+            </span>
+          </div>
+          <div className="w-full h-1.5 bg-slate-200 rounded-full overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${meterColor}`} style={{ width: `${usagePct}%` }} />
+          </div>
+          <div className="mt-1 text-slate-400">{monthMins.toLocaleString()} / {MINUTE_LIMIT.toLocaleString()} mins</div>
+        </div>
+      )}
+
       {onHome && (
         <div className="px-4 pb-2">
           <button
@@ -8195,14 +8288,43 @@ function Sidebar({ currentView, navigateTo, onHome, isOpen, onClose, smsBadge = 
           </button>
         </div>
       )}
-      <div className="p-4 border-t border-slate-200/60 text-sm text-slate-500 flex items-center hover:bg-slate-200/40 cursor-pointer transition-colors">
-        <div className="w-8 h-8 rounded bg-slate-300 mr-3 overflow-hidden flex-shrink-0">
-          <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=e2e8f0" alt="avatar" />
+
+      {/* ── Business card + What's New ── */}
+      <div className="relative p-4 border-t border-slate-200/60">
+        <div
+          className="flex items-center hover:bg-slate-200/40 cursor-pointer transition-colors rounded-md px-1 py-1"
+          onClick={() => { setWhatsNewOpen(o => !o); if (!whatsNewSeen) { setWhatsNewSeen(true); localStorage.setItem('smq_whats_new_seen', WHATS_NEW_VERSION); } }}
+        >
+          <div className="w-8 h-8 rounded bg-slate-300 mr-3 overflow-hidden flex-shrink-0">
+            <img src="https://api.dicebear.com/7.x/notionists/svg?seed=Felix&backgroundColor=e2e8f0" alt="avatar" />
+          </div>
+          <div className="flex-1 truncate">
+            <div className="font-medium text-slate-800 text-sm">{biz.name || 'My Business'}</div>
+            <div className="text-xs text-slate-400">{biz.email || 'Set up in Settings'}</div>
+          </div>
+          {!whatsNewSeen && (
+            <span className="w-2 h-2 bg-green-500 rounded-full flex-shrink-0 ml-1" title="What's new" />
+          )}
         </div>
-        <div className="flex-1 truncate">
-          <div className="font-medium text-slate-800">{biz.name || 'My Business'}</div>
-          <div className="text-xs text-slate-400">{biz.email || 'Set up in Settings'}</div>
-        </div>
+
+        {whatsNewOpen && (
+          <div className="absolute bottom-full left-3 right-3 mb-2 bg-white border border-slate-200 rounded-lg shadow-lg p-3 text-xs z-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="font-semibold text-slate-800">What's new</span>
+              <button onClick={() => setWhatsNewOpen(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-3 h-3" />
+              </button>
+            </div>
+            <ul className="space-y-1.5">
+              {WHATS_NEW_ITEMS.map((item, i) => (
+                <li key={i} className="flex items-start gap-1.5 text-slate-600">
+                  <span className="text-green-500 mt-0.5">✓</span>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
     </>
