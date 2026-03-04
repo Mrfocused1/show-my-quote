@@ -5679,10 +5679,10 @@ function OnboardingExample() {
             )}
             {lines.map((line, i) => (
               <div key={i} className={`flex gap-2.5 anim-slide-up ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-white'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-sky-300 text-sky-900'}`}>
                   {line.speaker === 'You' ? 'Y' : 'C'}
                 </div>
-                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-slate-800 text-white rounded-tr-sm'}`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-sky-200 text-sky-900 rounded-tr-sm'}`}>
                   {line.text}
                 </div>
               </div>
@@ -6979,10 +6979,10 @@ function OnboardingWorking() {
             )}
             {transcript.map((line, i) => (
               <div key={i} className={`flex gap-2.5 ${line.speaker !== 'You' ? 'flex-row-reverse' : ''}`}>
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-slate-800 text-white'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0 ${line.speaker === 'You' ? 'bg-slate-200 text-slate-700' : 'bg-sky-300 text-sky-900'}`}>
                   {line.speaker === 'You' ? 'Y' : line.speaker[0].toUpperCase()}
                 </div>
-                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-slate-800 text-white rounded-tr-sm'}`}>
+                <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${line.speaker === 'You' ? 'bg-slate-100 text-slate-800 rounded-tl-sm' : 'bg-sky-200 text-sky-900 rounded-tr-sm'}`}>
                   {line.text}
                 </div>
               </div>
